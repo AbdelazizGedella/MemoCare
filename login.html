@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Login - Memo Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+    
+    <!-- 🔥 Load Firebase with compat version (for firebase.auth() style) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  
+    <!-- 🔐 Your custom logic -->
+    <script defer src="./js/login.js"></script>
+  </head>
+  
+<body class="bg-base-200 flex items-center justify-center min-h-screen">
+  <div class="card w-full max-w-sm bg-base-100 shadow-xl p-4">
+    <h2 class="text-xl font-bold mb-4">Login</h2>
+    <input type="email" id="email" placeholder="Email" class="input input-bordered w-full mb-2" />
+    <input type="password" id="password" placeholder="Password" class="input input-bordered w-full mb-4" />
+    <button onclick="login()" class="btn btn-primary w-full">Login</button>
+  </div>
+</body>
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memo Acknowledgment</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-remote-config-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-performance-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-check-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-installations-compat.js"></script>
+
+  <!-- App Logic -->
+  <script defer src="./js/app.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="flex h-screen">
+    
+    <!-- Sidebar -->
+    <div class="w-64 bg-gray-800 p-4 shadow-lg flex flex-col">
+      <h2 class="text-2xl font-bold mb-6 text-blue-300">📋 Menu</h2>
+      <ul class="menu space-y-2">
+        <li><a href="#" class="hover:bg-blue-600 p-2 rounded" onclick="showSection('profile')">👤 User Profile</a></li>
+        <li><a href="#" class="hover:bg-blue-600 p-2 rounded" onclick="showSection('memos')">📝 Memos</a></li>
+        <li><a href="#" class="hover:bg-blue-600 p-2 rounded" onclick="showSection('leaderboard')">🏆 Leaderboard</a></li>
+        <li><a href="#" class="hover:bg-blue-600 p-2 rounded" onclick="showSection('admin')">🔐 Admin Only</a></li>
+      </ul>
+
+      <!-- Logout Button -->
+      <button id="logout-btn" class="btn btn-danger mt-4">Logout</button>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 overflow-y-auto p-6">
+      <h1 class="text-3xl font-bold mb-6 text-blue-400">Memo Acknowledgment System</h1>
+
+      <!-- User Profile Section -->
+      <div id="profile-section" class="hidden">
+        <h2 class="text-2xl mb-4">👤 User Profile</h2>
+        <div class="bg-gray-800 p-4 rounded-xl shadow text-white space-y-4">
+          <div class="flex items-center space-x-4">
+<!---            <img id="profile-pic-preview" src="" alt="Profile Picture Preview" class="w-20 h-20 rounded-full object-cover border border-blue-400" />
+!-->
+            <img id="profile-pic" src="" alt="Profile Picture" class="w-20 h-20 rounded-full object-cover border border-blue-400" />
+            <div>
+              <input type="file" id="profile-pic-upload" accept="image/*" class="file-input file-input-bordered mb-2" />
+              <button id="upload-btn" class="btn btn-primary">Upload Profile Picture</button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm">Name:</label>
+            <input type="text" id="profile-name-input" class="input input-sm input-bordered w-full" />
+
+            <button onclick="updateUserName()" class="btn btn-sm btn-success mt-2">Update Name</button>
+          </div>
+          <p><strong>Email:</strong> <span id="profile-email" class="text-blue-300"></span></p>
+          <p><strong>UID:</strong> <span id="profile-uid" class="text-xs text-gray-400"></span></p>
+
+          <p><strong>Points:</strong> <span id="profile-points" class="text-green-400"></span></p>
+          <div>
+            <h3 class="text-lg font-bold mt-4">📌 Acknowledged Memos:</h3>
+  <ul id="memoList"></ul>
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- Memos Section -->
+      <div id="memos-section">
+        <div id="login-message" class="text-gray-500 mb-4">Please log in to view memos.</div>
+        <div id="memo-list" class="space-y-4"></div>
+      </div>
+
+      <!-- Leaderboard Section -->
+      <div id="leaderboard-section" class="hidden">
+        <h2 class="text-2xl mb-4">🏆 Leaderboard</h2>
+        <p class="text-gray-400">Coming soon...</p>
+      </div>
+
+      <!-- Admin Section -->
+      <div id="admin-section" class="hidden">
+        <h2 class="text-2xl mb-4">🔐 Admin Only</h2>
+        <div class="bg-gray-800 p-4 rounded-xl shadow text-white space-y-4">
+          <h3 class="text-xl font-semibold">Create New Memo</h3>
+          <div>
+            <label class="block text-sm">Title</label>
+            <input type="text" id="memo-title" class="input input-sm input-bordered w-full" />
+          </div>
+          <div>
+            <label class="block text-sm">Content</label>
+            <textarea id="memo-content" class="textarea textarea-bordered w-full" rows="4"></textarea>
+          </div>
+          <button id="create-memo-btn" class="btn btn-primary mt-4">Create Memo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+<script>
+  function showSection(section) {
+  document.getElementById("profile-section").classList.add("hidden");
+  document.getElementById("memos-section").classList.add("hidden");
+  document.getElementById("admin-section").classList.add("hidden");
+
+  document.getElementById(section + "-section").classList.remove("hidden");
+
+  if (section === 'profile') {
+    const user = firebase.auth().currentUser;
+    if (user) {
+      loadUserProfile(user.uid); // تمرير المستخدم هنا
+    } else {
+      alert("Please log in.");
+    }
+  }
+  if (section === 'memos') {
+    loadMemos();
+  }
+  if (section === 'admin') {
+    checkAdminPrivileges();
+  }
+}
+
+// Function to load user profile
+function loadUserProfile(user) {
+  const memoListElement = document.getElementById("acknowledgeMemo");
+  memoListElement.innerHTML = "";
+
+  // تحديث معلومات الصفحة مباشرة من كائن المستخدم
+  document.getElementById("profile-email").textContent = user.email;
+  document.getElementById("profile-uid").textContent = user.uid;
+
+  // تحميل بيانات من Firestore
+  firebase.firestore().collection("users").doc(user.uid).get().then((doc) => {
+    if (doc.exists) {
+      const data = doc.data();
+      document.getElementById("profile-name-input").value = data.name || "";
+      document.getElementById("profile-points").textContent = data.points || 0;
+
+      const acknowledgedMemos = data.acknowledgedMemos || [];
+
+      if (acknowledgedMemos.length > 0) {
+        acknowledgedMemos.forEach((memoId) => {
+          firebase.firestore().collection("memos").doc(memoId).get().then((memoDoc) => {
+            const li = document.createElement("li");
+            if (memoDoc.exists) {
+              li.textContent = memoDoc.data().title;
+            } else {
+              li.textContent = `📄 Memo غير موجود (ID: ${memoId})`;
+              li.classList.add("text-red-400");
+            }
+            memoListElement.appendChild(li);
+          }).catch((error) => {
+            console.error("❌ Error fetching memo:", error);
+          });
+        });
+      } else {
+        const li = document.createElement("li");
+        li.textContent = "لا يوجد ميموز تم تأكيدها بعد.";
+        li.classList.add("text-gray-400", "italic");
+        memoListElement.appendChild(li);
+      }
+
+    } else {
+      console.error("❌ No such user document!");
+    }
+  }).catch((error) => {
+    console.error("❌ Error getting user profile:", error);
+  });
+}
+
+
+function loadUserAcknowledgedMemos(userId) {
+  const memoListElement = document.getElementById("acknowledgeMemo");
+  memoListElement.innerHTML = "";
+
+  firebase.firestore().collection("users").doc(userId).get().then((doc) => {
+    if (doc.exists) {
+      const userData = doc.data();
+      const acknowledgedMemos = userData.acknowledgedMemos || [];
+
+      if (acknowledgedMemos.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "لا يوجد ميموز تم تأكيدها بعد.";
+        li.classList.add("text-gray-400", "italic");
+        memoListElement.appendChild(li);
+        return;
+      }
+
+      acknowledgedMemos.forEach((memoId) => {
+        firebase.firestore().collection("memos").doc(memoId).get().then((memoDoc) => {
+          if (memoDoc.exists) {
+            const memoData = memoDoc.data();
+            const title = memoData.title || "Memo بدون عنوان";
+            const li = document.createElement("li");
+            li.textContent = title;
+            memoListElement.appendChild(li);
+          } else {
+            const li = document.createElement("li");
+            li.textContent = `📄 Memo غير موجود (ID: ${memoId})`;
+            li.classList.add("text-red-400");
+            memoListElement.appendChild(li);
+          }
+        }).catch((error) => {
+          console.error("❌ Error fetching memo:", error);
+        });
+      });
+
+    } else {
+      console.error("❌ No such user document!");
+    }
+  }).catch((error) => {
+    console.error("❌ Error getting user profile:", error);
+  });
+}
+
+
+
+    // Logout functionality
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      auth.signOut().then(() => {
+        alert("Logged out successfully!");
+        window.location.replace("login.html");
+      }).catch((error) => {
+        console.error("Error logging out:", error);
+        alert("Error logging out: " + error.message);
+      });
+    });
+
+    // Admin Privileges Check
+    function checkAdminPrivileges() {
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        alert("Please log in as an admin.");
+        return;
+      }
+      const userId = user.uid;
+
+      // Assuming you have an "admins" collection or a way to check if the user is an admin
+      const adminUsers = ['lwnz8xwq9bSgLw7fZu2U']; // Replace with actual admin UIDs
+
+      if (!adminUsers.includes(userId)) {
+        alert("You do not have admin privileges.");
+        return;
+      }
+    }
+
+    // Create New Memo
+    document.getElementById("create-memo-btn").addEventListener("click", () => {
+      const title = document.getElementById("memo-title").value.trim();
+      const content = document.getElementById("memo-content").value.trim();
+
+      if (!title || !content) {
+        alert("Title and content are required.");
+        return;
+      }
+
+      const user = firebase.auth().currentUser;
+      if (!user) return alert("You must be logged in.");
+
+      const newMemo = {
+        title: title,
+        content: content,
+        timestamp: firebase.firestore.Timestamp.now(),
+        acknowledgedBy: [],
+        acknowledgedDetails: []
+      };
+
+      firebase.firestore().collection("memos").add(newMemo)
+        .then(() => {
+          alert("Memo created successfully!");
+          loadMemos(); // Refresh memo list after creation
+        })
+        .catch((error) => {
+          console.error("Error creating memo:", error);
+          alert("Error creating memo: " + error.message);
+        });
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script>
+
+</body>
+</html>

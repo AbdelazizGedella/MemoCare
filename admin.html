@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Admin Panel - Memo Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+  
+    <!-- ✅ Correct Firebase SDKs for legacy (firebase.auth() style) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-remote-config-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-performance-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-check-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-installations-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+
+    
+    <!-- Your custom script -->
+    <script defer src="./js/admin.js"></script>
+  </head>
+  
+<body class="bg-base-200">
+  <div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">Post New Memo</h1>
+    <input id="memo-title" type="text" placeholder="Title" class="input input-bordered w-full mb-2"/>
+    <textarea id="memo-content" class="textarea textarea-bordered w-full mb-2" placeholder="Memo Content"></textarea>
+    <button onclick="postMemo()" class="btn btn-primary w-full">Post Memo</button>
+  </div>
+</body>
+</html>
