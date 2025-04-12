@@ -43,10 +43,9 @@ function loadMemos() {
       for (const doc of querySnapshot.docs) {
         const memo = doc.data();
         const memoId = doc.id;
-
-        const acknowledgedBy = memo.acknowledgedDetails || [];
+        
         const acknowledgedDetails = memo.acknowledgedDetails || [];
-        const hasAcknowledged = acknowledgedBy.includes(userId);
+        const hasAcknowledged = acknowledgedDetails.some(entry => entry.uid === userId);
 
         const memoTimestamp = memo.timestamp?.toDate();
         const now = new Date();
@@ -100,25 +99,6 @@ function loadMemos() {
         }).join("");
 
         const memoDiv = document.createElement("div");
-        memoDiv.className = "bg-gray-800 text-white p-4 mb-4 rounded-xl shadow-md";
-        memoDiv.innerHTML = `
-          <h2 class="text-xl font-bold text-blue-300 mb-1">${memo.title}</h2>
-          <p class="mb-2 text-gray-200">${memo.content}</p>
-          <p class="text-xs text-gray-400 mb-2">
-            🕒 Posted at: ${memoTimestamp?.toLocaleString() || 'N/A'} (${memoAgo})
-          </p>
-
-          ${!hasAcknowledged ? `
-            <button class="btn ${btnClass} mb-2" onclick="acknowledgeMemo('${memoId}')">
-              Acknowledge
-            </button>
-          ` : `<p class="text-green-400 font-semibold mb-2">✅ Already acknowledged</p>`}
-          
-          
-          <p class="text-sm text-blue-400 font-semibold">Acknowledged by: ${acknowledgedDetails.length}</p>
-          <ul class="ml-4">${acknowledgers}</ul>
-        `;
-
 
 // Calculate the number of acknowledgers based on the acknowledgedDetails map
 const acknowledgedCount = acknowledgedDetails.length;  // Count the number of entries in the acknowledgedDetails map
@@ -132,12 +112,14 @@ memoDiv.innerHTML = `
     🕒 Posted at: ${memoTimestamp?.toLocaleString() || 'N/A'} (${memoAgo})
   </p>
 
-  <button class="btn ${btnClass} mb-2" onclick="acknowledgeMemo('${memoId}')">
-    ${hasAcknowledged ? "Acknowledged" : "Acknowledge"}
-  </button>
-  <p class="text-sm text-blue-400 font-semibold">Acknowledged by: ${acknowledgedCount}</p>  <!-- Display the acknowledged count here -->
+  ${!hasAcknowledged ? `<button class="btn ${btnClass} mb-2" onclick="acknowledgeMemo('${memoId}')">
+    Acknowledge
+  </button>` : ''}
+
+  <p class="text-sm text-blue-400 font-semibold">Acknowledged by: ${acknowledgedDetails.length}</p>
   <ul class="ml-4">${acknowledgers}</ul>
 `;
+
 
 memoList.appendChild(memoDiv);
 
