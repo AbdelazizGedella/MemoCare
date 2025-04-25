@@ -1,38 +1,122 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Admin Panel - Memo Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memo Acknowledgment Dashboard</title>
   
-    <!-- ✅ Correct Firebase SDKs for legacy (firebase.auth() style) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-remote-config-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-performance-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-check-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-installations-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+  <!-- App Logic -->
+  <script defer src="./js/admin.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+  
+  <!-- Top Navigation Bar -->
+  <div class="fixed top-0 left-0 w-full bg-gray-900 p-4 shadow-md flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-blue-300">Memo Acknowledgment System</h1>
+    <span id="user-greeting" class="text-green-400 text-lg"></span>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="fixed top-16 left-0 w-20 bg-gray-800 h-full p-4 shadow-lg flex flex-col items-center">
+    <ul class="space-y-6">
+        <!-- Homepage Link -->
+        <li class="text-center">
+            <a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-home text-xl"></i>
+                <span class="text-xs mt-1">Home</span>
+            </a>
+        </li>
+        <!-- Profile Link -->
+        <li class="text-center">
+            <a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-user-circle text-xl"></i>
+                <span class="text-xs mt-1">Profile</span>
+            </a>
+        </li>
+        <!-- Memos Link -->
+        <li class="text-center">
+            <a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-file-alt text-xl"></i>
+                <span class="text-xs mt-1">Memos</span>
+            </a>
+        </li>
+        <!-- Leaderboard Link -->
+        <li class="text-center">
+            <a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-trophy text-xl"></i>
+                <span class="text-xs mt-1">Leaderboard</span>
+            </a>
+        </li>
+        <!-- Admin Link -->
+        <li class="text-center">
+            <a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-lock text-xl"></i>
+                <span class="text-xs mt-1">Admin</span>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Logout Button -->
+    <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
+        <i class="fas fa-sign-out-alt text-xl"></i>
+    </button>
+    </div>
+
+  <!-- Main Content Area -->
+  <div class="flex-1 overflow-y-auto p-20 ml-24">
+ 
+
+    <!-- Clickable Spoiler Header -->
+    <div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+  <h2 id="toggle-update-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Post Website Updates</h2>
+
+  <!-- Hidden Update Form -->
+  <div id="update-box" class="mt-4 hidden">
+      <input type="text" id="update-message" placeholder="Enter update message" class="bg-gray-700 text-white p-2 rounded w-full mb-2">
+      <input type="text" id="update-link" placeholder="Enter update link" class="bg-gray-700 text-white p-2 rounded w-full mb-2">
+      <button id="post-update-btn" class="bg-green-600 hover:bg-green-800 text-white p-2 rounded w-full">
+          Post Update
+      </button>
+  </div>
+    </div>
+
+
+    <div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+    <h2 id="toggle-update-btn2" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Create New Memo</h2>
+  
+    <!-- Hidden Update Form -->
+    <div id="update-box2" class="mt-4 hidden">
+        <div>
+            <label class="block text-sm">Title</label>
+            <input type="text" id="memo-title" class="bg-gray-700 text-white p-2 rounded w-full mb-2" />
+        </div>
+        <div>
+            <label class="block text-sm">Content</label>
+            <textarea id="memo-content" class="bg-gray-700 text-white p-2 rounded w-full mb-2" rows="4"></textarea>
+            <div>
+                <label class="block text-sm">Attachments (PDF/JPG)</label>
+                <input type="file" id="memo-file" multiple class="input input-sm input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png"/>
+            </div>
+            
+        </div>
+        <button id="create-memo-btn" class="btn btn-primary mt-4">Create Memo</button>
+     </div>
+  </div>
+
 
     
-    <!-- Your custom script -->
-    <script defer src="./js/admin.js"></script>
-  </head>
-  
-<body class="bg-base-200">
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Post New Memo</h1>
-    <input id="memo-title" type="text" placeholder="Title" class="input input-bordered w-full mb-2"/>
-    <textarea id="memo-content" class="textarea textarea-bordered w-full mb-2" placeholder="Memo Content"></textarea>
-    <button onclick="postMemo()" class="btn btn-primary w-full">Post Memo</button>
   </div>
+
 </body>
 </html>
