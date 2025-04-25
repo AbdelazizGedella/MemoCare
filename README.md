@@ -24,5 +24,7 @@ With **visual indicators** for acknowledgment status, **ranked responders list**
 
 ### 1️⃣ **Clone the Repository**
 ```sh
-git clone https://github.com/YOUR_USERNAME/MemoCare.git
+git clone https://github.com/AbdelazizGedella/MemoCare.git
 cd MemoCare
+
+
