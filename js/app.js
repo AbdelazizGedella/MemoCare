@@ -16,6 +16,7 @@ firebase.initializeApp(firebaseConfig);
 firebase.auth();
 firebase.firestore();
 firebase.analytics();
+const messaging = firebase.messaging();
 
 
 
@@ -279,7 +280,7 @@ const newAck = {
       // Update user
       transaction.update(userRef, {
         acknowledgedMemos: firebase.firestore.FieldValue.arrayUnion(memoId),
-        points: firebase.firestore.FieldValue.increment(10)
+        points: firebase.firestore.FieldValue.increment(1)
       });
     });
   }).then(() => {
