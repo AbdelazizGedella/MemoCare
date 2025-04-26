@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Memo Acknowledgment</title>
+    <title>MemoCare - Intelligent Memo System</title>
 
     <!-- Tailwind & DaisyUI -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,17 +12,42 @@
     <!-- Firebase SDKs -->
     <!-- Add your Firebase SDKs here -->
 
-    <!-- App Logic -->
-    <script type="module" src="./js/main.js"></script>
-    <script defer src="./js/countdown.js"></script> <!-- New countdown logic -->
+    <script defer src="./js/main.js"></script>
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
-    <!-- Countdown Overlay -->
-    <div id="countdown-screen" class="absolute inset-0 flex items-center justify-center bg-black text-white text-4xl font-bold">
-        <span id="countdown-text">3</span>
-    </div>
+<body class="bg-gray-900 text-white">
+    <!-- Main Container -->
+    <div class="min-h-screen flex flex-col items-center justify-center text-center px-6">
+        
+        <!-- Logo & Title -->
+        <h1 class="text-5xl font-bold text-blue-400 mb-4">📋 MemoCare</h1>
+        <p class="text-lg text-gray-300">The Smart Acknowledgment System for Seamless Communication</p>
+        
+        <!-- Feature Highlights -->
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-gray-200">
+            <div class="p-4 bg-gray-800 rounded-lg shadow-md">
+                <h3 class="text-xl font-bold">🔒 Secure Authentication</h3>
+                <p>Login with Firebase for a safe and seamless experience.</p>
+            </div>
+            <div class="p-4 bg-gray-800 rounded-lg shadow-md">
+                <h3 class="text-xl font-bold">📝 Real-Time Memo Tracking</h3>
+                <p>Know who acknowledged memos and when, instantly.</p>
+            </div>
+            <div class="p-4 bg-gray-800 rounded-lg shadow-md">
+                <h3 class="text-xl font-bold">🏆 Performance Evaluation</h3>
+                <p>Reward top responders and improve staff engagement.</p>
+            </div>
+        </div>
 
-    <!-- Main Content (Hidden initially) -->
- 
+        <!-- Call to Action -->
+        <div class="mt-8 flex gap-4">
+            <button onclick="window.location.href='login.html'" class="btn btn-primary text-lg">🔑 Login</button>
+            <button onclick="window.location.href='signup.html'" class="btn btn-secondary text-lg">🆕 Signup</button>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 text-gray-400 text-sm">
+            <p>🚀 Powered by <span class="text-blue-400 font-bold">Firebase & Tailwind CSS</span></p>
+        </footer>
+    </div>
 </body>
 </html>
