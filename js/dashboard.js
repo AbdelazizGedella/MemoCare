@@ -12,23 +12,61 @@ const firebaseConfig = {
   const db = firebase.firestore();
   const auth = firebase.auth();
   
-// Function to automatically update memo count
+
+
+
+  // This function will: ✅ Fetch the memo count for the current user ✅ Display a loading animation while fetching data ✅ Handle errors gracefully
+
 function updateMemoCount() {
     const memoCountElement = document.getElementById("memo-count");
-  
-    // Listen for real-time updates from Firestore
-    db.collection("memos").onSnapshot((snapshot) => {
-      const memoCount = snapshot.size; // Get number of memos
-      memoCountElement.innerText = memoCount;
-    }, (error) => {
-      console.error("Error fetching memo count:", error);
-      memoCountElement.innerText = "Error";
-    });
-  }
-  
-  // Ensure memo count updates on page load
-  document.addEventListener("DOMContentLoaded", updateMemoCount);
+    const loadingAnimation = document.getElementById("loading-animation");
 
+    firebase.auth().onAuthStateChanged((user) => {
+        if (!user) {
+            console.warn("User not logged in, cannot fetch memo count.");
+            memoCountElement.innerText = "Error";
+            loadingAnimation.style.display = "none"; // Hide animation if error occurs
+            memoCountElement.classList.remove("hidden"); // Show text
+            return;
+        }
+
+        // Fetch spaces where the user is a member
+        db.collection("spaces").where("joinedParticipants", "array-contains", user.uid).get()
+            .then(spacesSnapshot => {
+                let joinedSpaceIds = [];
+                spacesSnapshot.forEach(doc => joinedSpaceIds.push(doc.id));
+
+                if (joinedSpaceIds.length === 0) {
+                    console.warn("No joined spaces found.");
+                    memoCountElement.innerText = "0";
+                    loadingAnimation.style.display = "none"; // Hide animation
+                    memoCountElement.classList.remove("hidden"); // Show text
+                    return;
+                }
+
+                // Count memos from joined spaces
+                db.collection("memos").where("spaceId", "in", joinedSpaceIds).onSnapshot(snapshot => {
+                    memoCountElement.innerText = snapshot.size; // Update memo count
+                    loadingAnimation.style.display = "none"; // Hide animation
+                    memoCountElement.classList.remove("hidden"); // Show count
+                }, error => {
+                    console.error("Error fetching memo count:", error);
+                    memoCountElement.innerText = "Error";
+                    loadingAnimation.style.display = "none"; // Hide animation
+                    memoCountElement.classList.remove("hidden"); // Show text
+                });
+
+            }).catch(error => console.error("Error fetching spaces:", error));
+    });
+}
+
+// Ensure memo count updates on page load
+document.addEventListener("DOMContentLoaded", updateMemoCount);
+
+
+
+// Ensure memo count updates on page load
+document.addEventListener("DOMContentLoaded", updateMemoCount);
 
 
 
@@ -77,70 +115,92 @@ function updateMemoCount() {
 
 
 
-  //Add this function to fetch acknowledgment data based on the current user’s UID:
-  document.addEventListener("DOMContentLoaded", () => {
-    const memoCountElement = document.getElementById("memo-count");
+  // This function will: ✅ Fetch the acknowledgment count for the current user ✅ Display the last acknowledged memo's timestamp and title ✅ Handle errors gracefully
+function updateAcknowledgedMemoCount() {
     const ackCountElement = document.getElementById("ack-count");
     const lastTimestampElement = document.getElementById("last-timestamp");
     const lastMemoTitleElement = document.getElementById("last-memo-title");
+    const ackLoader = document.getElementById("ack-loader"); // Acknowledgment Loader
+
+    // Apply skeleton effect initially
+    lastTimestampElement.classList.add("skeleton-box");
+    lastMemoTitleElement.classList.add("skeleton-box");
 
     firebase.auth().onAuthStateChanged((user) => {
-        if (user) {
-            const uid = user.uid; // Get current user UID
+        if (!user) {
+            console.warn("User not logged in, cannot fetch acknowledgment count.");
+            ackCountElement.innerText = "Error";
+            ackLoader.style.display = "none";
+            ackCountElement.classList.remove("hidden");
+            return;
+        }
 
-            // Fetch total memos in real-time
-            db.collection("memos").onSnapshot((snapshot) => {
-                memoCountElement.innerText = snapshot.size;
-            });
+        const uid = user.uid;
 
-            // Fetch acknowledgment details
-            db.collection("memos").get().then((querySnapshot) => {
-                let ackCount = 0;
-                let lastTimestamp = null;
-                let lastMemoTitle = "None";
+        db.collection("spaces").where("joinedParticipants", "array-contains", uid).get()
+            .then(spacesSnapshot => {
+                let joinedSpaceIds = spacesSnapshot.docs.map(doc => doc.id);
 
-                querySnapshot.forEach((doc) => {
-                    const memo = doc.data();
-                    if (memo.acknowledgedDetails && Array.isArray(memo.acknowledgedDetails)) {
-                        const userAck = memo.acknowledgedDetails.find((ack) => ack.uid === uid);
-                        if (userAck) {
+                if (joinedSpaceIds.length === 0) {
+                    console.warn("No joined spaces found.");
+                    ackCountElement.innerText = "0";
+                    ackLoader.style.display = "none";
+                    ackCountElement.classList.remove("hidden");
+                    return;
+                }
+
+                db.collection("memos").where("spaceId", "in", joinedSpaceIds).get().then(querySnapshot => {
+                    let ackCount = 0;
+                    let lastTimestamp = null;
+                    let lastMemoTitle = "None";
+
+                    querySnapshot.forEach(doc => {
+                        const memo = doc.data();
+                        if (memo.acknowledgedDetails?.some(ack => ack.uid === uid)) {
                             ackCount++;
+                            const userAck = memo.acknowledgedDetails.find(ack => ack.uid === uid);
                             if (!lastTimestamp || userAck.timestamp > lastTimestamp) {
                                 lastTimestamp = userAck.timestamp;
                                 lastMemoTitle = memo.title;
                             }
                         }
-                    }
-                });
+                    });
 
-                ackCountElement.innerText = ackCount;
+                    ackCountElement.innerText = ackCount || "0";
 
-                // Check if timestamp is a Firestore Timestamp or a raw string
-                if (lastTimestamp) {
                     if (lastTimestamp instanceof firebase.firestore.Timestamp) {
                         lastTimestampElement.innerText = lastTimestamp.toDate().toLocaleString();
                     } else {
-                        let parsedDate = new Date(Date.parse(lastTimestamp));
-                        lastTimestampElement.innerText = !isNaN(parsedDate.getTime()) 
-                            ? parsedDate.toLocaleString() 
-                            : "Never";
+                        lastTimestampElement.innerText = lastTimestamp ? new Date(lastTimestamp).toLocaleString() : "Never";
                     }
-                } else {
-                    lastTimestampElement.innerText = "Never"; // Avoid 'Invalid Date'
-                }
 
-                lastMemoTitleElement.innerText = lastMemoTitle;
-            }).catch((error) => {
-                console.error("Error fetching acknowledgment details:", error);
+                    lastMemoTitleElement.innerText = lastMemoTitle;
+
+                    // Hide acknowledgment loader after data is loaded
+                    ackLoader.style.display = "none";
+                    ackCountElement.classList.remove("hidden");
+
+                    // Remove skeleton effect when data is loaded
+                    lastTimestampElement.classList.remove("skeleton-box");
+                    lastMemoTitleElement.classList.remove("skeleton-box");
+
+                }).catch(error => {
+                    console.error("Error fetching acknowledged memos:", error);
+                    ackLoader.style.display = "none";
+                    ackCountElement.classList.remove("hidden");
+                    ackCountElement.innerText = "Error";
+                });
+
+            }).catch(error => {
+                console.error("Error fetching joined spaces:", error);
+                ackLoader.style.display = "none";
+                ackCountElement.classList.remove("hidden");
+                ackCountElement.innerText = "Error";
             });
-        }
     });
-});
+}
 
-
-
-
-
+document.addEventListener("DOMContentLoaded", updateAcknowledgedMemoCount);
 
 
 
@@ -150,62 +210,88 @@ function updateMemoCount() {
 document.addEventListener("DOMContentLoaded", () => {
     const unackMemoCountElement = document.getElementById("unack-memo-count");
     const unackMemoListElement = document.getElementById("unack-memo-list");
+    const unackLoader = document.getElementById("unack-loader");
     const showMoreButton = document.getElementById("show-more-btn");
 
     firebase.auth().onAuthStateChanged((user) => {
-        if (user) {
-            const uid = user.uid;
-
-            db.collection("memos").get().then((querySnapshot) => {
-                let unackMemoCount = 0;
-                let unacknowledgedMemos = [];
-
-                querySnapshot.forEach((doc) => {
-                    const memo = doc.data();
-                    let memoAcknowledged = false;
-
-                    if (memo.acknowledgedDetails && Array.isArray(memo.acknowledgedDetails)) {
-                        const userAck = memo.acknowledgedDetails.find((ack) => ack.uid === uid);
-                        if (userAck) {
-                            memoAcknowledged = true;
-                        }
-                    }
-
-                    // Store memos not acknowledged by the user
-                    if (!memoAcknowledged) {
-                        unackMemoCount++;
-                        unacknowledgedMemos.push({ title: memo.title, timestamp: memo.timestamp });
-                    }
-                });
-
-                unackMemoCountElement.innerText = unackMemoCount;
-
-                // Sort unacknowledged memos by timestamp (latest first)
-                unacknowledgedMemos.sort((a, b) => (b.timestamp - a.timestamp));
-
-                // Display only the last two unacknowledged memos
-                unackMemoListElement.innerHTML = "";
-                unacknowledgedMemos.slice(0, 2).forEach(memo => {
-                    const memoItem = document.createElement("li");
-                    const formattedTimestamp = memo.timestamp instanceof firebase.firestore.Timestamp
-                        ? memo.timestamp.toDate().toLocaleString()
-                        : "Unknown";
-
-                    memoItem.innerHTML = `
-                        <strong>${memo.title}</strong>
-                        <p class="text-gray-500 text-sm">${formattedTimestamp}</p>
-                    `;
-                    unackMemoListElement.appendChild(memoItem);
-                });
-
-                // Redirect to memos.html when "Show More" is clicked
-                showMoreButton.addEventListener("click", () => {
-                    window.location.href = "memos.html";
-                });
-            }).catch((error) => {
-                console.error("Error fetching unacknowledged memos:", error);
-            });
+        if (!user) {
+            console.warn("User not logged in, cannot fetch unacknowledged memos.");
+            unackMemoCountElement.innerText = "Error";
+            unackLoader.style.display = "none"; // Hide loader
+            unackMemoCountElement.classList.remove("hidden"); // Show error message
+            return;
         }
+
+        const uid = user.uid;
+
+        // Step 1: Fetch spaces where the user has joined
+        db.collection("spaces").where("joinedParticipants", "array-contains", uid).get()
+            .then(spacesSnapshot => {
+                let joinedSpaceIds = spacesSnapshot.docs.map(doc => doc.id);
+
+                if (joinedSpaceIds.length === 0) {
+                    console.warn("No joined spaces found.");
+                    unackMemoCountElement.innerText = "0";
+                    unackLoader.style.display = "none"; // Hide loader
+                    unackMemoCountElement.classList.remove("hidden");
+                    return;
+                }
+
+                // Step 2: Fetch unacknowledged memos only from spaces user has joined
+                db.collection("memos").where("spaceId", "in", joinedSpaceIds).get().then(querySnapshot => {
+                    let unackMemoCount = 0;
+                    let unacknowledgedMemos = [];
+
+                    querySnapshot.forEach(doc => {
+                        const memo = doc.data();
+                        let memoAcknowledged = memo.acknowledgedDetails?.some(ack => ack.uid === uid);
+
+                        if (!memoAcknowledged) {
+                            unackMemoCount++;
+                            unacknowledgedMemos.push({
+                                title: memo.title,
+                                timestamp: memo.timestamp instanceof firebase.firestore.Timestamp
+                                    ? memo.timestamp.toDate().toLocaleString()
+                                    : "Unknown"
+                            });
+                        }
+                    });
+
+                    unackMemoCountElement.innerText = unackMemoCount || "0";
+
+                    // Sort unacknowledged memos by timestamp (latest first)
+                    unacknowledgedMemos.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                    // Display only the last two unacknowledged memos
+                    unackMemoListElement.innerHTML = "";
+                    unacknowledgedMemos.slice(0, 2).forEach(memo => {
+                        const memoItem = document.createElement("li");
+                        memoItem.innerHTML = `<strong>${memo.title}</strong><p class="text-gray-500 text-sm">${memo.timestamp}</p>`;
+                        unackMemoListElement.appendChild(memoItem);
+                    });
+
+                    // Hide loader and reveal memo count
+                    unackLoader.style.display = "none";
+                    unackMemoCountElement.classList.remove("hidden");
+
+                    // Redirect to memos.html when "Show More" is clicked
+                    showMoreButton.addEventListener("click", () => {
+                        window.location.href = "memos.html";
+                    });
+
+                }).catch(error => {
+                    console.error("Error fetching unacknowledged memos:", error);
+                    unackLoader.style.display = "none";
+                    unackMemoCountElement.classList.remove("hidden");
+                    unackMemoCountElement.innerText = "Error";
+                });
+
+            }).catch(error => {
+                console.error("Error fetching joined spaces:", error);
+                unackLoader.style.display = "none";
+                unackMemoCountElement.classList.remove("hidden");
+                unackMemoCountElement.innerText = "Error";
+            });
     });
 });
 
@@ -460,7 +546,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-//This script: ✅ Fetches the user's profile data ✅ Displays the correct profile picture, name, points, email, and UID
+// This code will: ✅ Fetch user details from Firestore ✅ Display the user's profile picture, name, points, email, and UID
 document.addEventListener("DOMContentLoaded", () => {
     const profilePicElement = document.getElementById("user-profile-pic");
     const userNameElement = document.getElementById("user-name");
@@ -472,7 +558,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (user) {
             const userUid = user.uid;
 
-            // Fetch user data from Firestore
             db.collection("users").doc(userUid).get().then((doc) => {
                 if (doc.exists) {
                     const userData = doc.data();
@@ -481,10 +566,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     userEmailElement.innerText = userData.email || "No Email";
                     userUidElement.innerText = userUid;
 
-                    // Set profile picture
                     if (userData.profilePic) {
                         profilePicElement.src = userData.profilePic;
                     }
+
+                    // Remove skeleton effect when data loads
+                    document.querySelectorAll(".skeleton-box").forEach(el => {
+                        el.classList.remove("skeleton-box");
+                    });
+
                 } else {
                     console.error("User data not found.");
                 }
@@ -494,8 +584,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 });
-
-
 
 
 

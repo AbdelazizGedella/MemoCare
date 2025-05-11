@@ -1,0 +1,14 @@
+.skeleton-box {
+    display: inline-block;
+    width: 120px; /* Adjust for different sizes */
+    height: 20px;
+    background-color: #444;
+    border-radius: 4px;
+    animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes shimmer {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}

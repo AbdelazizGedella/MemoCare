@@ -18,6 +18,17 @@
 
   <!-- App Logic -->
   <script defer src="./js/memos.js"></script>
+
+
+
+  
+  <!--  Favicon and Apple Touch Icons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+<link rel="manifest" href="/icon/site.webmanifest">
+
+
 </head>
 <body class="bg-gray-900 text-white">
   
@@ -44,9 +55,15 @@
                 <span class="text-xs mt-1">Profile</span>
             </a>
         </li>
+         <li class="text-center">
+            <a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-rocket text-xl"></i>
+                <span class="text-xs mt-1">spaces</span>
+            </a>
+        </li>
         <!-- Memos Link -->
         <li class="text-center">
-            <a href="#" class="flex flex-col items-center text-white hover:text-blue-500">
+            <a href="#" class="flex flex-col items-center text-blue-500">
                 <i class="fas fa-file-alt text-xl"></i>
                 <span class="text-xs mt-1">Memos</span>
             </a>
@@ -130,16 +147,18 @@
   <caption class="caption-top text-lg font-semibold text-white mb-4">
     🔹 Memos
   </caption>
-  <thead class="bg-gray-700 text-white">
+<thead class="bg-gray-700 text-white">
     <tr>
-      <th class="p-2">Title</th>
-      <th class="p-2">Timestamp</th>
-      <th class="p-2">Posted By</th>
-      <th class="p-2">Acknowledgments</th>
-      <th class="p-2">Status</th> <!-- New Column -->
-      <th class="p-2">Actions</th>
+        <th class="p-2">Title</th>
+        <th class="p-2">Space</th> <!-- New Column -->
+        <th class="p-2">Timestamp</th>
+        <th class="p-2">Posted By</th>
+        <th class="p-2">Acknowledgments</th>
+        <th class="p-2">Status</th>
+        <th class="p-2">Actions</th>
     </tr>
-  </thead>
+</thead>
+
   <tbody id="memo-table" class="text-white"></tbody>
 </table>
 

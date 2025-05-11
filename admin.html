@@ -18,6 +18,14 @@
 
   <!-- App Logic -->
   <script defer src="./js/admin.js"></script>
+  
+  <!--  Favicon and Apple Touch Icons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+<link rel="manifest" href="/icon/site.webmanifest">
+
+
 </head>
 <body class="bg-gray-900 text-white">
   
@@ -26,13 +34,12 @@
     <h1 class="text-2xl font-bold text-blue-300">Memo Acknowledgment System</h1>
     <span id="user-greeting" class="text-green-400 text-lg"></span>
   </div>
-
-  <!-- Sidebar -->
+ <!-- Sidebar -->
   <div class="fixed top-16 left-0 w-20 bg-gray-800 h-full p-4 shadow-lg flex flex-col items-center">
     <ul class="space-y-6">
         <!-- Homepage Link -->
         <li class="text-center">
-            <a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
+            <a href="#" class="flex flex-col items-center text-white hover:text-blue-500">
                 <i class="fas fa-home text-xl"></i>
                 <span class="text-xs mt-1">Home</span>
             </a>
@@ -42,6 +49,12 @@
             <a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500">
                 <i class="fas fa-user-circle text-xl"></i>
                 <span class="text-xs mt-1">Profile</span>
+            </a>
+        </li>
+ <li class="text-center">
+            <a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-rocket text-xl"></i>
+                <span class="text-xs mt-1">spaces</span>
             </a>
         </li>
         <!-- Memos Link -->
@@ -60,62 +73,121 @@
         </li>
         <!-- Admin Link -->
         <li class="text-center">
-            <a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500">
+            <a href="admin.html" class="flex flex-col items-center text-blue-500">
                 <i class="fas fa-lock text-xl"></i>
                 <span class="text-xs mt-1">Admin</span>
             </a>
         </li>
     </ul>
-
     <!-- Logout Button -->
     <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
         <i class="fas fa-sign-out-alt text-xl"></i>
     </button>
-    </div>
+</div>
 
   <!-- Main Content Area -->
   <div class="flex-1 overflow-y-auto p-20 ml-24">
  
 
+
+    
+   <!-- Clickable Backup Status Header -->
+<div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+    <h2 id="toggle-backup-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">🔒 Backup & Data Protection</h2>
+
+    <!-- Hidden Backup Details Section -->
+    <div id="backup-box" class="mt-4 hidden">
+        <p class="text-lg font-semibold text-white">📌 Last Backup: <span id="backup-timestamp" class="text-yellow-300">Fetching...</span></p>
+        <p class="text-lg font-semibold text-white">📊 Status: <span id="backup-status" class="text-green-300">Completed ✅</span></p>
+
+        <!-- Backup Progress Bar -->
+        <div class="w-full bg-gray-700 rounded mt-2">
+            <div id="backup-progress" class="bg-green-500 text-xs font-medium text-center text-white p-1 rounded w-75">75% Complete</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Toggle backup details section
+    document.getElementById("toggle-backup-btn").addEventListener("click", () => {
+        document.getElementById("backup-box").classList.toggle("hidden");
+    });
+
+    // Simulated backup update logic
+    document.addEventListener("DOMContentLoaded", () => {
+        // Mock: Fetch last backup timestamp
+        document.getElementById("backup-timestamp").textContent = "May 11, 2025 - 10:30 PM";
+
+        // Mock: Backup progress tracking
+        let progress = 75; // Assume system has completed 75% of backup
+        document.getElementById("backup-progress").style.width = progress + "%";
+
+        // Status based on completion percentage
+        const status = progress === 100 ? "Completed ✅" : "In Progress ⏳";
+        document.getElementById("backup-status").textContent = status;
+    });
+</script>
+
+
+
+
+
     <!-- Clickable Spoiler Header -->
     <div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
-  <h2 id="toggle-update-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Post Website Updates</h2>
+            <h2 id="toggle-update-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Post Website Updates</h2>
 
-  <!-- Hidden Update Form -->
-  <div id="update-box" class="mt-4 hidden">
-      <input type="text" id="update-message" placeholder="Enter update message" class="bg-gray-700 text-white p-2 rounded w-full mb-2">
-      <input type="text" id="update-link" placeholder="Enter update link" class="bg-gray-700 text-white p-2 rounded w-full mb-2">
-      <button id="post-update-btn" class="bg-green-600 hover:bg-green-800 text-white p-2 rounded w-full">
-          Post Update
-      </button>
-  </div>
+            <!-- Hidden Update Form -->
+            <div id="update-box" class="mt-4 hidden">
+                <input type="text" id="update-message" placeholder="Enter update message" class="bg-gray-700 text-white p-2 rounded w-full mb-2">
+                <input type="text" id="update-link" placeholder="Enter update link" class="bg-gray-700 text-white p-2 rounded w-full mb-2">
+                <button id="post-update-btn" class="bg-green-600 hover:bg-green-800 text-white p-2 rounded w-full">
+                    Post Update
+                </button>
+            </div>
     </div>
 
 
     <div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
-    <h2 id="toggle-update-btn2" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Create New Memo</h2>
-  
-    <!-- Hidden Update Form -->
-    <div id="update-box2" class="mt-4 hidden">
-        <div>
-            <label class="block text-sm">Title</label>
-            <input type="text" id="memo-title" class="bg-gray-700 text-white p-2 rounded w-full mb-2" />
-        </div>
-        <div>
-            <label class="block text-sm">Content</label>
-            <textarea id="memo-content" class="bg-gray-700 text-white p-2 rounded w-full mb-2" rows="4"></textarea>
-            <div>
-                <label class="block text-sm">Attachments (PDF/JPG)</label>
-                <input type="file" id="memo-file" multiple class="input input-sm input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png"/>
-            </div>
-            
-        </div>
-        <button id="create-memo-btn" class="btn btn-primary mt-4">Create Memo</button>
-     </div>
-  </div>
-
-
+        <h2 id="toggle-update-btn2" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Create New Memo</h2>
     
+            <!-- Hidden Update Form -->
+            <div id="update-box2" class="mt-4 hidden">
+                <div>
+                    <label413412="block text-sm">Title</label>
+                    <input type="text" id="memo-title" class="bg-gray-700 text-white p-2 rounded w-full mb-2" />
+                </div>
+                <div>
+                    <label class="block text-sm">Content</label>
+                    <textarea id="memo-content" class="bg-gray-700 text-white p-2 rounded w-full mb-2" rows="4"></textarea>
+                    <div>
+                        <label class="block text-sm">Attachments (PDF/JPG)</label>
+                        <input type="file" id="memo-file" multiple class="input input-sm input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png"/>
+                    </div>
+                    
+                </div>
+                <button id="create-memo-btn" class="btn btn-primary mt-4">Create Memo</button>
+            </div>
+        </div>   
+
+
+<div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+    <h2 id="toggle-space-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Assign Space Creation Permission</h2>
+
+    <!-- Hidden Assignment Form -->
+    <div id="space-box" class="mt-4 hidden">
+        <label class="block text-sm">Select User:</label>
+        <select id="userSelect" class="bg-gray-700 text-white p-2 rounded w-full mb-2">
+            <!-- Users dynamically populated here -->
+        </select>
+
+        <button onclick="assignSpaceCreator()" class="bg-green-600 hover:bg-green-800 text-white p-2 rounded w-full mt-2">
+            Grant Space Creation Access
+        </button>
+
+        <p id="statusMessage" class="mt-2 text-blue-300"></p>
+    </div>
+</div>
+
   </div>
 
 </body>

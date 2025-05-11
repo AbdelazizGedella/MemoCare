@@ -108,3 +108,198 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 });
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            loadUserSpaces(user.uid); // Pass UID to the function
+        } else {
+            console.error("No authenticated user found.");
+        }
+    });
+});
+
+
+// Load user spaces
+
+function loadUserSpaces(currentUserUID) {
+    db.collection("spaces").get().then(snapshot => {
+        const joinedTable = document.getElementById("joined-spaces-table");
+        const pendingTable = document.getElementById("pending-spaces-table");
+        
+        joinedTable.innerHTML = "";
+        pendingTable.innerHTML = "";
+
+        snapshot.forEach(doc => {
+            const spaceData = doc.data();
+            const spaceId = doc.id;
+
+            // Check joinedParticipants and pendingParticipants, ensuring no duplicates
+            const isJoined = spaceData.joinedParticipants?.includes(currentUserUID);
+            const isPending = spaceData.pendingParticipants?.includes(currentUserUID);
+
+            if (isJoined) {
+                appendSpaceRow(joinedTable, spaceData);
+            } else if (isPending) {
+                appendSpaceRow(pendingTable, spaceData);
+            }
+        });
+    }).catch(error => console.error("Error fetching spaces:", error));
+}
+
+
+
+function appendSpaceRow(table, spaceData) {
+    db.collection("users").doc(spaceData.createdBy).get()
+        .then(userDoc => {
+            let creatorName = userDoc.exists ? userDoc.data().name : "Unknown User";
+            
+            let row = document.createElement("tr");
+            row.classList.add("border-b", "border-gray-700");
+
+            row.innerHTML = `
+                <td class="p-2">${spaceData.name}</td>
+                <td class="p-2">${creatorName}</td>
+                <td class="p-2">${new Date(spaceData.createdAt.toDate()).toLocaleString()}</td>
+            `;
+
+            table.appendChild(row);
+        })
+        .catch(error => console.error("Error fetching creator name:", error));
+}
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            loadUserSpaces(user.uid);
+            loadCreatedSpaces(user.uid); // Fetch spaces created by the user
+        } else {
+            console.error("No authenticated user found.");
+        }
+    });
+});
+
+function loadCreatedSpaces(currentUserUID) {
+    db.collection("spaces").where("createdBy", "==", currentUserUID).get()
+        .then(snapshot => {
+            const createdTable = document.getElementById("created-spaces-table");
+            createdTable.innerHTML = ""; // Clear previous data
+
+            snapshot.forEach(doc => {
+                const spaceData = doc.data();
+
+                let row = document.createElement("tr");
+                row.classList.add("border-b", "border-gray-700");
+
+                row.innerHTML = `
+                    <td class="p-2">${spaceData.name}</td>
+                    <td class="p-2">${new Date(spaceData.createdAt.toDate()).toLocaleString()}</td>
+                `;
+
+                createdTable.appendChild(row);
+            });
+        })
+        .catch(error => console.error("Error fetching created spaces:", error));
+}
+
+
+
+document.getElementById("toggle-update-btn2").addEventListener("click", () => {
+    const updateBox = document.getElementById("update-box2");
+    updateBox.classList.toggle("hidden"); // Toggle visibility
+});
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            loadCreatedSpaces(user.uid);
+            populateSpaceDropdown(user.uid); // Load available spaces in dropdown
+        } else {
+            console.error("No authenticated user found.");
+        }
+    });
+});
+
+function populateSpaceDropdown(currentUserUID) {
+    const spaceSelect = document.getElementById("space-select");
+
+    db.collection("spaces").where("createdBy", "==", currentUserUID).get()
+        .then(snapshot => {
+            spaceSelect.innerHTML = ""; // Clear previous options
+
+            snapshot.forEach(doc => {
+                const spaceData = doc.data();
+                let option = document.createElement("option");
+                option.value = doc.id; // Store space ID
+                option.textContent = spaceData.name;
+                spaceSelect.appendChild(option);
+            });
+
+            if (spaceSelect.options.length === 0) {
+                spaceSelect.innerHTML = `<option disabled>No spaces available</option>`;
+            }
+        })
+        .catch(error => console.error("Error fetching spaces:", error));
+}
+
+
+
+document.getElementById("create-memo-btn").addEventListener("click", async () => {
+    const title = document.getElementById("memo-title").value.trim();
+    const content = document.getElementById("memo-content").value.trim();
+    const spaceId = document.getElementById("space-select").value; // Get selected space ID
+    const fileInput = document.getElementById("memo-file");
+
+    if (!title || !content || !spaceId) {
+        alert("Title, content, and space selection are required.");
+        return;
+    }
+
+    const user = firebase.auth().currentUser;
+    if (!user) {
+        alert("You must be logged in.");
+        return;
+    }
+
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const postedBy = userDoc.exists ? userDoc.data().name : "Unknown User";
+
+    let fileURLs = [];
+
+    if (fileInput.files.length > 0) {
+        const storageRef = firebase.storage().ref();
+
+        for (const file of fileInput.files) {
+            const fileRef = storageRef.child(`memo_attachments/${user.uid}_${file.name}`);
+            await fileRef.put(file);
+            const downloadURL = await fileRef.getDownloadURL();
+            fileURLs.push(downloadURL);
+        }
+    }
+
+    const newMemo = {
+        title: title,
+        content: content,
+        spaceId: spaceId, // Link memo to space
+        timestamp: firebase.firestore.Timestamp.now(),
+        postedBy: postedBy,
+        acknowledgedBy: [],
+        acknowledgedDetails: [],
+        attachments: fileURLs
+    };
+
+    firebase.firestore().collection("memos").add(newMemo)
+        .then(() => {
+            alert("✅ Memo created successfully!");
+        })
+        .catch((error) => {
+            console.error("Error creating memo:", error);
+            alert("Error creating memo: " + error.message);
+        });
+});

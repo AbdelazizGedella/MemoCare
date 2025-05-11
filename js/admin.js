@@ -45,7 +45,7 @@ firebase.auth().onAuthStateChanged((user) => {
           if (doc.exists && doc.data().admin) {
               document.getElementById("update-box").classList.remove("hidden");
           } else {
-              window.location.href = "/profile";
+              window.location.href = "/401.html";
           }
       });
   } else {
@@ -158,3 +158,76 @@ document.getElementById("create-memo-btn").addEventListener("click", async () =>
           alert("Error creating memo: " + error.message);
       });
 });
+
+
+
+
+// assign space creator
+
+
+document.getElementById("toggle-space-btn").addEventListener("click", () => { const spaceBox = document.getElementById("space-box"); spaceBox.classList.toggle("hidden"); });
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetchUsers();
+});
+
+// Fetch users directly from Firestore
+function fetchUsers() {
+    db.collection("users").get()
+        .then(snapshot => {
+            const userSelect = document.getElementById("userSelect");
+            userSelect.innerHTML = ""; // Clear dropdown
+
+            snapshot.forEach(doc => {
+                const userData = doc.data();
+                let option = document.createElement("option");
+                option.value = doc.id; // Use Firestore doc ID (UID)
+                option.textContent = `${userData.name} (${userData.email})`;
+
+                // Apply different colors based on access permissions
+                if (userData.canCreateSpaces) {
+                    option.style.color = "limegreen"; // Bright green for users with access
+                } else {
+                    option.style.color = "goldenrod"; // Dark yellow for users without access
+                }
+
+                userSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error("Error fetching users from Firestore:", error));
+}
+
+
+
+// Assign Space Creator
+
+function assignSpaceCreator() {
+    const selectedUID = document.getElementById("userSelect").value;
+    const statusMessage = document.getElementById("statusMessage");
+
+    if (!statusMessage) {
+        console.error("statusMessage element is missing.");
+        return;
+    }
+
+    // Update Firestore (no admin check needed)
+    db.collection("users").doc(selectedUID).update({ canCreateSpaces: true })
+        .then(() => {
+            statusMessage.textContent = "User granted space creation permissions.";
+
+            // Update UI instantly
+            const userSelect = document.getElementById("userSelect");
+            const options = userSelect.options;
+
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].value === selectedUID) {
+                    options[i].style.color = "limegreen"; // Update color
+                }
+            }
+        })
+        .catch(error => {
+            console.error("Error assigning role in Firestore:", error);
+            statusMessage.textContent = "Failed to update permissions.";
+        });
+}
