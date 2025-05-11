@@ -37,7 +37,7 @@ function signup() {
       })
       .then(() => {
           alert("Signup successful!");
-          window.location.href = "dashboard.html"; // Redirect to dashboard
+          window.location.href = "Dashboard.html"; // Redirect to dashboard
       })
       .catch((error) => {
           console.error("Error signing up:", error);
