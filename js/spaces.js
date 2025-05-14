@@ -267,3 +267,63 @@ function rejectParticipant(spaceId, userUID) {
   });
   
 
+
+// request space creation permission
+document.addEventListener("DOMContentLoaded", () => {
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            const currentUserUID = user.uid;
+            checkUserPermission(currentUserUID);
+        } else {
+            document.getElementById("statusMessage").innerText = "⚠️ Please log in.";
+        }
+    });
+});
+
+
+// Check user permission
+document.addEventListener("DOMContentLoaded", () => {
+    const canCreateSpacesElement = document.getElementById("canCreateSpaces");
+    const requestSpaceBtn = document.getElementById("requestSpaceBtn"); // Add a button for applying
+
+    auth.onAuthStateChanged((user) => {
+        if (!user) return;
+
+        db.collection("users").doc(user.uid).get().then((doc) => {
+            if (doc.exists) {
+                const canCreateSpaces = doc.data().canCreateSpaces;
+                
+                // ✅ Display status with emojis
+                if (canCreateSpaces === true) {
+                    canCreateSpacesElement.innerHTML = "✅ You’ve got the ability to create spaces!";
+                    requestSpaceBtn.classList.add("hidden"); // Hide request button
+                } else if (canCreateSpaces === false) {
+                    canCreateSpacesElement.innerHTML = "🚫 You don’t have the ability to create spaces.";
+                    requestSpaceBtn.classList.remove("hidden"); // Show request button
+                } else {
+                    canCreateSpacesElement.innerHTML = "⏳ Pending admin approval...";
+                    requestSpaceBtn.classList.add("hidden"); // Hide request button while waiting
+                }
+            } else {
+                console.error("User document not found.");
+            }
+        }).catch(error => console.error("Error fetching user data:", error));
+    });
+
+    // Handle request submission
+    requestSpaceBtn.addEventListener("click", () => {
+        auth.onAuthStateChanged((user) => {
+            if (!user) return;
+
+            db.collection("spaceCreationRequests").doc(user.uid).set({
+                userId: user.uid,
+                requestedAt: firebase.firestore.Timestamp.now(),
+                status: "pending"
+            }).then(() => {
+                alert("⏳ Request submitted! Waiting for admin approval.");
+                requestSpaceBtn.classList.add("hidden");
+                canCreateSpacesElement.innerHTML = "⏳ Pending admin approval...";
+            }).catch(error => console.error("Error submitting request:", error));
+        });
+    });
+});

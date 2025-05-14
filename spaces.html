@@ -60,8 +60,17 @@
   <div class="flex-1 overflow-y-auto p-20 ml-24">
     <h2 class="text-2xl font-bold text-blue-300">Manage Spaces</h2>
 
+<!-- Status Message -->
+    <div id="statusContainer" class="bg-gray-800 p-4 rounded text-white">
+<p id="canCreateSpaces" class="text-blue-300 mt-2"></p>
+<button id="requestSpaceBtn" class="bg-blue-500 px-4 py-2 rounded hidden">Request Space Creation</button>
+
+</div>
+
+
     <!-- Create New Space Button -->
     <button id="createSpaceBtn" class="bg-green-600 hover:bg-green-800 text-white px-4 py-2 rounded mt-4">+ Create New Space</button>
+
 
     <!-- Spaces List -->
     <table class="w-full text-left border-collapse mt-6">
