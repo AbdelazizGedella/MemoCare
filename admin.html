@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memo Acknowledgment Dashboard</title>
+  <title>Memo || Admin</title>
   
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -15,6 +15,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
 
   <!-- App Logic -->
   <script defer src="./js/admin.js"></script>
@@ -39,7 +40,7 @@
     <ul class="space-y-6">
         <!-- Homepage Link -->
         <li class="text-center">
-            <a href="#" class="flex flex-col items-center text-white hover:text-blue-500">
+            <a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
                 <i class="fas fa-home text-xl"></i>
                 <span class="text-xs mt-1">Home</span>
             </a>
@@ -187,6 +188,16 @@
         <p id="statusMessage" class="mt-2 text-blue-300"></p>
     </div>
 </div>
+
+<div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+    <h2 id="toggle-space-requests" class="text-2xl font-semibold text-blue-300 cursor-pointer">📋 Pending Space Creation Requests</h2>
+
+    <!-- Hidden Space Requests List -->
+    <div id="space-requests-box" class="mt-4 hidden">
+        <ul id="spaceRequestsList" class="text-left text-white space-y-2"></ul>
+    </div>
+</div>
+
 
   </div>
 

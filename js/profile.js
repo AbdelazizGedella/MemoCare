@@ -122,32 +122,49 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// Load user spaces
+// 
+function loadJoinedSpaces(currentUserUID) {
+    db.collection("spaces").where("joinedParticipants", "array-contains", currentUserUID).get()
+        .then(snapshot => {
+            const joinedTable = document.getElementById("joined-spaces-table");
+            joinedTable.innerHTML = "";
 
-function loadUserSpaces(currentUserUID) {
-    db.collection("spaces").get().then(snapshot => {
-        const joinedTable = document.getElementById("joined-spaces-table");
-        const pendingTable = document.getElementById("pending-spaces-table");
-        
-        joinedTable.innerHTML = "";
-        pendingTable.innerHTML = "";
-
-        snapshot.forEach(doc => {
-            const spaceData = doc.data();
-            const spaceId = doc.id;
-
-            // Check joinedParticipants and pendingParticipants, ensuring no duplicates
-            const isJoined = spaceData.joinedParticipants?.includes(currentUserUID);
-            const isPending = spaceData.pendingParticipants?.includes(currentUserUID);
-
-            if (isJoined) {
+            snapshot.forEach(doc => {
+                const spaceData = doc.data();
                 appendSpaceRow(joinedTable, spaceData);
-            } else if (isPending) {
-                appendSpaceRow(pendingTable, spaceData);
-            }
-        });
-    }).catch(error => console.error("Error fetching spaces:", error));
+            });
+        })
+        .catch(error => console.error("Error fetching joined spaces:", error));
 }
+
+function loadPendingSpaces(currentUserUID) {
+    db.collection("spaces").where("pendingParticipants", "array-contains", currentUserUID).get()
+        .then(snapshot => {
+            const pendingTable = document.getElementById("pending-spaces-table");
+            pendingTable.innerHTML = "";
+
+            snapshot.forEach(doc => {
+                const spaceData = doc.data();
+                appendSpaceRow(pendingTable, spaceData);
+            });
+        })
+        .catch(error => console.error("Error fetching pending spaces:", error));
+}
+
+// Call these functions separately when user is authenticated
+document.addEventListener("DOMContentLoaded", () => {
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            loadJoinedSpaces(user.uid);
+            loadPendingSpaces(user.uid);
+            loadCreatedSpaces(user.uid); // Fetch spaces created by the user
+        } else {
+            console.error("No authenticated user found.");
+        }
+    });
+});
+
+
 
 
 

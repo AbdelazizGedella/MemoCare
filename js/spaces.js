@@ -311,19 +311,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Handle request submission
-    requestSpaceBtn.addEventListener("click", () => {
-        auth.onAuthStateChanged((user) => {
-            if (!user) return;
+requestSpaceBtn.addEventListener("click", () => {
+    auth.onAuthStateChanged((user) => {
+        if (!user) return;
 
-            db.collection("spaceCreationRequests").doc(user.uid).set({
-                userId: user.uid,
+        db.collection("users").doc(user.uid).update({
+            pendingSpacesCreationRequest: {
                 requestedAt: firebase.firestore.Timestamp.now(),
                 status: "pending"
-            }).then(() => {
-                alert("⏳ Request submitted! Waiting for admin approval.");
-                requestSpaceBtn.classList.add("hidden");
-                canCreateSpacesElement.innerHTML = "⏳ Pending admin approval...";
-            }).catch(error => console.error("Error submitting request:", error));
-        });
+            }
+        }).then(() => {
+            alert("⏳ Request submitted! Waiting for admin approval.");
+            requestSpaceBtn.classList.add("hidden");
+            canCreateSpacesElement.innerHTML = "⏳ Pending admin approval...";
+        }).catch(error => console.error("Error submitting request:", error));
     });
+});
+
 });

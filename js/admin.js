@@ -231,3 +231,53 @@ function assignSpaceCreator() {
             statusMessage.textContent = "Failed to update permissions.";
         });
 }
+
+
+
+
+// Assign Space Creator with Admin Check
+document.addEventListener("DOMContentLoaded", () => {
+    const spaceRequestsList = document.getElementById("spaceRequestsList");
+    const toggleRequestsBtn = document.getElementById("toggle-space-requests");
+    const spaceRequestsBox = document.getElementById("space-requests-box");
+
+    // ✅ Toggle visibility of request section
+    if (toggleRequestsBtn && spaceRequestsBox) {
+        toggleRequestsBtn.addEventListener("click", () => {
+            spaceRequestsBox.classList.toggle("hidden");
+        });
+    } else {
+        console.error("❌ Missing toggle elements in HTML.");
+    }
+
+    // ✅ Fetch users with pending space requests
+    db.collection("users").get().then((snapshot) => {
+        spaceRequestsList.innerHTML = ""; // Clear previous entries
+
+        snapshot.forEach((doc) => {
+            const userData = doc.data();
+
+            if (userData.pendingSpacesCreationRequest) {
+                const { status, requestedAt } = userData.pendingSpacesCreationRequest;
+                const createdAtFormatted = userData.createdAt 
+                    ? new Date(userData.createdAt).toLocaleString() 
+                    : "Unknown date";
+
+                const requestedAtFormatted = requestedAt
+                    ? new Date(requestedAt.toDate()).toLocaleString() 
+                    : "Unknown request date";
+
+                // ✅ Build the request display
+                const listItem = document.createElement("li");
+                listItem.classList.add("bg-gray-700", "p-4", "rounded-lg", "shadow-md", "mb-2");
+                listItem.innerHTML = `
+                    <p class="font-semibold text-blue-300">${userData.name}</p>
+                    <p>📅 Account Created: <span class="text-yellow-300">${createdAtFormatted}</span></p>
+                    <p>⏳ Requested: <span class="text-yellow-300">${requestedAtFormatted}</span></p>
+                    <p>Status: <span class="text-green-300">${status}</span></p>
+                `;
+                spaceRequestsList.appendChild(listItem);
+            }
+        });
+    }).catch(error => console.error("Error fetching requests:", error));
+});
