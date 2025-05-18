@@ -5,6 +5,7 @@
 /* -------------------------------------------------------------------------- */
 /*                                  Utilities                                 */
 /* -------------------------------------------------------------------------- */
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Bootstrap Styles
 -----------------------------------------------*/
@@ -13,6 +14,16 @@
  * Copyright 2011-2020 The Bootstrap Authors
  * Copyright 2011-2020 Twitter, Inc.
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
+=======
+/*-----------------------------------------------
+|   Bootstrap Styles
+-----------------------------------------------*/
+/*!
+ * Bootstrap v5.0.0-alpha1 (https://getbootstrap.com/)
+ * Copyright 2011-2020 The Bootstrap Authors
+ * Copyright 2011-2020 Twitter, Inc.
+ * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
+>>>>>>> cfe42b1 (Initial commit)
  */
 :root {
   --bs-blue: #0059F7;
@@ -17422,11 +17433,19 @@ fieldset:disabled .btn {
   }
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Theme Styles
 -----------------------------------------------*/
 /*-----------------------------------------------
 |   Reboot
+=======
+/*-----------------------------------------------
+|   Theme Styles
+-----------------------------------------------*/
+/*-----------------------------------------------
+|   Reboot
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 ::-webkit-input-placeholder {
   opacity: 1;
@@ -17601,8 +17620,13 @@ label {
   word-break: break-word;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Font family
+=======
+/*-----------------------------------------------
+|   Font family
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .font-sans-serif {
   font-family: "Sora", "sans-serif", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -17612,8 +17636,13 @@ label {
   font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Error Page
+=======
+/*-----------------------------------------------
+|   Error Page
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .fs-error {
   font-size: 7rem;
@@ -17625,8 +17654,13 @@ label {
   }
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Text alignment
+=======
+/*-----------------------------------------------
+|   Text alignment
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .text-justify {
   text-align: justify !important;
@@ -17636,8 +17670,13 @@ label {
   margin-top: -21rem;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Backgrounds
+=======
+/*-----------------------------------------------
+|   Backgrounds
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .bg-holder {
   position: absolute;
@@ -17907,8 +17946,13 @@ label {
   transition: box-shadow 0.4s ease, -webkit-box-shadow 0.4s ease;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Icons group
+=======
+/*-----------------------------------------------
+|   Icons group
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .icon-group {
   display: -webkit-box;
@@ -17961,8 +18005,13 @@ label {
   opacity: 1;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Object fit and Z-index
+=======
+/*-----------------------------------------------
+|   Object fit and Z-index
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .fit-cover {
   -o-object-fit: cover;
@@ -17981,8 +18030,13 @@ label {
   z-index: -1;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Sidebar
+=======
+/*-----------------------------------------------
+|   Sidebar
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .sticky-sidebar {
   position: -webkit-sticky;
@@ -17991,8 +18045,13 @@ label {
   top: 5.3125rem;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Custom circle
+=======
+/*-----------------------------------------------
+|   Custom circle
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .circle-dashed {
   border: 1px dashed #0059F7;
@@ -18010,8 +18069,13 @@ label {
   height: 3.5rem;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Miscellaneous
+=======
+/*-----------------------------------------------
+|   Miscellaneous
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .hover-text-decoration-none:hover, .hover-text-decoration-none:focus {
   text-decoration: none;
@@ -18047,8 +18111,13 @@ label {
   pointer-events: none;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Outline
+=======
+/*-----------------------------------------------
+|   Outline
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .outline-none {
   outline: none;
@@ -18062,8 +18131,13 @@ label {
   box-shadow: none;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   Vertical Line (used in kanban header)
+=======
+/*-----------------------------------------------
+|   Vertical Line (used in kanban header)
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .vertical-line:after {
   position: absolute;
@@ -18136,8 +18210,13 @@ label {
   opacity: .8;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   LaslesVPN glow buttons
+=======
+/*-----------------------------------------------
+|   LaslesVPN glow buttons
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 .btn-glow {
   position: relative;
@@ -18257,8 +18336,13 @@ label {
   background-color: #081131 !important;
 }
 
+<<<<<<< HEAD
 /*-----------------------------------------------
 |   User Styles
+=======
+/*-----------------------------------------------
+|   User Styles
+>>>>>>> cfe42b1 (Initial commit)
 -----------------------------------------------*/
 
 /*# sourceMappingURL=theme.css.map */
