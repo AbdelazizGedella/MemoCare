@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "bootstrap": {
     "src": ["dist/js/bootstrap.min.js", "dist/js/bootstrap.min.js.map"],
@@ -23,3 +24,30 @@
     "dest": "swiper"
   }
 }
+=======
+{
+  "bootstrap": {
+    "src": ["dist/js/bootstrap.min.js", "dist/js/bootstrap.min.js.map"],
+    "dest": "bootstrap"
+  },  
+ 
+  "@fortawesome/fontawesome-free": {
+    "src": "js/all.min.js",
+    "dest": "fontawesome"
+  },
+
+  "@popperjs": {
+    "src": "core/dist/umd/popper.min.js",
+    "dest": "@popperjs"
+  },
+
+  "is_js": {
+    "src": "is.min.js",
+    "dest": "is"
+  },
+  "swiper": {
+    "src": ["swiper-bundle.min.js", "swiper-bundle.min.css"],
+    "dest": "swiper"
+  }
+}
+>>>>>>> cfe42b1 (Initial commit)

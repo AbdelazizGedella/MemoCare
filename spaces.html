@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -110,3 +111,117 @@
 
 </body>
 </html>
+=======
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memo || Spaces</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+  <!-- App Logic -->
+  <script defer src="./js/spaces.js"></script>
+
+
+  
+  <!--  Favicon and Apple Touch Icons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+<link rel="manifest" href="/icon/site.webmanifest">
+
+
+</head>
+<body class="bg-gray-900 text-white">
+  
+  <!-- Top Navigation Bar -->
+  <div class="fixed top-0 left-0 w-full bg-gray-900 p-4 shadow-md flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-blue-300">Memo Acknowledgment System</h1>
+    <span id="user-greeting" class="text-green-400 text-lg"></span>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="fixed top-16 left-0 w-20 bg-gray-800 h-full p-4 shadow-lg flex flex-col items-center">
+    <ul class="space-y-6">
+        <li class="text-center"><a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-home text-xl"></i><span class="text-xs mt-1">Home</span></a></li>
+        <li class="text-center"><a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-user-circle text-xl"></i><span class="text-xs mt-1">Profile</span></a></li>
+        <li class="text-center"><a href="spaces.html" class="flex flex-col items-center text-blue-300"><i class="fas fa-layer-group text-xl"></i><span class="text-xs mt-1">Spaces</span></a></li>
+           <!-- Memos Link -->
+        <li class="text-center">
+            <a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-file-alt text-xl"></i>
+                <span class="text-xs mt-1">Memos</span>
+            </a>
+        </li>
+        <li class="text-center"><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-trophy text-xl"></i><span class="text-xs mt-1">Leaderboard</span></a></li>
+        <li class="text-center"><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-lock text-xl"></i><span class="text-xs mt-1">Admin</span></a></li>
+    </ul>
+
+    <button id="logout-btn" class="mt-6 text-white hover:text-red-500"><i class="fas fa-sign-out-alt text-xl"></i></button>
+</div>
+
+  <!-- Main Content Area -->
+  <div class="flex-1 overflow-y-auto p-20 ml-24">
+    <h2 class="text-2xl font-bold text-blue-300">Manage Spaces</h2>
+
+<!-- Status Message -->
+    <div id="statusContainer" class="bg-gray-800 p-4 rounded text-white">
+<p id="canCreateSpaces" class="text-blue-300 mt-2"></p>
+<button id="requestSpaceBtn" class="bg-blue-500 px-4 py-2 rounded hidden">Request Space Creation</button>
+
+</div>
+
+
+    <!-- Create New Space Button -->
+    <button id="createSpaceBtn" class="bg-green-600 hover:bg-green-800 text-white px-4 py-2 rounded mt-4">+ Create New Space</button>
+
+
+    <!-- Spaces List -->
+    <table class="w-full text-left border-collapse mt-6">
+<div class="text-center text-white mb-4 relative w-1/2 mx-auto">
+    <input type="text" id="search-box" placeholder="🔎 Search for Spaces..."
+        class="bg-gray-700 text-white p-2 rounded w-full text-center">
+</div>
+
+      <caption class="caption-top text-lg font-semibold text-white mb-4">🔹 Active Spaces</caption>
+      <thead class="bg-gray-700 text-white">
+    <tr>
+        <th class="p-2">Space Name</th>
+        <th class="p-2">Created By</th>
+        <th class="p-2">Created At</th>
+        <th class="p-2">Requests</th>
+        <th class="p-2">Users</th>
+        <th class="p-2">Memos</th>
+        <th class="p-2">Actions</th>
+    </tr>
+</thead>
+
+      <tbody id="spaces-table" class="text-white"></tbody>
+    </table>
+
+    <div id="spacesContainer" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+
+<div id="space-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center hidden">
+    <div class="bg-gray-800 p-6 rounded-lg shadow-md w-96">
+        <div id="space-modal-content"></div>
+        <button id="join-space-btn" class="bg-green-500 px-4 py-2 rounded mt-4">+ Join Request</button>
+        <button onclick="document.getElementById('space-modal').classList.add('hidden');" class="bg-red-500 px-4 py-2 rounded mt-4">Close</button>
+    </div>
+</div>
+
+  </div>
+
+</body>
+</html>
+>>>>>>> cfe42b1 (Initial commit)
