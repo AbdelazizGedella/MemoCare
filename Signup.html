@@ -26,20 +26,39 @@
 
 
 </head>
-
-<body class="bg-base-200 flex items-center justify-center min-h-screen">
-    <div class="card w-full max-w-sm bg-base-100 shadow-xl p-4">
-        <h2 class="text-xl font-bold mb-4">Sign Up</h2>
-        <input type="text" id="name" placeholder="Name" class="input input-bordered w-full mb-2">
-        <input type="email" id="email" placeholder="Email" class="input input-bordered w-full mb-2">
-        <input type="password" id="password" placeholder="Password" class="input input-bordered w-full mb-4">
-        <button onclick="signup()" class="btn btn-primary w-full">Create Account</button>
+<body class="bg-[#07102F] flex items-center justify-center min-h-screen">
+    <div class="flex w-full max-w-6xl bg-base-100 shadow-2xl rounded-2xl overflow-hidden min-h-[600px]">
+        <!-- Left Side: Benefits/Details -->
+        <div class="hidden md:flex flex-col justify-center items-start bg-[#0B1746] text-white p-12 w-1/2">
+            <h2 class="text-5xl font-bold mb-6">Join Today</h2>
+            <p class="mb-6 text-lg">
+                for a space of communication enhancement and commitment. Enjoy gamification and a suite of solutions designed to facilitate communication with your staff.
+            </p>
+            <ul class="list-disc pl-6 space-y-3 text-base">
+                <li>Free access to unlimited spaces—no fees, ever!</li>
+                <li>Organize your memos and notes without limits.</li>
+                <li>Enhance your communication and collaboration with others.</li>
+                <li>Share and manage information seamlessly.</li>
+                <li>Boost productivity with easy-to-use tools.</li>
+            </ul>
+        </div>
+        <!-- Right Side: Signup Form -->
+        <div class="w-full md:w-1/2 flex flex-col justify-center p-12">
+            <div class="card w-full bg-base-100 shadow-none p-0">
+                <h2 class="text-2xl font-bold mb-6">Sign Up</h2>
+                <input type="text" id="name" placeholder="Name" class="input input-bordered w-full mb-3 text-lg" />
+                <input type="email" id="email" placeholder="Email" class="input input-bordered w-full mb-3 text-lg" />
+                <input type="password" id="password" placeholder="Password" class="input input-bordered w-full mb-5 text-lg" />
+                <button onclick="signup()" class="btn btn-primary w-full text-lg py-3 mb-4">Create Account</button>
+                <p class="text-center text-gray-600 mt-6 text-base">
+                    Already have an account? <a href="login.html" class="text-blue-500 hover:underline">Log in here</a>
+                </p>
+                <p class="text-center text-gray-600 mt-2 text-base">
+                    <a href="index.html" class="text-blue-500 hover:underline">Back to main page</a>
+                </p>
+            </div>
+        </div>
     </div>
-        <!-- 🔹 Login prompt -->
-        <p class="text-center text-gray-600 mt-4">
-            Already have an account? <a href="login.html" class="text-blue-500 hover:underline">Log in here</a>
-        </p>
-    </div>
-</body>       
+</body>
     
 </html>

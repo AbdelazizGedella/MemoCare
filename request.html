@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memo Acknowledgment Dashboard</title>
+  <title>Memo || Profile</title>
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <!-- App Logic -->
+  <!--  Favicon and Apple Touch Icons -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+<link rel="manifest" href="/icon/site.webmanifest">
+  <script defer src="./js/request.js"></script>
+
+</head>
+<body class="bg-gray-900 text-white">
+  <!-- Top Navigation Bar -->
+  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-white-300">Memo Acknowledgment System</h1>
+    <span id="user-greeting" class="text-green-400 text-lg"></span>
+  </div>
+  <!-- Sidebar -->
+<div class="fixed top-20 left-4 w-30 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center">
+    <ul class="space-y-6">
+        <li class="text-center">
+            <a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-home text-2xl"></i>
+                <span class="text-sm mt-1">Home</span>
+            </a>
+        </li>
+        <li class="text-center">
+            <a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-user-circle text-2xl"></i>
+                <span class="text-sm mt-1">Profile</span>
+            </a>
+        </li>
+        <li class="text-center">
+            <a href="request.html" class="flex flex-col items-center text-blue-500">
+                <i class="fas fa-paper-plane text-2xl"></i>
+                <span class="text-sm mt-1">Request</span>
+            </a>
+        </li>
+        <li class="text-center">
+            <a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-rocket text-2xl"></i>
+                <span class="text-sm mt-1">Spaces</span>
+            </a>
+        </li>
+        <li class="text-center">
+            <a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-file-alt text-2xl"></i>
+                <span class="text-sm mt-1">Memos</span>
+            </a>
+        </li>
+        <li class="text-center">
+            <a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-trophy text-2xl"></i>
+                <span class="text-sm mt-1">Leaderboard</span>
+            </a>
+        </li>
+        <li class="text-center">
+            <a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500">
+                <i class="fas fa-lock text-2xl"></i>
+                <span class="text-sm mt-1">Admin</span>
+            </a>
+        </li>
+    </ul>
+    <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
+        <i class="fas fa-sign-out-alt text-2xl"></i>
+    </button>
+</div>
+
+
+  <!-- Main Content Area -->
+  <div class="flex-1 overflow-y-auto p-20 ml-24">
+<!-- User Profile Section -->
+<!-- User Profile Section -->
+
+<!-- Page Grid: Left = Dashboard | Right = Request Form -->
+  <div class="grid grid-cols-2 gap-6">
+   <!-- 📊 Dashboard Overview -->
+<div class="bg-[#151F42] p-6 rounded-lg shadow-md text-center h-full flex flex-col">
+  <!-- Profile Section -->
+  <div class="flex flex-col items-center">
+    <img id="profile-pic" src="" alt="Profile Picture" class="w-20 h-20 rounded-full border border-blue-400">
+    <h2 id="profile-name" class="text-xl font-bold mt-2 text-blue-300">User Name</h2>
+  <div class="flex items-center mt-2">
+    <span id="online-status-dot" class="inline-block w-3 h-3 rounded-full bg-green-500 mr-2"></span>
+    <span class="text-green-400 text-sm">Online</span>
+  </div>
+  </div>
+
+
+  <!-- Metrics in a Row (flex-grow to fill, gap for spacing) -->
+  <div class="mt-6 flex flex-1 gap-4">
+    <div class="flex-1 text-blue-400 font-bold flex flex-col items-center justify-center bg-gray-700 rounded">
+      <i class="fas fa-list-alt text-2xl mb-1 text-blue-400"></i>
+      <p>Total</p>
+      <span id="total-count" class="text-xl">0</span>
+    </div>
+    <div class="flex-1 text-green-400 font-bold flex flex-col items-center justify-center bg-gray-700 rounded">
+      <i class="fas fa-check-circle text-2xl mb-1 text-green-400"></i>
+      <p>Resolved</p>
+      <span id="resolved-count" class="text-xl">0</span>
+    </div>
+    <div class="flex-1 text-yellow-400 font-bold flex flex-col items-center justify-center bg-gray-700 rounded">
+      <i class="fas fa-hourglass-half text-2xl mb-1 text-yellow-400"></i>
+      <p>Pending</p>
+      <span id="pending-count" class="text-xl">0</span>
+    </div>
+    <div class="flex-1 text-red-400 font-bold flex flex-col items-center justify-center bg-gray-700 rounded">
+      <i class="fas fa-times-circle text-2xl mb-1 text-red-400"></i>
+      <p>Rejected</p>
+      <span id="rejected-count" class="text-xl">0</span>
+    </div>
+  </div>
+</div>
+
+   <!-- 📝 Request Submission Form -->
+<div class="bg-[#151F42] p-6 rounded-lg shadow-md">
+  <h2 class="text-2xl font-bold text-blue-300">📝 Submit a Request</h2>
+
+  <!-- Space Selection Dropdown -->
+  <div class="mt-4">
+    <label class="block text-sm">Select Space:</label>
+    <select id="space-select" class="input input-sm input-bordered w-full bg-gray-700 text-white"></select>
+  </div>
+
+  <div class="mt-4">
+    <label class="block text-sm">Title</label>
+    <input type="text" id="request-title" class="input input-bordered w-full bg-gray-700 text-white p-2 rounded mb-2" required />
+  </div>
+
+  <div>
+    <label class="block text-sm">Description</label>
+    <textarea id="request-description" class="input input-bordered w-full bg-gray-700 text-white p-2 rounded mb-2" rows="4" required></textarea>
+  </div>
+
+  <div>
+    <label class="block text-sm">Attachments (PDF/JPG)</label>
+    <input type="file" id="request-file" multiple class="input input-sm input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png"/>
+  </div>
+
+  <button id="submit-request-btn" class="btn btn-primary mt-4 w-full">Submit Request</button>
+</div>
+
+
+  </div>
+
+  <!-- 🏷️ Requests Section Split in Two Columns -->
+  <div class="grid grid-cols-2 gap-6 mt-10">
+    
+<!-- 📋 Requests Table (Styled & Structured Correctly) -->
+<div class="bg-[#151F42] p-6 rounded-lg shadow-md">
+  <h2 class="text-2xl font-bold text-blue-300">📅 My Requests</h2>
+  
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse mt-4">
+      <thead class="bg-gray-700 text-white">
+        <tr>
+            <th class="p-2">Title</th>
+            <th class="p-2 align-middle text-center">Status</th>
+            <th class="p-2 align-middle text-center">Created At</th>
+            <th class="p-2 align-middle text-center">Comments</th> <!-- ✅ Added Comments Column -->
+            <th class="p-2 align-middle text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="request-table" class="text-white"></tbody>
+    </table>
+  </div>
+</div>
+
+
+    <!-- 📌 Right: Request Details Panel -->
+    <div id="request-details-panel" class="bg-[#151F42] p-6 rounded-lg shadow-md hidden">
+      <h2 class="text-2xl font-bold text-blue-300">📄 Request Details</h2>
+      <p class="mt-2"><strong>Title:</strong> <span id="request-title-display"></span></p>
+      <p class="mt-2"><strong>Description:</strong> <span id="request-description-display"></span></p>
+      <p class="mt-2"><strong>Created At:</strong> <span id="request-createdAt-display"></span></p>
+      <p class="mt-2"><strong>Status:</strong> <span id="request-status-display" class="text-yellow-400"></span></p>
+<p class="mt-2"><strong>Space:</strong> <span id="request-space-display"></span></p>
+<p class="mt-2"><strong>Admin:</strong> <span id="request-admin-display"></span></p>
+
+      <h3 class="mt-4 text-lg font-bold text-indigo-300">Attachments:</h3>
+      <div id="request-attachments-display"></div>
+
+      <h3 class="mt-4 text-lg font-bold text-green-300">Approvals:</h3>
+      <ul id="request-approvals-display" class="text-gray-300"></ul>
+
+      <!-- 🔹 Discussion Section -->
+<div class="mt-4">
+  <h3 class="text-lg font-bold text-red-300">Discussion:</h3>
+  
+  <!-- Comments List -->
+  <ul id="request-discussion-display" class="text-gray-300"></ul>
+ 
+  <!-- Comment Input Box -->
+  <div class="mt-2 flex space-x-2">
+    <input type="text" id="comment-input" placeholder="Write a comment..." class="w-full bg-gray-700 text-white p-2 rounded text-sm">
+    <button id="send-comment-btn" class="bg-blue-500 px-3 py-2 text-sm rounded">Send</button>
+  </div>
+</div>
+
+
+      <button id="close-details-btn" class="bg-red-500 px-4 py-2 rounded mt-4">Close</button>
+    </div>
+
+
+
+
+
+
+
+
+    
+  </div>
+
+
+
+  <!-- 🏷️ Requests Section Split in Two Columns -->
+  <div class="grid grid-cols-2 gap-6 mt-10">
+
+    <!-- 📋 Requests Table (Empty Box) -->
+    <div class="bg-[#151F42] p-6 rounded-lg shadow-md min-h-[300px]">
+
+  <!-- 🏷️ Pending Requests for Admin Approval -->
+    <h2 class="text-2xl font-bold text-yellow-300">⚡ Pending Requests for Your Approval</h2>
+    
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse mt-4">
+        <thead class="bg-gray-700 text-white">
+          <tr>
+              <th class="p-2">Title</th>
+              <th class="p-2 text-center">Status</th>
+              <th class="p-2 text-center">Created At</th>
+              <th class="p-2 text-center">Comments</th>
+              <th class="p-2 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="approval-table" class="text-white"></tbody>
+      </table>
+  </div>
+
+    </div>
+
+ <!-- 📌 Right: Request Details Panel (Admin Action Box) -->
+<div id="admin-request-details-panel" class="bg-[#151F42] p-6 rounded-lg shadow-md min-h-[350px]">
+  
+  <h2 class="text-2xl font-bold text-yellow-300 text-center">📝 Pending Request Details</h2>
+  
+  <!-- Placeholder (Shown when no request is selected) -->
+  <div id="admin-request-details-placeholder" class="text-gray-400 text-center mt-10">
+    Select a pending request to view details and take action.
+  </div>
+
+  <!-- Actual Request Details (Hidden by Default) -->
+  <div id="admin-request-details-content" class="mt-4 hidden">
+    <p class="mt-2"><strong>Title:</strong> <span id="admin-request-title" class="text-blue-400"></span></p>
+    <p class="mt-2"><strong>Description:</strong> <span id="admin-request-description" class="text-gray-300"></span></p>
+    <p class="mt-2"><strong>Created At:</strong> <span id="admin-request-createdAt" class="text-green-400"></span></p>
+    <p class="mt-2"><strong>Status:</strong> 
+      <span id="admin-request-status" class="font-bold px-2 py-1 rounded"></span>
+    </p>
+    <p class="mt-2"><strong>Space:</strong> <span id="admin-request-space" class="text-yellow-400"></span></p>
+    <p class="mt-2"><strong>User:</strong> <span id="admin-request-user" class="text-indigo-400"></span></p>
+
+    <h3 class="mt-4 text-lg font-bold text-indigo-300">Attachments:</h3>
+    <div id="admin-request-attachments" class="mt-2 text-blue-400"></div>
+
+    <h3 class="mt-4 text-lg font-bold text-green-300">Approvals:</h3>
+    <ul id="admin-request-approvals" class="text-gray-300 mt-2"></ul>
+
+    <!-- 🔹 Action Buttons (Only if status is pending) -->
+    <div id="admin-action-buttons" class="mt-6 flex gap-4 hidden">
+      <button id="admin-accept-btn" class="btn btn-success flex-1">✅ Accept</button>
+      <button id="admin-reject-btn" class="btn btn-error flex-1">❌ Reject</button>
+    </div>
+
+    <!-- 🔹 Status Message (Shown if approved/rejected) -->
+    <div id="admin-status-message" class="mt-6 text-center text-lg font-bold hidden">
+      <!-- JS will update this dynamically -->
+    </div>
+
+    <button id="admin-close-details-btn" class="bg-red-500 px-4 py-2 rounded mt-6 w-full">Close</button>
+  </div>
+
+</div>
+
+
+  </div>
+  
+
+
+  </div>
+
+
+
+</html>

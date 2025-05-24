@@ -31,61 +31,62 @@
 <body class="bg-gray-900 text-white">
   
   <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 w-full bg-gray-900 p-4 shadow-md flex justify-between items-center">
-    <h1 class="text-2xl font-bold text-blue-300">Memo Acknowledgment System</h1>
+<!-- Top Navigation Bar -->
+  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-white-300">Memo Acknowledgment System</h1>
     <span id="user-greeting" class="text-green-400 text-lg"></span>
   </div>
- <!-- Sidebar -->
-  <div class="fixed top-16 left-0 w-20 bg-gray-800 h-full p-4 shadow-lg flex flex-col items-center">
+
+  <!-- Sidebar -->
+<div class="fixed top-20 left-4 w-30 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center">
     <ul class="space-y-6">
-        <!-- Homepage Link -->
         <li class="text-center">
             <a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-home text-xl"></i>
-                <span class="text-xs mt-1">Home</span>
+                <i class="fas fa-home text-2xl"></i>
+                <span class="text-sm mt-1">Home</span>
             </a>
         </li>
-        <!-- Profile Link -->
         <li class="text-center">
             <a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-user-circle text-xl"></i>
-                <span class="text-xs mt-1">Profile</span>
+                <i class="fas fa-user-circle text-2xl"></i>
+                <span class="text-sm mt-1">Profile</span>
             </a>
         </li>
- <li class="text-center">
-            <a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-rocket text-xl"></i>
-                <span class="text-xs mt-1">spaces</span>
+        <li class="text-center">
+            <a href="request.html" class="flex flex-col items-center  text-white hover:text-blue-500">
+                <i class="fas fa-paper-plane text-2xl"></i>
+                <span class="text-sm mt-1">Request</span>
             </a>
         </li>
-        <!-- Memos Link -->
+        <li class="text-center">
+            <a href="spaces.html" class="flex flex-col items-center  text-white hover:text-blue-500">
+                <i class="fas fa-rocket text-2xl"></i>
+                <span class="text-sm mt-1">Spaces</span>
+            </a>
+        </li>
         <li class="text-center">
             <a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-file-alt text-xl"></i>
-                <span class="text-xs mt-1">Memos</span>
+                <i class="fas fa-file-alt text-2xl"></i>
+                <span class="text-sm mt-1">Memos</span>
             </a>
         </li>
-        <!-- Leaderboard Link -->
         <li class="text-center">
             <a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-trophy text-xl"></i>
-                <span class="text-xs mt-1">Leaderboard</span>
+                <i class="fas fa-trophy text-2xl"></i>
+                <span class="text-sm mt-1">Leaderboard</span>
             </a>
         </li>
-        <!-- Admin Link -->
         <li class="text-center">
             <a href="admin.html" class="flex flex-col items-center text-blue-500">
-                <i class="fas fa-lock text-xl"></i>
-                <span class="text-xs mt-1">Admin</span>
+                <i class="fas fa-lock text-2xl"></i>
+                <span class="text-sm mt-1">Admin</span>
             </a>
         </li>
     </ul>
-    <!-- Logout Button -->
     <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
-        <i class="fas fa-sign-out-alt text-xl"></i>
+        <i class="fas fa-sign-out-alt text-2xl"></i>
     </button>
 </div>
-
   <!-- Main Content Area -->
   <div class="flex-1 overflow-y-auto p-20 ml-24">
  
@@ -93,7 +94,7 @@
 
     
    <!-- Clickable Backup Status Header -->
-<div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+<div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
     <h2 id="toggle-backup-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">🔒 Backup & Data Protection</h2>
 
     <!-- Hidden Backup Details Section -->
@@ -134,7 +135,7 @@
 
 
     <!-- Clickable Spoiler Header -->
-    <div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+    <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
             <h2 id="toggle-update-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Post Website Updates</h2>
 
             <!-- Hidden Update Form -->
@@ -148,7 +149,7 @@
     </div>
 
 
-    <div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+    <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
         <h2 id="toggle-update-btn2" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Create New Memo</h2>
     
             <!-- Hidden Update Form -->
@@ -171,7 +172,7 @@
         </div>   
 
 
-<div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+<div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
     <h2 id="toggle-space-btn" class="text-2xl font-semibold text-blue-300 cursor-pointer">📝 Assign Space Creation Permission</h2>
 
     <!-- Hidden Assignment Form -->
@@ -189,7 +190,7 @@
     </div>
 </div>
 
-<div class="bg-gray-800 p-4 rounded-lg shadow-md text-center w-full mt-6">
+<div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
     <h2 id="toggle-space-requests" class="text-2xl font-semibold text-blue-300 cursor-pointer">📋 Pending Space Creation Requests</h2>
 
     <!-- Hidden Space Requests List -->

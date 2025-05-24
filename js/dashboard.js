@@ -828,3 +828,28 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            countJoinedSpaces(user.uid);
+        } else {
+            console.error("No authenticated user found.");
+        }
+    });
+});
+
+// Count only the number of joined spaces and display it
+function countJoinedSpaces(currentUserUID) {
+    db.collection("spaces").where("joinedParticipants", "array-contains", currentUserUID).get()
+        .then(snapshot => {
+            const joinedCountElement = document.getElementById("joined-spaces-count");
+            if (joinedCountElement) {
+                joinedCountElement.innerText = snapshot.size;
+            }
+        })
+        .catch(error => console.error("Error fetching joined spaces count:", error));
+}
