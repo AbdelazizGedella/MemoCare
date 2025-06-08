@@ -276,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     // Redirect to memos.html when "Show More" is clicked
                     showMoreButton.addEventListener("click", () => {
-                        window.location.href = "memos.html";
+                        window.location.href = "Memos.html";
                     });
 
                 }).catch(error => {
