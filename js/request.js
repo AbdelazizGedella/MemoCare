@@ -73,10 +73,7 @@ function loadUserSpaces(currentUserUID) {
 // ✅ Submit a Request with Space & Admin Details
 async function submitRequest() {
     const title = document.getElementById("request-title").value.trim();
-    if (title.split(/\s+/).length > 4) {
-        alert("Title cannot be more than 4 words.");
-        return;
-    }
+
     const description = document.getElementById("request-description").value.trim();
     const files = document.getElementById("request-file").files;
     const spaceId = document.getElementById("space-select").value;
