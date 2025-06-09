@@ -132,18 +132,68 @@
 
   <!-- Space Selection Dropdown -->
   <div class="mt-4">
-    <label class="block text-sm">Select Space:</label>
-    <select id="space-select" class="input input-sm input-bordered w-full bg-gray-700 text-white"></select>
+    <div class="flex items-center gap-2">
+      <label class="block text-sm mr-2">Select Space:</label>
+      <select id="space-select" class="input input-sm input-bordered bg-gray-700 text-white"></select>
+      <a href="spaces.html" class="text-blue-400 underline text-sm hover:text-blue-200" target="_blank">
+        Not in a space? Click here to join first
+      </a>
+    </div>
   </div>
 
   <div class="mt-4">
     <label class="block text-sm">Title</label>
-    <input type="text" id="request-title" class="input input-bordered w-full bg-gray-700 text-white p-2 rounded mb-2" required />
+            <div class="bg-white bg-opacity-10 border border-blue-400 rounded p-2 mb-2">
+              <button type="button" id="schedule-template-btn" class="btn btn-xs btn-outline btn-info">
+                Schedule Change Template
+              </button>
+              <button type="button" id="shift-swap-template-btn" class="btn btn-xs btn-outline btn-warning mt-2">
+                Shift Swap Template
+              </button>
+              <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                  const scheduleBtn = document.getElementById('schedule-template-btn');
+                  const shiftSwapBtn = document.getElementById('shift-swap-template-btn');
+                  scheduleBtn.addEventListener('click', function() {
+                    document.getElementById('request-title').value = 'Schedule Change Request Month of ';
+                    document.getElementById('request-description').value =
+              `1st day:           2nd day:            3rd day: 
+              Note: 100% of requests cannot be guaranteed.`;
+                  });
+                  shiftSwapBtn.addEventListener('click', function() {
+                    document.getElementById('request-title').value = 'Shift Swap Request with';
+                    document.getElementById('request-description').value =
+              `I would like to swap my shift with:
+              - My shift: [Date/Time]
+              - Swap with: [Colleague Name, Date/Time]
+              Reason: 
+              Note: Both parties must agree to the swap.`;
+                  });
+                });
+              </script>
+            </div>
+            <div class="h-2"></div>
+
+    <div class="flex items-center gap-2">
+      <input type="text" id="request-title" class="input input-bordered w-full bg-gray-700 text-white p-2 rounded mb-2" required />
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+      const btn = document.getElementById('schedule-template-btn');
+      btn.addEventListener('click', function() {
+        document.getElementById('request-title').value = 'Schedule Change Request';
+        document.getElementById('request-description').value = 
+  `1st day:           2nd day:            3rd day: 
+Note: 100% of requests cannot be guaranteed.`;
+      });
+      });
+    </script>
   </div>
 
   <div>
     <label class="block text-sm">Description</label>
-    <textarea id="request-description" class="input input-bordered w-full bg-gray-700 text-white p-2 rounded mb-2" rows="4" required></textarea>
+    <textarea id="request-description" class="textarea textarea-bordered w-full bg-gray-700 text-white p-2 rounded mb-2 resize-y" rows="4" required placeholder="Describe your request..."></textarea>
   </div>
 
   <div>
