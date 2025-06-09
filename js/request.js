@@ -73,7 +73,7 @@ function loadUserSpaces(currentUserUID) {
 // ✅ Submit a Request with Space & Admin Details
 async function submitRequest() {
     const title = document.getElementById("request-title").value.trim();
-
+  
     const description = document.getElementById("request-description").value.trim();
     const files = document.getElementById("request-file").files;
     const spaceId = document.getElementById("space-select").value;

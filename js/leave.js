@@ -107,6 +107,25 @@ async function submitLeaveRequest() {
     const spaceId = document.getElementById("space-select").value;
 
     try {
+        // Check if user already has a leave request that is not rejected
+        const existing = await db.collection("leave_requests")
+            .where("user_id", "==", userId)
+            .orderBy("start_date", "desc")
+            .get();
+
+        let hasPendingOrApproved = false;
+        existing.forEach(doc => {
+            const status = doc.data().status;
+            if (status === "Pending" || status === "Approved") {
+                hasPendingOrApproved = true;
+            }
+        });
+
+        if (hasPendingOrApproved) {
+            alert("You already have a pending or approved leave request. You cannot submit a new one.");
+            return;
+        }
+
         const userDoc = await db.collection("users").doc(userId).get();
         if (!userDoc.exists) {
             alert("Contract details not found!");
@@ -127,7 +146,8 @@ async function submitLeaveRequest() {
             return;
         }
 
-        // Store Leave Request in Firestore, including space_id
+        // Store Leave Request in Firestore, including space_id and comment (if any)
+        const comment = document.getElementById("leave-comment") ? document.getElementById("leave-comment").value : "";
         await db.collection("leave_requests").add({
             user_id: userId,
             leave_type: leaveType,
@@ -135,7 +155,8 @@ async function submitLeaveRequest() {
             end_date: toDate.toISOString().split("T")[0],
             duration: duration,
             status: "Pending",
-            space_id: spaceId
+            space_id: spaceId,
+            comment: comment
         });
 
         alert("Leave request submitted!");
@@ -240,7 +261,8 @@ async function loadUserLeaveRequests(userId, userName) {
                 from: request.start_date,
                 to: request.end_date,
                 duration: request.duration,
-                hijriMonth: hijriMonth
+                hijriMonth: hijriMonth,
+                status: request.status // Add status property
             });
         });
 
@@ -330,6 +352,9 @@ async function loadUserLeaveRequests(userId, userName) {
                         ${l.from} - ${l.to} (${l.duration} days)<br>
                         <span class="text-gray-400 text-[10px]">
                             Hijri: ${formatHijriDate(l.from)} - ${formatHijriDate(l.to)}
+                              <div class="text-xs text-purple-300 mt-1">
+                                    Request Status: <b>${l.status}</b>
+                                </div>
                         </span><br>
                         ${leaveDaysInMonth > 0 ? `
                             <div class="w-full bg-gray-500 rounded h-3 mt-1 mb-1">
@@ -402,4 +427,214 @@ function loadUserSpaces(currentUserUID) {
             });
         })
         .catch(error => console.error("Error fetching joined spaces:", error));
+}
+
+
+
+
+// ✅ Admin: Load Leave Requests for Spaces Owned by Current User
+async function loadAdminRequests(currentUserUID) {
+    try {
+        // 1. Find spaces owned by current user
+        const spacesSnapshot = await db.collection("spaces").where("createdBy", "==", currentUserUID).get();
+        const adminSpaces = [];
+        spacesSnapshot.forEach(doc => adminSpaces.push({ id: doc.id, name: doc.data().name }));
+
+        if (adminSpaces.length === 0) {
+            document.getElementById("leave-grid-admin").innerHTML = `<div class="text-gray-400 p-4">You do not own any spaces.</div>`;
+            return;
+        }
+
+        // 2. Fetch leave requests for these spaces
+        const leaveRequests = [];
+        for (const space of adminSpaces) {
+            const reqs = await db.collection("leave_requests").where("space_id", "==", space.id).get();
+            reqs.forEach(doc => leaveRequests.push({ ...doc.data(), id: doc.id, spaceName: space.name }));
+        }
+
+        // 3. Group by month
+        const leaveByMonth = {};
+        leaveRequests.forEach(request => {
+            const gDate = new Date(request.start_date);
+            const gMonthIdx = gDate.getMonth();
+            if (!leaveByMonth[gMonthIdx]) leaveByMonth[gMonthIdx] = [];
+            leaveByMonth[gMonthIdx].push(request);
+        });
+
+        // 4. Prepare months grid (same as user grid)
+        function gregorianToHijriRange(year) {
+            const hijriMonths = [
+                "Muharram", "Safar", "Rabi' al-awwal", "Rabi' al-thani",
+                "Jumada al-awwal", "Jumada al-thani", "Rajab", "Sha'ban",
+                "Ramadan", "Shawwal", "Dhu al-Qi'dah", "Dhu al-Hijjah"
+            ];
+            const months = [];
+            for (let m = 0; m < 12; m++) {
+                const gStart = new Date(year, m, 1);
+                const gEnd = new Date(year, m + 1, 0);
+                let hStart, hEnd;
+                try {
+                    const hijriFmt = new Intl.DateTimeFormat('en-TN-u-ca-islamic', {
+                        year: 'numeric', month: 'long', day: 'numeric'
+                    });
+                    hStart = hijriFmt.format(gStart);
+                    hEnd = hijriFmt.format(gEnd);
+                } catch {
+                    hStart = hijriMonths[(m + 1) % 12];
+                    hEnd = hijriMonths[(m + 1) % 12];
+                }
+                months.push({
+                    gMonth: gStart.toLocaleString('default', { month: 'short' }),
+                    gStart,
+                    gEnd,
+                    hStart,
+                    hEnd
+                });
+            }
+            return months;
+        }
+        const months = gregorianToHijriRange(2026).map(m =>
+            `${m.gMonth} (${m.hStart} - ${m.hEnd})`
+        );
+
+        // 5. Helper to fetch user details (contract, past leaves)
+        async function getUserDetails(userId) {
+            try {
+                const doc = await db.collection("users").doc(userId).get();
+                if (!doc.exists) return {};
+                const data = doc.data();
+                return {
+                    name: data.name || "User",
+                    contract_end_date: data.contract_end_date || "Not Set",
+                    leave_history_2024: data.leave_history_2024 || []
+                };
+            } catch {
+                return {};
+            }
+        }
+
+        // 6. Helper to format Hijri date
+        function formatHijriDate(gregorianDate) {
+            try {
+                const date = new Date(gregorianDate);
+                const hijriFmt = new Intl.DateTimeFormat('en-TN-u-ca-islamic', {
+                    day: '2-digit', month: 'long', year: 'numeric'
+                });
+                let hijriStr = hijriFmt.format(date);
+                hijriStr = hijriStr.replace(' هـ', '');
+                return hijriStr;
+            } catch {
+                return '';
+            }
+        }
+
+        // 7. Render grid
+        let gridHTML = "";
+        for (let index = 0; index < months.length; index++) {
+            let leaveInfo = "";
+            if (leaveByMonth[index]) {
+                for (const l of leaveByMonth[index]) {
+                    // Fetch user details for tooltip
+                    const userDetails = await getUserDetails(l.user_id);
+                    const leaveStart = new Date(l.start_date);
+                    const leaveEnd = new Date(l.end_date);
+                    const monthStart = new Date(leaveStart.getFullYear(), index, 1);
+                    const monthEnd = new Date(leaveStart.getFullYear(), index + 1, 0);
+                    const effectiveStart = leaveStart < monthStart ? monthStart : leaveStart;
+                    const effectiveEnd = leaveEnd > monthEnd ? monthEnd : leaveEnd;
+                    const msInDay = 1000 * 60 * 60 * 24;
+                    const daysInMonth = Math.round((monthEnd - monthStart) / msInDay) + 1;
+                    const leaveDaysInMonth = Math.max(0, Math.round((effectiveEnd - effectiveStart) / msInDay) + 1);
+                    const percent = daysInMonth > 0 ? Math.round((leaveDaysInMonth / daysInMonth) * 100) : 0;
+
+                    // Tooltip content
+                    let tooltip = `
+                        <div class="p-2 text-xs">
+                            <div><b>Name:</b> ${userDetails.name}</div>
+                            <div><b>Contract End:</b> ${userDetails.contract_end_date}</div>
+                            <div><b>Past Leaves:</b></div>
+                            <ul class="ml-2">
+                                ${userDetails.leave_history_2024.map(h =>
+                                    `<li>${h.from} - ${h.to} (${h.days} days, ${h.type})</li>`
+                                ).join("") || "<li>None</li>"}
+                            </ul>
+                        </div>
+                    `;
+
+                    leaveInfo += `
+                        <div class="relative group mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-yellow-300 text-xs">${userDetails.name || "User"}</span>
+                                ${
+                                    (l.status === "Pending")
+                                    ? `
+                                        <button class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs mr-1" onclick="approveLeaveRequest('${l.id}')">&#10003;</button>
+                                        <button class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs" onclick="rejectLeaveRequest('${l.id}')">&#10007;</button>
+                                    `
+                                    : ""
+                                }
+                            </div>
+                                <span class="text-gray-400 text-xs">(${l.spaceName})</span>
+                            <div class="text-green-300 text-xs">
+                                ${l.start_date} - ${l.end_date} (${l.duration} days)
+                             <br>
+                                 <span class="text-gray-400 text-[10px]">
+                                    Hijri: ${formatHijriDate(l.start_date)} - ${formatHijriDate(l.end_date)}
+                                </span>
+                                <div class="w-full bg-gray-500 rounded h-3 mt-1 mb-1">
+                                    <div class="bg-blue-400 h-3 rounded" style="width: ${percent}%"></div>
+                                </div>
+                                <div class="text-blue-400 text-xs text-right">${percent}% of month on leave</div>
+                                <div class="text-xs text-pink-300 mt-1">
+                                    Status: ${l.status}
+                                </div>
+                                ${l.comment ? `
+                                    <div class="w-full bg-purple-500 rounded h-2 mt-1 mb-1">
+                                        <div class="bg-purple-300 h-2 rounded" style="width: 100%"></div>
+                                    </div>
+                                    <div class="text-xs text-purple-200 mt-1">
+                                        Comment: ${l.comment}
+                                    </div>
+                                ` : ""}
+                            </div>
+                            <div class="absolute left-0 top-full z-10 hidden group-hover:block bg-gray-800 border border-gray-600 rounded shadow-lg mt-1 w-64">
+                                ${tooltip}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            gridHTML += `
+                <div class="p-4 bg-gray-700 rounded mb-2">
+                    <div>${months[index]}</div>
+                    ${leaveInfo}
+                </div>
+            `;
+        }
+        document.getElementById("leave-grid-admin").innerHTML = gridHTML;
+    } catch (error) {
+        console.error("Error loading admin leave requests:", error);
+    }
+}
+
+// ✅ Approve/Reject Leave Request Functions
+async function approveLeaveRequest(requestId) {
+    if (!confirm("Approve this leave request?")) return;
+    try {
+        await db.collection("leave_requests").doc(requestId).update({ status: "Approved" });
+        alert("Leave request approved.");
+        location.reload();
+    } catch (e) {
+        alert("Error approving request.");
+    }
+}
+async function rejectLeaveRequest(requestId) {
+    if (!confirm("Reject this leave request?")) return;
+    try {
+        await db.collection("leave_requests").doc(requestId).update({ status: "Rejected" });
+        alert("Leave request rejected.");
+        location.reload();
+    } catch (e) {
+        alert("Error rejecting request.");
+    }
 }
