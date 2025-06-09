@@ -565,15 +565,11 @@ async function loadAdminRequests(currentUserUID) {
                         <div class="relative group mb-3">
                             <div class="flex items-center gap-2">
                                 <span class="text-yellow-300 text-xs">${userDetails.name || "User"}</span>
-                                ${
-                                    (l.status === "Pending")
-                                    ? `
-                                        <button class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs mr-1" onclick="approveLeaveRequest('${l.id}')">&#10003;</button>
-                                        <button class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs" onclick="rejectLeaveRequest('${l.id}')">&#10007;</button>
-                                    `
-                                    : ""
-                                }
+                                
+                                <button class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs mr-1" onclick="approveLeaveRequest('${l.id}')">&#10003;</button>
+                                <button class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs" onclick="rejectLeaveRequest('${l.id}')">&#10007;</button>
                             </div>
+                  
                                 <span class="text-gray-400 text-xs">(${l.spaceName})</span>
                             <div class="text-green-300 text-xs">
                                 ${l.start_date} - ${l.end_date} (${l.duration} days)
