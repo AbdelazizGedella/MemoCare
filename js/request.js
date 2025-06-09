@@ -14,6 +14,8 @@ if (!firebase.apps.length) {
 const db = firebase.firestore();
 const auth = firebase.auth();
 const storage = firebase.storage();
+
+
 document.addEventListener("DOMContentLoaded", () => {
     auth.onAuthStateChanged(user => {
         if (user) {
@@ -23,7 +25,29 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("No authenticated user found.");
         }
     });
-    document.getElementById("submit-request-btn").addEventListener("click", submitRequest);
+    document.getElementById("submit-request-btn").addEventListener("click", async () => {
+        await submitRequest();
+        // Only show this dialog (remove any other dialog logic)
+        const dialog = document.createElement("div");
+        dialog.style.position = "fixed";
+        dialog.style.top = "50%";
+        dialog.style.left = "50%";
+        dialog.style.transform = "translate(-50%, -50%)";
+        dialog.style.background = "#222";
+        dialog.style.color = "#fff";
+        dialog.style.padding = "32px 48px";
+        dialog.style.borderRadius = "12px";
+        dialog.style.boxShadow = "0 4px 24px rgba(0,0,0,0.2)";
+        dialog.style.fontSize = "1.25rem";
+        dialog.style.zIndex = "9999";
+        dialog.innerHTML = `<span style="font-size:2rem;vertical-align:middle;">✅</span> Request submitted successfully!`;
+        document.body.appendChild(dialog);
+
+        setTimeout(() => {
+            dialog.remove();
+            window.location.reload();
+        }, 1500);
+    });
 });
 
 
@@ -159,7 +183,6 @@ function loadAdminRequests(userId) {
                 alert("You must be logged in to view your requests.");
             }
         });
-        document.getElementById("submit-request-btn").addEventListener("click", submitRequest);
     });
     // ✅ Load User Profile Info
 // ✅ Load User Profile from Firestore
