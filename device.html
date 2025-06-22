@@ -144,7 +144,15 @@
   <div class="flex-1 overflow-y-auto p-20 ml-24">
  
 
-
+<div class="flex justify-end mb-6">
+    <button
+        id="compliance-btn"
+        class="btn btn-accent text-white font-semibold px-6 py-2 rounded shadow hover:bg-blue-700 transition"
+        onclick="window.location.href='compliance.html'"
+    >
+        Check Compliance
+    </button>
+</div>
 <div class="max-w-xl mx-auto bg-[#1A2238] p-8 rounded-lg shadow-lg">
     <h2 class="text-xl font-bold mb-6 text-center">Scan Device Barcode</h2>
     <div id="barcode-reader" class="flex justify-center mb-4">
@@ -152,6 +160,14 @@
         <video id="barcode-video" class="rounded-lg border-2 border-blue-500" width="320" height="240" autoplay muted></video>
     </div>
     <div id="scan-status" class="text-center text-blue-400 mb-4">Awaiting scan...</div>
+    <div id="device-info-form" class="hidden">
+  <label>Device Full Name: <input type="text" id="device-fullname" /></label><br/>
+  <label>Manufacturer: <input type="text" id="device-manufacturer" /></label><br/>
+  <label>Serial Number: <input type="text" id="device-serial" /></label><br/>
+  <label>Device Location: <input type="text" id="device-fixed-location" /></label><br/>
+</div>
+
+
     <form id="device-form" class="space-y-4 hidden">
         <div>
             <label class="block text-sm font-medium mb-1">Device ID</label>
@@ -182,12 +198,37 @@
         <div>
             <label class="block text-sm font-medium mb-1">Device Location</label>
             <input id="device-location" type="text" class="input input-bordered w-full bg-gray-800 text-white" placeholder="Enter location" required>
+
+            <textarea id="comment-input" class="textarea textarea-bordered w-full bg-gray-800 text-white mt-2" rows="2" placeholder="Add comments (optional)"></textarea>
         </div>
         <button type="submit" class="btn btn-primary w-full">Submit</button>
     </form>
 </div>
-<script defer src="./js/device-barcode.js"></script>
     
+
+
+
+<div class="mt-10 p-6 bg-[#1A2238] rounded-lg shadow">
+  <h2 class="text-xl font-bold mb-4">📋 Device Inventory</h2>
+  <input type="text" id="search-input" placeholder="Search devices..." class="input input-bordered w-full bg-gray-800 text-white mb-4" />
+  <div class="overflow-x-auto">
+    <table class="table w-full text-sm text-left" id="device-table">
+      <thead>
+        <tr class="bg-gray-700 text-white">
+          <th class="px-4 py-2">Barcode</th>
+          <th class="px-4 py-2">Device Name</th>
+          <th class="px-4 py-2">Manufacturer</th>
+          <th class="px-4 py-2">Serial Number</th>
+          <th class="px-4 py-2">Details</th>
+        </tr>
+      </thead>
+      <tbody id="device-table-body" class="bg-gray-800 text-white">
+        <!-- Rows will be loaded dynamically -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
   </div>
 
 </body>

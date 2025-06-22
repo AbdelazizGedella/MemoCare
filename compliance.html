@@ -1,11 +1,14 @@
-
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memo || Spaces</title>
 
+  <title>Memo Acknowledgment Dashboard</title>
+
+  <title>Memo || Memos</title>
+
+  
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
@@ -15,9 +18,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
   <!-- App Logic -->
-  <script defer src="./js/spaces.js"></script>
+  <script defer src="./js/compliance.js"></script>
+
 
 
   
@@ -53,7 +58,7 @@
             </a>
         </li>
         <li class="text-center">
-            <a href="request.html" class="flex flex-col items-center  text-white hover:text-blue-500">
+            <a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500">
                 <i class="fas fa-paper-plane text-2xl"></i>
                 <span class="text-sm mt-1">Request</span>
             </a>
@@ -65,7 +70,7 @@
             </a>
         </li>
         <li class="text-center">
-            <a href="spaces.html" class="flex flex-col items-center text-blue-500">
+            <a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500">
                 <i class="fas fa-rocket text-2xl"></i>
                 <span class="text-sm mt-1">Spaces</span>
             </a>
@@ -77,7 +82,7 @@
             </a>
         </li>
         <li class="text-center">
-            <a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500">
+            <a href="device.html" class="flex flex-col items-center text-blue-500">
                 <i class="fas fa-tablet-alt text-2xl"></i>
                 <span class="text-sm mt-1">Devices</span>
             </a>
@@ -99,55 +104,78 @@
         <i class="fas fa-sign-out-alt text-2xl"></i>
     </button>
 </div>
+<style>
+    @media (max-width: 768px) {
+        .fixed.top-20.left-4 {
+            position: static;
+            width: 100%;
+            margin: 0;
+            padding: 1rem 0.5rem;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            border-radius: 0;
+            box-shadow: none;
+            background: #151F42;
+        }
+        .fixed.top-20.left-4 ul {
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+            width: 100%;
+            justify-content: center;
+        }
+        .fixed.top-20.left-4 li {
+            margin-bottom: 0;
+        }
+        .fixed.top-0.left-0 {
+            padding: 1rem 0.5rem;
+        }
+        .flex-1.overflow-y-auto.p-20.ml-24 {
+            padding: 1rem 0.5rem !important;
+            margin-left: 0 !important;
+        }
+        .max-w-xl.mx-auto.bg-\[\#1A2238\].p-8.rounded-lg.shadow-lg {
+            padding: 1rem !important;
+        }
+    }
+</style>
   <!-- Main Content Area -->
   <div class="flex-1 overflow-y-auto p-20 ml-24">
-    <h2 class="text-2xl font-bold text-blue-300">Manage Spaces</h2>
+<h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+  <span>🗂️</span> قائمة الأجهزة وآخر فحص
+</h2>
 
-<!-- Status Message -->
-    <div id="statusContainer" class="bg-[#151F42] p-4 rounded text-white">
-<p id="canCreateSpaces" class="text-blue-300 mt-2"></p>
-<button id="requestSpaceBtn" class="bg-blue-500 px-4 py-2 rounded hidden">Request Space Creation</button>
-
+<!-- Search -->
+<div class="mb-4">
+  <input type="text" id="search-input"
+    class="w-full p-2 rounded bg-[#2D365C] text-white border border-gray-600"
+    placeholder="🔍 ابحث باسم الجهاز أو الباركود...">
 </div>
 
+<!-- Summary Table -->
+<div id="summary" class="mb-4 text-sm text-gray-300"></div>
 
-    <!-- Create New Space Button -->
-    <button id="createSpaceBtn" class="bg-green-600 hover:bg-green-800 text-white px-4 py-2 rounded mt-4">+ Create New Space</button>
-
-
-    <!-- Spaces List -->
-    <table class="w-full text-left border-collapse mt-6">
-<div class="text-center text-white mb-4 relative w-1/2 mx-auto">
-    <input type="text" id="search-box" placeholder="🔎 Search for Spaces..."
-        class="bg-gray-700 text-white p-2 rounded w-full text-center">
+<!-- Table -->
+<div class="overflow-x-auto rounded-lg shadow-lg bg-[#1A2238]">
+  <table class="min-w-full text-sm text-center divide-y divide-gray-700">
+    <thead class="bg-[#232B4D] text-white">
+      <tr>
+        <th class="px-4 py-3">Barcode</th>
+        <th class="px-4 py-3">Full Name</th>
+        <th class="px-4 py-3">Manufacturer</th>
+        <th class="px-4 py-3">Serial</th>
+        <th class="px-4 py-3">Location</th>
+        <th class="px-4 py-3">Last Checked By</th>
+        <th class="px-4 py-3">Last Check Time</th>
+        <th class="px-4 py-3">Status</th>
+        <th class="px-4 py-3">Comments</th>
+      </tr>
+    </thead>
+    <tbody id="checks-table-body" class="divide-y divide-gray-800"></tbody>
+  </table>
 </div>
 
-      <caption class="caption-top text-lg font-semibold text-white mb-4">🔹 Active Spaces</caption>
-      <thead class="bg-gray-700 text-white">
-    <tr>
-        <th class="p-2">Space Name</th>
-        <th class="p-2">Created By</th>
-        <th class="p-2">Created At</th>
-        <th class="p-2">Requests</th>
-        <th class="p-2">Users</th>
-        <th class="p-2">Memos</th>
-        <th class="p-2">Actions</th>
-    </tr>
-</thead>
-
-      <tbody id="spaces-table" class="text-white"></tbody>
-    </table>
-
-    <div id="spacesContainer" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-
-
-<div id="space-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center hidden">
-    <div class="bg-[#151F42] p-6 rounded-lg shadow-md w-96">
-        <div id="space-modal-content"></div>
-        <button id="join-space-btn" class="bg-green-500 px-4 py-2 rounded mt-4">+ Join Request</button>
-        <button onclick="document.getElementById('space-modal').classList.add('hidden');" class="bg-red-500 px-4 py-2 rounded mt-4">Close</button>
-    </div>
-</div>
 
   </div>
 

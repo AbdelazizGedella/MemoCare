@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Device Scan Details</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+
+  <div class="mb-6">
+    <h2 class="text-2xl font-bold mb-2" id="header-title">🔍 Device Scan History</h2>
+
+    <div class="flex flex-wrap gap-4 items-center">
+      <label class="label-text">Date From: <input type="date" id="date-from" class="input input-bordered bg-gray-800 text-white ml-2" /></label>
+      <label class="label-text">Date To: <input type="date" id="date-to" class="input input-bordered bg-gray-800 text-white ml-2" /></label>
+      <button id="filter-btn" class="btn btn-primary">Filter</button>
+      <button id="print-btn" class="btn btn-outline btn-success">🖨️ Print Report</button>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg shadow border border-gray-700">
+    <table class="table table-zebra w-full text-sm text-left">
+      <thead class="bg-blue-800 text-white">
+        <tr>
+          <th class="px-4 py-2">Date</th>
+          <th>Available</th>
+          <th>Functioning</th>
+          <th>Clean</th>
+          <th>Location</th>
+          <th>Comment</th>
+          <th>User</th>
+        </tr>
+      </thead>
+      <tbody id="scan-table-body" class="bg-gray-800 text-white"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79",
+      storageBucket: "ctwo-eee79.appspot.com",
+      messagingSenderId: "788657051205",
+      appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+      measurementId: "G-4VTCQR4ZVR"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const deviceId = urlParams.get("device");
+    const deviceSerial = urlParams.get("serial") || "";
+    const headerTitle = document.getElementById("header-title");
+    const tableBody = document.getElementById("scan-table-body");
+    const dateFrom = document.getElementById("date-from");
+    const dateTo = document.getElementById("date-to");
+
+    headerTitle.textContent = `📄 Scan Report: ${deviceId} (${deviceSerial})`;
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (!user) {
+        alert("⚠️ You must be logged in to view device scans.");
+        window.location.href = "login.html";
+      } else {
+        setDefaultMonthDates();
+        loadScans();
+      }
+    });
+
+    function setDefaultMonthDates() {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      dateFrom.value = start.toISOString().split("T")[0];
+      dateTo.value = end.toISOString().split("T")[0];
+    }
+
+    async function loadScans() {
+      tableBody.innerHTML = "";
+      const from = new Date(dateFrom.value);
+      const to = new Date(dateTo.value);
+      to.setHours(23, 59, 59, 999);
+
+      let query = db.collection("devices")
+                    .doc(deviceId)
+                    .collection("scans")
+                    .where("timestamp", ">=", firebase.firestore.Timestamp.fromDate(from))
+                    .where("timestamp", "<=", firebase.firestore.Timestamp.fromDate(to))
+                    .orderBy("timestamp", "desc");
+
+      const renderedIds = new Set();
+
+      try {
+        const snapshot = await query.get();
+        if (snapshot.empty) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td colspan="7" class="text-center py-4 text-gray-400">No scans found in this range.</td>`;
+          tableBody.appendChild(tr);
+          return;
+        }
+
+        for (const doc of snapshot.docs) {
+          if (renderedIds.has(doc.id)) continue;
+          renderedIds.add(doc.id);
+
+          const data = doc.data();
+          const date = data.timestamp?.toDate().toLocaleString() || "-";
+const userId = data.user;
+let displayName = userId;
+
+if (userId) {
+  try {
+    const userProfile = await db.collection("users").doc(userId).get();
+    if (userProfile.exists) {
+      const userData = userProfile.data();
+      displayName = userData.name || userId;
+    }
+  } catch (e) {
+    console.warn("❗ Couldn't fetch user name:", e.message);
+  }
+}
+
+
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td class="py-2 px-3 font-mono text-xs">${date}</td>
+            <td>${data.available ? "✅" : "❌"}</td>
+            <td>${data.functioning ? "✅" : "❌"}</td>
+            <td>${data.clean ? "✅" : "❌"}</td>
+            <td>${data.location || "-"}</td>
+            <td>${data.comment || "-"}</td>
+            <td>${displayName}</td>
+          `;
+          tableBody.appendChild(row);
+        }
+
+      } catch (error) {
+        console.error("Failed to load scans:", error.message);
+        if (error.code === "failed-precondition" && error.message.includes("index")) {
+          const match = error.message.match(/https:\/\/console.firebase.google.com\/[^\s"]+/);
+          if (match) {
+            alert("⚠️ هذا الاستعلام يحتاج Index في Firestore. سيتم فتح الصفحة الآن.");
+            window.open(match[0], "_blank");
+          } else {
+            alert("⚠️ هذا الاستعلام يحتاج Index، لكن لم يتم العثور على الرابط.");
+          }
+        } else {
+          alert("حدث خطأ أثناء تحميل البيانات.");
+        }
+      }
+    }
+
+    document.getElementById("filter-btn").addEventListener("click", loadScans);
+
+    document.getElementById("print-btn").addEventListener("click", () => {
+      const printableTitle = `${deviceId}-${deviceSerial}`.replace(/\s+/g, "_");
+      const originalTitle = document.title;
+      document.title = printableTitle;
+      window.print();
+      document.title = originalTitle;
+    });
+  </script>
+
+</body>
+</html>

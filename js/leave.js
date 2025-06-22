@@ -139,7 +139,6 @@ async function submitLeaveRequest() {
             return;
         }
 
- 
         // Exclude Ramadan & Zulhijjah (based on Hijri calendar, not Gregorian)
         // Use Intl.DateTimeFormat to get the Islamic month name
         function getIslamicMonthName(date) {
@@ -156,6 +155,7 @@ async function submitLeaveRequest() {
             alert("Leave request denied: Restricted month.");
             return;
         }
+
         // Store Leave Request in Firestore, including space_id and comment (if any)
         const comment = document.getElementById("leave-comment") ? document.getElementById("leave-comment").value : "";
         await db.collection("leave_requests").add({
