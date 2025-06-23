@@ -53,27 +53,49 @@ script.onload = () => {
         timestampInput.value = new Date().toLocaleString();
 
         const doc = await db.collection("devices").doc(scannedBarcode).get();
-        if (doc.exists) {
-          deviceExists = true;
+if (doc.exists) {
+  deviceExists = true;
 
-          const infoDoc = await db.collection("devices")
-            .doc(scannedBarcode)
-            .collection("information")
-            .doc("generalData")
-            .get();
+  const infoDoc = await db.collection("devices")
+    .doc(scannedBarcode)
+    .collection("information")
+    .doc("generalData")
+    .get();
 
-          itemInfoInput.value = infoDoc.exists
-            ? infoDoc.data().fullName || "Unnamed device"
-            : "Unnamed device";
+  if (infoDoc.exists) {
+    const data = infoDoc.data();
 
-          infoForm.classList.add("hidden");
-          form.classList.remove("hidden");
-        } else {
-          deviceExists = false;
-          itemInfoInput.value = "Unknown device";
-          infoForm.classList.remove("hidden");
-          form.classList.remove("hidden");
-        }
+    itemInfoInput.value = data.fullName || "Unnamed device";
+      fixedLocInput.value = data.fixedLocation || "Unknown";
+      locationInput.value = data.fixedLocation || "Unknown"; // ✅ أضف هذا السطر
+
+
+    // ✅ Automatically check the three fields
+    availableInput.checked = true;
+    functioningInput.checked = true;
+    cleanInput.checked = true;
+
+  } else {
+    itemInfoInput.value = "Unnamed device";
+    fixedLocInput.value = "Unknown";
+  }
+
+  infoForm.classList.add("hidden");
+  form.classList.remove("hidden");
+} else {
+  deviceExists = false;
+  itemInfoInput.value = "Unknown device";
+  fixedLocInput.value = "Unknown";
+
+  // ✅ Also auto check if creating new
+  availableInput.checked = true;
+  functioningInput.checked = true;
+  cleanInput.checked = true;
+
+  infoForm.classList.remove("hidden");
+  form.classList.remove("hidden");
+}
+
 
         codeReader.reset();
       } else if (err && !(err instanceof ZXing.NotFoundException)) {
@@ -114,6 +136,7 @@ script.onload = () => {
             serialNumber: serial,
             fixedLocation: fixedLoc,
             addedBy: user.email || user.uid,
+            
             addedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
 
