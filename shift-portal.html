@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>منصة تبديل الورديات</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-[#1A2238] text-white font-sans p-4 min-h-screen space-y-4">
+
+  <h2 id="welcome" class="text-xl font-bold text-center">👋 جاري تحميل بياناتك...</h2>
+  <div id="loading" class="text-center text-sm text-gray-400 py-3">⏳ جاري التحميل...</div>
+
+  <!-- أزرار التنقل بين الأقسام -->
+  <div class="flex flex-col gap-2 max-w-md mx-auto">
+    <button onclick="toggleSection('request-form')" class="bg-indigo-600 p-2 rounded font-bold">📝 إنشاء طلب تبديل</button>
+    <button onclick="toggleSection('approval-section')" class="bg-yellow-600 p-2 rounded font-bold">📩 الطلبات المرسلة لك</button>
+    <button onclick="toggleSection('manager-section')" class="bg-blue-700 p-2 rounded font-bold">🧾 طلبات تنتظر اعتمادك</button>
+    <button onclick="toggleSection('history-section')" class="bg-gray-600 p-2 rounded font-bold">📋 السجل الكامل</button>
+  </div>
+
+  <!-- نموذج الطلب -->
+  <div id="request-form" class="hidden space-y-4 bg-[#232B4D] p-4 rounded-xl max-w-md mx-auto">
+    <input type="date" id="from-date" class="w-full p-2 rounded bg-gray-700" />
+    <select id="from-shift" class="w-full p-2 bg-gray-700 rounded">
+      <option value="Day">وردية نهارية</option>
+      <option value="Night">وردية ليلية</option>
+    </select>
+    <input type="date" id="to-date" class="w-full p-2 rounded bg-gray-700" />
+    <select id="to-shift" class="w-full p-2 bg-gray-700 rounded">
+      <option value="Day">وردية نهارية</option>
+      <option value="Night">وردية ليلية</option>
+    </select>
+    <select id="target-user" class="w-full p-2 bg-gray-700 rounded">
+      <option value="">-- اختر الموظف الآخر --</option>
+    </select>
+    <button id="submit-request" class="w-full bg-green-600 py-2 rounded font-bold hover:bg-green-700">
+      إرسال الطلب
+    </button>
+    <div id="feedback" class="text-green-400 hidden">✅ تم إرسال الطلب بنجاح</div>
+  </div>
+
+  <!-- الطلبات المرسلة للمستخدم -->
+  <div id="approval-section" class="hidden max-w-md mx-auto bg-[#232B4D] rounded-xl p-4">
+    <h3 class="text-lg font-semibold mb-2">📩 طلبات في انتظار موافقتك</h3>
+    <ul id="approval-list" class="space-y-2 text-sm"></ul>
+  </div>
+
+  <!-- طلبات المدير -->
+  <div id="manager-section" class="hidden max-w-4xl mx-auto bg-[#232B4D] rounded-xl p-4">
+    <h3 class="text-lg font-semibold mb-4">🧾 طلبات بانتظار اعتماد المدير</h3>
+    <table class="min-w-full text-sm bg-[#2a2f50] rounded overflow-hidden">
+      <thead class="bg-gray-800 text-white">
+        <tr>
+          <th class="p-2">المقدم</th>
+          <th class="p-2">من</th>
+          <th class="p-2">إلى</th>
+          <th class="p-2">مع</th>
+          <th class="p-2">إجراء</th>
+        </tr>
+      </thead>
+      <tbody id="manager-table-body" class="text-white divide-y divide-gray-700"></tbody>
+    </table>
+  </div>
+
+  <!-- السجل الكامل -->
+  <div id="history-section" class="hidden max-w-4xl mx-auto bg-[#232B4D] rounded-xl p-4">
+    <h3 class="text-lg font-semibold mb-2">📋 الطلبات السابقة</h3>
+    <table class="min-w-full text-sm bg-[#232B4D] rounded overflow-hidden">
+      <thead class="bg-gray-800 text-white">
+        <tr>
+          <th class="p-2">من</th>
+          <th class="p-2">إلى</th>
+          <th class="p-2">مع</th>
+          <th class="p-2">الحالة</th>
+        </tr>
+      </thead>
+      <tbody id="history-body" class="text-white divide-y divide-gray-700"></tbody>
+    </table>
+  </div>
+
+  <!-- التحكم في الإظهار -->
+  <script>
+    function toggleSection(id) {
+      const el = document.getElementById(id);
+      el.classList.toggle("hidden");
+    }
+  </script>
+  
+  <script type="module" src="js/shift-portal.js" defer></script>
+</body>
+</html>
