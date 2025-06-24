@@ -9,33 +9,36 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-[#1A2238] text-white font-sans p-4 min-h-screen space-y-4">
+<body class="bg-[#1A2238] text-white font-sans min-h-screen flex flex-col items-center px-4">
 
-  <!-- Go Back -->
-  <a href="https://abdelazizgedella.github.io/MemoCare/index.html"
-     class="fixed top-3 left-3 bg-white text-black px-4 py-1 rounded shadow hover:bg-gray-200 z-10">
-     ← Home
-  </a>
-
-  <h2 id="welcome" class="text-xl font-bold text-center mt-2">👋 Loading your info...</h2>
-  <div id="loading" class="text-center text-sm text-gray-400 py-2">⏳ Please wait...</div>
+  <!-- Header -->
+  <header class="w-full max-w-screen-sm text-center py-4">
+    <div class="flex items-center justify-between text-sm">
+      <h2 id="welcome" class="text-lg font-bold">👋 Loading your info...</h2>
+      <a href="https://abdelazizgedella.github.io/MemoCare/index.html"
+         class="bg-white text-black px-3 py-1 rounded shadow hover:bg-gray-200">
+        ← Home
+      </a>
+    </div>
+    <div id="loading" class="text-center text-gray-400 mt-1 text-sm">⏳ Please wait...</div>
+  </header>
 
   <!-- Navigation Buttons -->
-  <div class="flex flex-col gap-2 max-w-sm mx-auto">
+  <section class="flex flex-col gap-2 w-full max-w-screen-sm mb-4">
     <button onclick="toggleSection('request-form')" class="bg-indigo-600 p-2 rounded font-bold">📝 New Request</button>
     <button onclick="toggleSection('approval-section')" class="bg-yellow-600 p-2 rounded font-bold">📩 Pending Your Approval</button>
     <button onclick="toggleSection('manager-section')" class="bg-blue-700 p-2 rounded font-bold">🧾 Requests to Approve</button>
     <button onclick="toggleSection('history-section')" class="bg-gray-600 p-2 rounded font-bold">📋 Full History</button>
-  </div>
+  </section>
 
-  <!-- New Shift Request Form -->
-  <div id="request-form" class="hidden space-y-4 bg-[#232B4D] p-4 rounded-xl max-w-md mx-auto">
-    <input type="date" id="from-date" class="w-full p-2 rounded bg-gray-700" placeholder="From Date" />
+  <!-- Shift Request Form -->
+  <section id="request-form" class="hidden space-y-4 bg-[#232B4D] p-4 rounded-xl w-full max-w-screen-sm">
+    <input type="date" id="from-date" class="w-full p-2 rounded bg-gray-700" />
     <select id="from-shift" class="w-full p-2 bg-gray-700 rounded">
       <option value="Day">Day Shift</option>
       <option value="Night">Night Shift</option>
     </select>
-    <input type="date" id="to-date" class="w-full p-2 rounded bg-gray-700" placeholder="To Date" />
+    <input type="date" id="to-date" class="w-full p-2 rounded bg-gray-700" />
     <select id="to-shift" class="w-full p-2 bg-gray-700 rounded">
       <option value="Day">Day Shift</option>
       <option value="Night">Night Shift</option>
@@ -47,16 +50,16 @@
       Submit Request
     </button>
     <div id="feedback" class="text-green-400 hidden">✅ Request submitted successfully</div>
-  </div>
+  </section>
 
   <!-- Approver View -->
-  <div id="approval-section" class="hidden max-w-md mx-auto bg-[#232B4D] rounded-xl p-4">
+  <section id="approval-section" class="hidden w-full max-w-screen-sm bg-[#232B4D] rounded-xl p-4">
     <h3 class="text-lg font-semibold mb-2">📩 Requests awaiting your approval</h3>
     <ul id="approval-list" class="space-y-2 text-sm"></ul>
-  </div>
+  </section>
 
   <!-- Manager View -->
-  <div id="manager-section" class="hidden max-w-4xl mx-auto bg-[#232B4D] rounded-xl p-4">
+  <section id="manager-section" class="hidden w-full max-w-screen-md bg-[#232B4D] rounded-xl p-4 overflow-x-auto">
     <h3 class="text-lg font-semibold mb-4">🧾 Requests awaiting your approval as manager</h3>
     <table class="min-w-full text-sm bg-[#2a2f50] rounded overflow-hidden">
       <thead class="bg-gray-800 text-white">
@@ -70,10 +73,10 @@
       </thead>
       <tbody id="manager-table-body" class="text-white divide-y divide-gray-700"></tbody>
     </table>
-  </div>
+  </section>
 
   <!-- Full History -->
-  <div id="history-section" class="hidden max-w-4xl mx-auto bg-[#232B4D] rounded-xl p-4">
+  <section id="history-section" class="hidden w-full max-w-screen-md bg-[#232B4D] rounded-xl p-4 overflow-x-auto">
     <h3 class="text-lg font-semibold mb-2">📋 Shift Request History</h3>
     <table class="min-w-full text-sm bg-[#232B4D] rounded overflow-hidden">
       <thead class="bg-gray-800 text-white">
@@ -86,13 +89,13 @@
       </thead>
       <tbody id="history-body" class="text-white divide-y divide-gray-700"></tbody>
     </table>
-  </div>
+  </section>
 
-  <!-- Section Toggle Script -->
   <script>
     function toggleSection(id) {
       const el = document.getElementById(id);
       el.classList.toggle("hidden");
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     }
   </script>
 
