@@ -189,12 +189,20 @@ async function showManagerView() {
   for (const doc of snap.docs) {
     const data = doc.data();
     const targetUserId = data.targetUser;
-    let targetName = targetUserId;
+    let targetName = "Loading...";
 
     try {
       const userSnap = await db.collection("users").doc(targetUserId).get();
-      if (userSnap.exists()) targetName = userSnap.data().name || targetUserId;
-    } catch {}
+      if (userSnap.exists) {
+        const userData = userSnap.data();
+        targetName = userData.name || targetUserId;
+      } else {
+        targetName = `Unknown (${targetUserId})`;
+      }
+    } catch (e) {
+      console.error("Error fetching target user name:", e);
+      targetName = `Unknown (${targetUserId})`;
+    }
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -223,7 +231,7 @@ async function loadFullHistory() {
   const tbody = document.getElementById("history-body");
   tbody.innerHTML = "";
 
-  // Fetch both submitted and received
+  // Fetch both submitted and received requests
   const submitted = await db.collection("shiftRequests")
     .where("createdBy", "==", currentUserId)
     .get();
@@ -247,6 +255,7 @@ async function loadFullHistory() {
   }
 
   for (const [id, data] of uniqueMap) {
+    // Determine status
     let statusText = "Unknown";
     let color = "text-gray-400";
 
@@ -261,17 +270,24 @@ async function loadFullHistory() {
       color = "text-green-400";
     }
 
-    // Get other user's name
+    // Determine other party
     let otherUserId = data.createdBy === currentUserId ? data.targetUser : data.createdBy;
-    let otherUserName = otherUserId;
+    let otherUserName = "Loading...";
 
     try {
       const userSnap = await db.collection("users").doc(otherUserId).get();
-      if (userSnap.exists()) {
-        otherUserName = userSnap.data().name || otherUserId;
+      if (userSnap.exists) {
+        const userInfo = userSnap.data();
+        otherUserName = `${userInfo.name || "Unnamed"}`;
+      } else {
+        otherUserName = `Unknown (${otherUserId})`;
       }
-    } catch {}
+    } catch (e) {
+      console.error("Error fetching user:", e);
+      otherUserName = `Unknown (${otherUserId})`;
+    }
 
+    // Add row to table
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="p-2 text-center">${data.fromDate} (${data.fromShift})</td>
