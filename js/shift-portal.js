@@ -16,6 +16,8 @@ let currentUserId = null;
 let userData = null;
 let matchedSpaceId = null;
 
+
+
 auth.onAuthStateChanged(async user => {
   if (!user) return;
 
@@ -24,12 +26,13 @@ auth.onAuthStateChanged(async user => {
   if (!userDoc.exists) return;
 
   userData = userDoc.data();
-  document.getElementById("welcome").textContent = `مرحبًا ${userData.name || "مستخدم"}`;
+  document.getElementById("welcome").textContent = `Welcome, ${userData.name || "User"}`;
 
   const spacesSnap = await db.collection("spaces").get();
   for (const spaceDoc of spacesSnap.docs) {
     const spaceData = spaceDoc.data();
-    if (Array.isArray(spaceData.joinedParticipants) && spaceData.joinedParticipants.includes(currentUserId)) {
+    if (Array.isArray(spaceData.joinedParticipants) &&
+        spaceData.joinedParticipants.includes(currentUserId)) {
       matchedSpaceId = spaceDoc.id;
       break;
     }
@@ -45,7 +48,7 @@ auth.onAuthStateChanged(async user => {
 
   const spaceDoc = await db.collection("spaces").doc(matchedSpaceId).get();
   const isApprover = spaceDoc.data().createdBy !== currentUserId &&
-    spaceDoc.data().joinedParticipants?.includes(currentUserId);
+                     spaceDoc.data().joinedParticipants?.includes(currentUserId);
   const isAdmin = userData.admin === true || !pending.empty;
 
   if (isAdmin) showManagerView();
@@ -55,18 +58,19 @@ auth.onAuthStateChanged(async user => {
   loadFullHistory();
 });
 
+
 async function showUserForm() {
   const spaceDoc = await db.collection("spaces").doc(matchedSpaceId).get();
   const data = spaceDoc.data();
   const select = document.getElementById("target-user");
-  select.innerHTML = '<option value="">-- اختر الموظف الآخر --</option>';
+  select.innerHTML = '<option value="">-- Select colleague --</option>';
 
   for (const id of data.joinedParticipants || []) {
     if (id === currentUserId) continue;
     const doc = await db.collection("users").doc(id).get();
     const opt = document.createElement("option");
     opt.value = id;
-    opt.textContent = doc.data().name || "موظف";
+    opt.textContent = doc.data().name || "Unnamed User";
     select.appendChild(opt);
   }
 
@@ -81,7 +85,7 @@ document.getElementById("submit-request").onclick = async () => {
   const targetUser = document.getElementById("target-user").value;
 
   if (!fromDate || !toDate || !targetUser) {
-    alert("⚠️ يُرجى ملء جميع الحقول");
+    alert("⚠️ Please complete all required fields.");
     return;
   }
 
@@ -92,7 +96,7 @@ document.getElementById("submit-request").onclick = async () => {
     .get();
 
   if (!check.empty) {
-    alert("⛔ لديك طلب سابق في نفس التاريخ لم يُعتمد بعد.");
+    alert("🚫 You’ve already submitted a request for this date.");
     return;
   }
 
@@ -113,6 +117,7 @@ document.getElementById("submit-request").onclick = async () => {
   document.getElementById("feedback").classList.remove("hidden");
 };
 
+
 async function showApproverView() {
   const snap = await db.collection("shiftRequests")
     .where("targetUser", "==", currentUserId)
@@ -123,7 +128,7 @@ async function showApproverView() {
   list.innerHTML = "";
 
   if (snap.empty) {
-    list.innerHTML = `<li class="text-sm text-gray-400">لا توجد طلبات حالياً ✅</li>`;
+    list.innerHTML = `<li class="text-sm text-gray-400">No requests for you right now ✅</li>`;
     return;
   }
 
@@ -132,8 +137,10 @@ async function showApproverView() {
     const li = document.createElement("li");
     li.className = "bg-gray-700 p-3 rounded";
     li.innerHTML = `
-      <div><b>${data.createdByName}</b> يطلب التبديل من <b>${data.fromDate}</b> إلى <b>${data.toDate}</b></div>
-      <button class="mt-2 bg-green-600 px-3 py-1 rounded" onclick="approve('${doc.id}')">✅ موافقة</button>
+      <div><strong>${data.createdByName}</strong> requested to swap 
+        from <b>${data.fromDate}</b> to <b>${data.toDate}</b>
+        (${data.fromShift} → ${data.toShift})</div>
+      <button class="mt-2 bg-green-600 px-3 py-1 rounded" onclick="approve('${doc.id}')">✅ Approve</button>
     `;
     list.appendChild(li);
   }
@@ -144,16 +151,22 @@ async function showApproverView() {
 window.approve = async (id) => {
   const docRef = db.collection("shiftRequests").doc(id);
   const req = await docRef.get();
-  const spaceId = req.data().spaceId;
-  const spaceDoc = await db.collection("spaces").doc(spaceId).get();
+  const data = req.data();
+
+  const spaceDoc = await db.collection("spaces").doc(data.spaceId).get();
   const adminId = spaceDoc.data()?.createdBy;
+
+  if (!adminId) {
+    alert("⚠️ Manager not found for this space.");
+    return;
+  }
 
   await docRef.update({
     status: "waiting-manager",
     managerId: adminId
   });
 
-  alert("👍 تم إرسال الطلب للمدير");
+  alert("✔️ Request forwarded to the manager.");
   location.reload();
 };
 
@@ -168,7 +181,7 @@ async function showManagerView() {
 
   if (snap.empty) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="5" class="text-center text-gray-400 py-3">لا توجد طلبات للمدير حاليًا</td>`;
+    row.innerHTML = `<td colspan="5" class="text-center text-gray-400 py-3">No pending requests</td>`;
     tableBody.appendChild(row);
     return;
   }
@@ -191,7 +204,7 @@ async function showManagerView() {
       <td class="p-2 text-center">${targetName}</td>
       <td class="p-2 text-center">
         <button class="bg-green-600 px-3 py-1 rounded hover:bg-green-700"
-          onclick="finalApprove('${doc.id}')">✅ اعتماد</button>
+          onclick="finalApprove('${doc.id}')">✅ Approve</button>
       </td>
     `;
     tableBody.appendChild(tr);
@@ -202,7 +215,7 @@ async function showManagerView() {
 
 window.finalApprove = async (id) => {
   await db.collection("shiftRequests").doc(id).update({ status: "approved" });
-  alert("🎉 تم اعتماد الطلب");
+  alert("🎉 Request approved successfully");
   location.reload();
 };
 
@@ -210,57 +223,61 @@ async function loadFullHistory() {
   const tbody = document.getElementById("history-body");
   tbody.innerHTML = "";
 
-  const requests = await db.collection("shiftRequests")
-    .where("createdBy", "in", [currentUserId])
+  // Fetch both submitted and received
+  const submitted = await db.collection("shiftRequests")
+    .where("createdBy", "==", currentUserId)
     .get();
 
   const received = await db.collection("shiftRequests")
     .where("targetUser", "==", currentUserId)
     .get();
 
-  const allDocs = [...requests.docs, ...received.docs];
-  const seen = new Set();
-  const unique = allDocs.filter(d => {
-    if (seen.has(d.id)) return false;
-    seen.add(d.id);
-    return true;
-  });
+  const allDocs = [...submitted.docs, ...received.docs];
+  const uniqueMap = new Map();
 
-  if (unique.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-gray-400 py-3">لا توجد طلبات في السجل</td></tr>`;
+  for (const doc of allDocs) {
+    if (!uniqueMap.has(doc.id)) {
+      uniqueMap.set(doc.id, doc.data());
+    }
+  }
+
+  if (uniqueMap.size === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-gray-400 py-3">No shift requests found</td></tr>`;
     return;
   }
 
-  for (const doc of unique) {
-    const data = doc.data();
-    let statusLabel = "🚫 غير معروف";
-       let color = "text-gray-400";
+  for (const [id, data] of uniqueMap) {
+    let statusText = "Unknown";
+    let color = "text-gray-400";
 
     if (data.status === "waiting-approver") {
-      statusLabel = "🕓 بانتظار الطرف الآخر";
+      statusText = "Pending Approver";
       color = "text-yellow-300";
     } else if (data.status === "waiting-manager") {
-      statusLabel = "🔒 بانتظار المدير";
+      statusText = "Awaiting Manager";
       color = "text-blue-300";
     } else if (data.status === "approved") {
-      statusLabel = "✅ تم الاعتماد";
+      statusText = "Approved";
       color = "text-green-400";
     }
 
-    let targetName = data.targetUser;
+    // Get other user's name
+    let otherUserId = data.createdBy === currentUserId ? data.targetUser : data.createdBy;
+    let otherUserName = otherUserId;
+
     try {
-      const userSnap = await db.collection("users").doc(data.targetUser).get();
+      const userSnap = await db.collection("users").doc(otherUserId).get();
       if (userSnap.exists()) {
-        targetName = userSnap.data().name || data.targetUser;
+        otherUserName = userSnap.data().name || otherUserId;
       }
     } catch {}
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="p-2 text-center">${data.fromDate}</td>
-      <td class="p-2 text-center">${data.toDate}</td>
-      <td class="p-2 text-center">${targetName}</td>
-      <td class="p-2 text-center ${color}">${statusLabel}</td>
+      <td class="p-2 text-center">${data.fromDate} (${data.fromShift})</td>
+      <td class="p-2 text-center">${data.toDate} (${data.toShift})</td>
+      <td class="p-2 text-center">${otherUserName}</td>
+      <td class="p-2 text-center ${color}">${statusText}</td>
     `;
     tbody.appendChild(tr);
   }
