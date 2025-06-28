@@ -166,8 +166,15 @@ function viewSpaceDetails(spaceId) {
                 .then(([creatorDoc, pendingDocs, joinedDocs]) => {
                     let creatorName = creatorDoc.exists ? creatorDoc.data().name : "Unknown User";
 
-                    let pendingNames = pendingDocs.map(userDoc => userDoc.exists ? { name: userDoc.data().name, uid: userDoc.id } : { name: "Unknown User", uid: "Unknown" });
-                    let joinedNames = joinedDocs.map(userDoc => userDoc.exists ? userDoc.data().name : "Unknown User");
+                    let pendingNames = pendingDocs.map((userDoc, i) => {
+                        return userDoc.exists
+                            ? { index: i + 1, name: userDoc.data().name, uid: userDoc.id }
+                            : { index: i + 1, name: "Unknown User", uid: "Unknown" };
+                    });
+
+                    let joinedNames = joinedDocs.map((userDoc, i) =>
+                        `${i + 1}. ${userDoc.exists ? userDoc.data().name : "Unknown User"}`
+                    );
 
                     let modalContent = `
                         <h2 class="text-xl font-bold text-blue-300">${spaceData.name}</h2>
@@ -175,16 +182,18 @@ function viewSpaceDetails(spaceId) {
                         <p class="mt-2 text-gray-300">${spaceData.description}</p>
 
                         <h3 class="mt-4 text-lg font-bold text-indigo-300">Participants:</h3>
-                        <p class="text-green-400">✔ Joined: ${joinedNames.join(", ") || "None"}</p>
+                        <p class="text-green-400">✔ Joined:<br> ${joinedNames.join("<br>") || "None"}</p>
+
                         <h3 class="mt-4 text-lg font-bold text-yellow-400">⏳ Pending Approval:</h3>
                         <ul class="text-yellow-300">
-                            ${pendingNames.map(p => 
-                                `<li>${p.name} 
+                            ${pendingNames.map(p => `
+                                <li>${p.index}. ${p.name}
                                     ${currentUserUID === createdByUID ? `
-                                        <button onclick="approveParticipant('${spaceId}', '${p.uid}')" class="bg-green-500 px-2 py-1 rounded text-white">Approve</button>
-                                        <button onclick="rejectParticipant('${spaceId}', '${p.uid}')" class="bg-red-500 px-2 py-1 rounded text-white">Reject</button>
+                                        <button onclick="approveParticipant('${spaceId}', '${p.uid}')" class="bg-green-500 px-2 py-1 ml-2 rounded text-white">Approve</button>
+                                        <button onclick="rejectParticipant('${spaceId}', '${p.uid}')" class="bg-red-500 px-2 py-1 ml-1 rounded text-white">Reject</button>
                                     ` : ""}
-                                </li>`).join("")}
+                                </li>
+                            `).join("")}
                         </ul>
                     `;
 
@@ -192,18 +201,19 @@ function viewSpaceDetails(spaceId) {
                     document.getElementById("space-modal").classList.remove("hidden");
 
                     const joinBtn = document.getElementById("join-space-btn");
-                    if (currentUserUID !== createdByUID && !participantsJoinedUIDs.includes(currentUserUID) && !participantsPendingUIDs.includes(currentUserUID)) {
+                    if (currentUserUID !== createdByUID &&
+                        !participantsJoinedUIDs.includes(currentUserUID) &&
+                        !participantsPendingUIDs.includes(currentUserUID)) {
                         joinBtn.style.display = "block";
                         joinBtn.onclick = () => sendJoinRequest(spaceId, currentUserUID);
                     } else {
-                        joinBtn.style.display = "none"; // Hide for the creator or if already joined/pending
+                        joinBtn.style.display = "none";
                     }
                 })
                 .catch(error => console.error("Error fetching user details:", error));
         })
         .catch(error => console.error("Error fetching space details:", error));
 }
-
 
 
 

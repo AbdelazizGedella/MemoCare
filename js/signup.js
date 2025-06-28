@@ -15,7 +15,7 @@ function signup() {
     const name = document.getElementById("name").value.trim();
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value.trim();
-
+    const phoneNumber = document.getElementById("phoneNumber").value.trim();
     if (!name || !email || !password) {
         alert("Please fill in all fields.");
         return;
@@ -33,6 +33,7 @@ function signup() {
                 admin: false, // Default Admin Status
                 profilePic: "https://i.imgur.com/6VBx3io.png", // Default profile pic
                 createdAt: new Date().toISOString(),
+                phoneNumber: phoneNumber,
                 canCreateSpaces: false // 🚫 Default: Users cannot create spaces
             });
         })

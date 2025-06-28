@@ -320,3 +320,17 @@ document.getElementById("create-memo-btn").addEventListener("click", async () =>
             alert("Error creating memo: " + error.message);
         });
 });
+
+
+const spaceSelect = document.getElementById('space-select');
+
+
+db.collection("spaces").get().then(snapshot => {
+  snapshot.forEach(doc => {
+    const space = doc.data();
+    const option = document.createElement("option");
+    option.value = doc.id;
+    option.textContent = space.name || "Unnamed Space";
+    spaceSelect.appendChild(option);
+  });
+});

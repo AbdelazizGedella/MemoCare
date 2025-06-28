@@ -3,141 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-
   <title>Memo || Dashboard</title>
 
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
   <!-- App Logic -->
   <script defer src="./js/dashboard.js"></script>
 
-
-
-  <!--  Favicon and Apple Touch Icons -->
+  <!-- Favicon and Apple Touch Icons -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
-<link rel="manifest" href="/icon/site.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+  <link rel="manifest" href="/icon/site.webmanifest">
 
-<link rel="stylesheet" href="styles/styles.css">
-
+  <link rel="stylesheet" href="styles/styles.css">
 </head>
-<body class="bg-[#07102F] text-white">
+
+<body class="bg-[#07102F] text-white pt-20">
   <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center">
-    <h1 class="text-2xl font-bold text-white-300">Memo Acknowledgment System</h1>
-    <span id="user-greeting" class="text-White-400 text-lg"></span>
+  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center z-50">
+    <h1 class="text-xl sm:text-2xl font-bold text-white">Memo Acknowledgment System</h1>
+    <span id="user-greeting" class="text-white text-sm sm:text-lg"></span>
   </div>
-  <!-- Sidebar -->
-<div class="fixed top-20 left-4 w-30 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center">
-    <ul class="space-y-6">
-        <li class="text-center">
-            <a href="#" class="flex flex-col items-center text-blue-500">
-                <i class="fas fa-home text-2xl"></i>
-                <span class="text-sm mt-1">Home</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-user-circle text-2xl"></i>
-                <span class="text-sm mt-1">Profile</span>
-            </a>
-        </li>
 
-        <li class="text-center">
-          <a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500">
-            <i class="fas fa-clock text-2xl"></i>
-            <span class="text-sm mt-1">Shift Portal</span>
-          </a>
-        </li>
-        <li class="text-center">
-            <a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-paper-plane text-2xl"></i>
-                <span class="text-sm mt-1">Request</span>
-            </a>
-        </li>
-          <li class="text-center">
-            <a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-calendar-alt text-2xl"></i>
-                <span class="text-sm mt-1">Leave Planner</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-rocket text-2xl"></i>
-                <span class="text-sm mt-1">Spaces</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-file-alt text-2xl"></i>
-                <span class="text-sm mt-1">Memos</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-tablet-alt text-2xl"></i>
-                <span class="text-sm mt-1">Devices</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-trophy text-2xl"></i>
-                <span class="text-sm mt-1">Leaderboard</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-lock text-2xl"></i>
-                <span class="text-sm mt-1">Admin</span>
-            </a>
-        </li>
-      
-    </ul>
-    <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
+  <div class="flex flex-col md:flex-row mt-20">
+    <!-- Sidebar -->
+    <div class="md:fixed md:top-20 md:left-4 md:w-32 w-full bg-[#151F42] p-4 md:p-6 shadow-lg rounded-lg flex md:flex-col flex-row items-center justify-around md:justify-start z-40">
+      <ul class="space-y-4 md:space-y-6 flex md:flex-col flex-row flex-wrap gap-2 md:gap-0">
+        <li><a href="#" class="flex flex-col items-center text-blue-500"><i class="fas fa-home text-2xl"></i><span class="text-xs">Home</span></a></li>
+        <li><a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-user-circle text-2xl"></i><span class="text-xs">Profile</span></a></li>
+               <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
+        <li><a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-paper-plane text-2xl"></i><span class="text-xs">Request</span></a></li>
+        <li><a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-calendar-alt text-2xl"></i><span class="text-xs">Leave</span></a></li>
+        <li><a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-rocket text-2xl"></i><span class="text-xs">Spaces</span></a></li>
+        <li><a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-file-alt text-2xl"></i><span class="text-xs">Memos</span></a></li>
+        <li><a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-tablet-alt text-2xl"></i><span class="text-xs">Devices</span></a></li>
+        <li><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-trophy text-2xl"></i><span class="text-xs">Leaderboard</span></a></li>
+        <li><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-lock text-2xl"></i><span class="text-xs">Admin</span></a></li>
+      </ul>
+      <button id="logout-btn" class="mt-4 text-white hover:text-red-500 md:mt-6">
         <i class="fas fa-sign-out-alt text-2xl"></i>
-    </button>
-</div>
+      </button>
+    </div>
 
+    <!-- Main Content -->
+    <div class="flex-1 overflow-y-auto px-4 py-6 md:px-20 md:ml-40">
+      <!-- Add your main dashboard content here -->
+      <!-- Use w-full and responsive flex-cols as needed -->
 
-  <!-- Main Content Area -->
-  <div class="flex-1 overflow-y-auto p-20 ml-24">
-    <!-- User Profile Section -->
-      <div class="bg-[#151F42] p-6 rounded-lg shadow-md text-center w-full mb-6 flex items-center space-x-6">
-        <!-- Profile Image -->
-        <img id="user-profile-pic" class="w-20 h-20 rounded-full border-2 border-blue-500" src="default-avatar.png" alt="Profile Picture" >
-        <!-- User Details -->
-      <div class="text-left text-white">
-    <h2 class="text-2xl font-semibold text-blue-300">
-        Welcome, <span id="user-name" class="skeleton-box"></span>
-    </h2>
-    <p><strong>Points:</strong> <span id="user-points" class="skeleton-box"></span></p>
-    <p><strong>Email:</strong> <span id="user-email" class="skeleton-box"></span></p>
-    <p><strong>UID:</strong> <span id="user-uid" class="skeleton-box text-sm"></span></p>
-</div>
-
+      <!-- Example Profile Card -->
+      <div class="bg-[#151F42] p-4 rounded-lg shadow-md flex flex-col sm:flex-row items-center sm:space-x-6 space-y-4 sm:space-y-0">
+        <img id="user-profile-pic" class="w-20 h-20 rounded-full border-2 border-blue-500" src="default-avatar.png" alt="Profile Picture">
+        <div class="text-left text-white w-full">
+          <h2 class="text-xl sm:text-2xl font-semibold text-blue-300">Welcome, <span id="user-name"></span></h2>
+          <p><strong>Points:</strong> <span id="user-points"></span></p>
+          <p><strong>Email:</strong> <span id="user-email"></span></p>
+          <p><strong>UID:</strong> <span id="user-uid" class="text-sm"></span></p>
+        </div>
       </div>
-   
 
-
-      
-      
-<div class="bg-gradient-to-r from-[#151F42]  via-[#23376b] to-[#1e293b] p-4 rounded-lg shadow-md w-full mt-6 relative overflow-hidden border border-[#2d3a5a]">
-  <!-- Light spot on the left side -->
+           <!-- Dashboard Widgets Responsive Section -->
+<div class="bg-gradient-to-r from-[#151F42] via-[#23376b] to-[#1e293b] p-4 rounded-lg shadow-md w-full mt-6 relative overflow-hidden border border-[#2d3a5a]">
   <div class="absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-white/20 via-white/0 to-transparent rounded-l-lg pointer-events-none"></div>
-  <div class="flex items-center relative z-10">
-    <div class="flex-1">
+  <div class="flex flex-col sm:flex-row items-center sm:justify-between relative z-10">
+    <div class="flex-1 text-center sm:text-left">
       <h2 class="text-lg font-bold text-[#e0eaff]">Want to be a Space Creator?</h2>
       <p class="text-[#b6c2e0]">Unlock new features and start creating amazing spaces today!</p>
     </div>
-    <div>
+    <div class="mt-4 sm:mt-0">
       <a href="spaces.html" class="bg-[#0059F7] text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-600 transition">
         Click Here
       </a>
@@ -145,157 +86,102 @@
   </div>
 </div>
 
-    <div class="mt-6"></div>
-    <div class="flex justify-between space-x-4">
-
-
-
-  <!-- Total Memos Posted Over Spaces Joined (Split Card) -->
-  <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-1/3 flex flex-col justify-center items-center relative overflow-hidden">
-    <!-- Slope Divider -->
+<!-- Stat Cards Section -->
+<div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+  <!-- Posted Memos vs Spaces Joined -->
+  <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center flex flex-col justify-center items-center relative overflow-hidden">
     <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
       <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
-        <!-- Main dark blue background -->
         <polygon points="0,0 300,0 300,120 0,150" fill="#1e293b" opacity="0.8"/>
-        <!-- Blue overlay for gradient effect -->
         <linearGradient id="blueGradient" x1="0" y1="0" x2="300" y2="150" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stop-color="#0059F7" stop-opacity="0.7"/>
           <stop offset="100%" stop-color="#1e293b" stop-opacity="0.7"/>
         </linearGradient>
         <polygon points="0,0 300,0 300,120 0,150" fill="url(#blueGradient)" opacity="0.7"/>
-        <!-- White light spot (subtle) -->
       </svg>
     </div>
-    <!-- Main Content -->
     <div class="relative z-10 flex flex-col items-center w-full">
-      <!-- Loading Animation -->
       <div id="loading-animation" class="flex items-center justify-center h-full">
         <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
         <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie" background="transparent" speed="1" style="width: 100px; height: 100px" loop autoplay></dotlottie-player>
       </div>
-      <!-- Posted Memos Count -->
       <div class="flex items-end space-x-2 mt-2">
-        <span id="memo-count" class="text-9xl font-extrabold text-orange-400"></span>
+        <span id="memo-count" class="text-5xl sm:text-9xl font-extrabold text-orange-400"></span>
         <span class="text-3xl font-bold text-white mb-2">/</span>
         <span id="joined-spaces-count" class="text-2xl font-bold text-gray-500 mb-2"></span>
       </div>
-      <!-- Labels -->
       <div class="flex flex-col items-center space-y-1 mt-2">
         <span class="text-xl font-semibold text-orange-300">Posted Memos</span>
         <span class="text-sm font-medium text-gray-500">Spaces Joined</span>
       </div>
     </div>
   </div>
-<!-- Memo Acknowledgment -->
-<div class="bg-gradient-to-b from-[#0f172a] via-[#1d3b64] to-[#16a34a] p-4 rounded-lg shadow-md text-center w-1/3 flex flex-col justify-between relative overflow-hidden">
-  
-  <!-- Slope Divider -->
-  <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
-    <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
-      <polygon points="0,0 300,0 300,120 0,150" fill="rgba(30, 41, 59, 0.7)"/>
-    </svg>
-  </div>
 
-  <!-- Main Content -->
-  <div class="relative z-10 flex flex-col items-center w-full">
-    <!-- Loading Animation -->
-    <div id="ack-loader" class="flex items-center justify-center h-full">
-      <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
-      <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie" background="transparent" speed="1" style="width: 150px; height: 150px" loop autoplay></dotlottie-player>
+  <!-- Acknowledged Memos -->
+  <div class="bg-gradient-to-b from-[#0f172a] via-[#1d3b64] to-[#16a34a] p-4 rounded-lg shadow-md text-center flex flex-col justify-between relative overflow-hidden">
+    <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
+      <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
+        <polygon points="0,0 300,0 300,120 0,150" fill="rgba(30, 41, 59, 0.7)"/>
+      </svg>
     </div>
-
-    <!-- Acknowledgment Count -->
-    <p id="ack-count" class="text-8xl font-extrabold text-white flex items-center justify-center h-full hidden"></p>
-
-    <h2 class="text-2xl font-semibold text-green-300 mt-auto bg-transparent p-2 rounded">Acknowledged Memos</h2>
-
-    <div class="mt-4 text-white">
-      <p><strong>Last Acknowledged:</strong> <span id="last-timestamp" class="skeleton-box"></span></p>
-      <p><strong>Memo Title:</strong> <span id="last-memo-title" class="skeleton-box"></span></p>
-    </div>
-  </div>
-</div>
-
-
-
-
-
-<!-- Unacknowledged Memos -->
-<div class="bg-gradient-to-b from-[#151F42] to-[#1e293b] p-4 rounded-lg shadow-md text-center w-1/3 border-0 border-red-500 relative overflow-hidden">
-    <!-- Slope Divider for Visual Warning -->
-  <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
-    <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
-      <polygon points="0,0 300,0 300,120 0,150" fill="rgba(255, 0, 0, 0.3)"/>
-    </svg>
-  </div>
-
-
-  <div class="relative z-10 flex flex-col items-center w-full">
-    <!-- Loading Animation -->
-    <div id="unack-loader">
-        <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
+    <div class="relative z-10 flex flex-col items-center w-full">
+      <div id="ack-loader" class="flex items-center justify-center h-full">
         <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie" background="transparent" speed="1" style="width: 150px; height: 150px" loop autoplay></dotlottie-player>
+      </div>
+      <p id="ack-count" class="text-5xl sm:text-8xl font-extrabold text-white flex items-center justify-center h-full hidden"></p>
+      <h2 class="text-2xl font-semibold text-green-300 mt-auto p-2 rounded">Acknowledged Memos</h2>
+      <div class="mt-4 text-white text-sm sm:text-base">
+        <p><strong>Last Acknowledged:</strong> <span id="last-timestamp" class="skeleton-box"></span></p>
+        <p><strong>Memo Title:</strong> <span id="last-memo-title" class="skeleton-box"></span></p>
+      </div>
     </div>
+  </div>
 
-    <!-- Unacknowledged Memo Count -->
-
-    <p><span id="unack-memo-count" class="text-3xl font-bold text-red-400 hidden"></span></p>
-    <h2 class="text-2xl font-semibold text-blue-300">Unacknowledged Memos</h2>
-
-    <ul id="unack-memo-list" class="list-none pl-6 text-white"></ul>
-
-    <!-- Show More Button -->
-    <button id="show-more-btn" class="mt-4 bg-blue-600 hover:bg-blue-800 text-white p-2 rounded">
-        Show More >>
-    </button> 
-</div>
-</div>
+  <!-- Unacknowledged Memos -->
+  <div class="bg-gradient-to-b from-[#151F42] to-[#1e293b] p-4 rounded-lg shadow-md text-center relative overflow-hidden">
+    <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
+      <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
+        <polygon points="0,0 300,0 300,120 0,150" fill="rgba(255, 0, 0, 0.3)"/>
+      </svg>
     </div>
+    <div class="relative z-10 flex flex-col items-center w-full">
+      <div id="unack-loader">
+        <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie" background="transparent" speed="1" style="width: 150px; height: 150px" loop autoplay></dotlottie-player>
+      </div>
+      <p><span id="unack-memo-count" class="text-3xl font-bold text-red-400 hidden"></span></p>
+      <h2 class="text-2xl font-semibold text-blue-300">Unacknowledged Memos</h2>
+      <ul id="unack-memo-list" class="list-none pl-6 text-white"></ul>
+      <button id="show-more-btn" class="mt-4 bg-blue-600 hover:bg-blue-800 text-white p-2 rounded">Show More >></button>
+    </div>
+  </div>
+</div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-   <!-- Activity log -->
+    <!-- Activity log -->
       <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-left w-full mt-6">
         <h2 class="text-2xl font-semibold text-blue-300">Activity Log & Updates</h2>
         <ul id="activity-log" class="list-none pl-6 text-white"></ul>
     </div>
 
     <div class="flex flex-col space-y-4 mt-6">
-      <div class="flex space-x-4 mt-6">
+      <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
         <!-- Best Responder -->
-        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-1/2">
+        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
           <p><span id="best-fastest-time" class="text-3xl font-bold text-yellow-400">Loading...</span></p>  
           <h2 class="text-2xl font-semibold text-blue-300">Best Responder</h2>
           <p><strong>Memo Title:</strong> <span id="best-fastest-memo" class="text-green-400">Loading...</span></p>
           <p><strong>User:</strong> <span id="best-fastest-user" class="text-white">Loading...</span></p>
         </div>
         <!-- Current User's Fastest Response -->
-        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-1/2">
-          <!-- Display Response Time (Detailed Format) -->
+        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
           <p><span id="fastest-time" class="text-3xl font-bold text-yellow-400">Loading...</span></p>  
           <h2 class="text-2xl font-semibold text-blue-300 mb-2">Your Fastest Response</h2>
-          <!-- Display Memo Title -->
           <p><strong>Memo Title:</strong> <span id="fastest-memo" class="text-green-400">Loading...</span></p>
-          <!-- Timestamp of Response -->
           <p class="text-gray-500 text-sm mt-2"><strong>Response Recorded At:</strong> <span id="fastest-time-stamp">Loading...</span></p>
+        </div>
       </div>
-      </div>
-      <!-- Second Additional Box -->
+
       <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full">
         <h2 class="text-2xl font-semibold text-blue-300">Leaderboard - Rapid Response</h2>
-        <!-- Month Selector (Dropdown) -->
         <label for="month-select" class="text-white mt-2">Select Month:</label>
         <select id="month-select" class="bg-gray-700 text-white p-2 rounded">
             <option value="4" selected>April</option>
@@ -311,23 +197,20 @@
             <option value="11">November</option>
             <option value="12">December</option>
         </select>
-        <!-- User's Rank -->
         <p><strong>Your Rank:</strong> <span id="user-rank" class="text-green-400">Loading...</span></p>
-        <!-- Top 3 Fastest Responders -->
         <h3 class="text-xl font-semibold text-blue-300 mt-4">Top 3 Users</h3>
         <ul id="top-users-list" class="list-none text-white"></ul>
       </div>
-    </div>
-    <div class="flex space-x-4 mt-6">
-      <!-- Fastest Responders Leaderboard -->
-      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-1/2">
+
+      <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
           <h2 class="text-2xl font-semibold text-blue-300">Fastest Responders</h2>
-          <!-- Month Selector (Dropdown) -->
           <label for="month-select" class="text-white mt-2">Select Month:</label>
           <select id="month-select" class="bg-gray-700 text-white p-2 rounded">
-              <option value="0" selected>Overall</option> <!-- Default to Overall -->
+              <option value="0" selected>Overall</option>
           </select>
-          <table class="w-full text-white mt-4">
+          <div class="overflow-x-auto">
+            <table class="w-full text-white mt-4">
               <thead>
                   <tr class="text-blue-400">
                       <th>#Rank</th>
@@ -337,16 +220,16 @@
                   </tr>
               </thead>
               <tbody id="fastest-leaderboard"></tbody>
-          </table>
-          <!-- Show More Button -->
+            </table>
+          </div>
           <button id="show-more-fastest" class="mt-4 bg-blue-600 hover:bg-blue-800 text-white p-2 rounded">
               Show More >>
           </button>
-      </div>
-      <!-- Highest Points Collectors Leaderboard -->
-      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-1/2">
+        </div>
+        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
           <h2 class="text-2xl font-semibold text-blue-300">Highest Points Collectors</h2>
-          <table class="w-full text-white mt-4">
+          <div class="overflow-x-auto">
+            <table class="w-full text-white mt-4">
               <thead>
                   <tr class="text-blue-400">
                       <th>#Rank</th>
@@ -356,23 +239,24 @@
                   </tr>
               </thead>
               <tbody id="points-leaderboard"></tbody>
-          </table>
-          <!-- Show More Button -->
+            </table>
+          </div>
           <button id="show-more-points" class="mt-4 bg-blue-600 hover:bg-blue-800 text-white p-2 rounded">
               Show More >>
           </button>
+        </div>
       </div>
-  </div>
-   <!--You got it! This box will display: ✅ The user's average response time for acknowledged memos ✅ Their rank based on overall acknowledgment speed ✅ The leaderboard comparing all users ✅ A trend indicator Green ⬆ if performance improves, Red ⬇ if it's lower than colleagues
--->
-  <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
-    <h2 class="text-2xl font-semibold text-blue-300">Acknowledgment Performance Overview</h2>
-    <p><strong>Average Response Time:</strong> <span id="avg-response-time" class="text-yellow-400">Loading...</span></p>
-    <p><strong>Your Rank:</strong> <span id="user-rank" class="text-green-400">Loading...</span></p>
-    <h3 class="text-xl font-semibold text-blue-300 mt-4">Leaderboard - Overall Acknowledgments</h3>
-    <ul id="acknowledge-leaderboard" class="list-none text-white"></ul>
-    <p id="performance-trend" class="text-xl font-bold mt-4">Loading...</p>
-</div>
-  </div>
-</body>
+
+      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
+        <h2 class="text-2xl font-semibold text-blue-300">Acknowledgment Performance Overview</h2>
+        <p><strong>Average Response Time:</strong> <span id="avg-response-time" class="text-yellow-400">Loading...</span></p>
+        <p><strong>Your Rank:</strong> <span id="user-rank" class="text-green-400">Loading...</span></p>
+        <h3 class="text-xl font-semibold text-blue-300 mt-4">Leaderboard - Overall Acknowledgments</h3>
+        <ul id="acknowledge-leaderboard" class="list-none text-white"></ul>
+        <p id="performance-trend" class="text-xl font-bold mt-4">Loading...</p>
+      </div>
+    </div>
+
+    </div>
+  </div></body>
 </html>
