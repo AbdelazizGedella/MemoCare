@@ -142,59 +142,170 @@ clearSearchBtn.addEventListener("click", () => {
     searchInput.focus();
 });
 // **View Memo Details in Modal**
-document.addEventListener("click", (event) => {
-    if (event.target.classList.contains("view-btn")) {
-        const memoId = event.target.dataset.id;
-        db.collection("memos").doc(memoId).get().then((doc) => {
-            if (doc.exists) {
-                const memo = doc.data();
-                document.getElementById("modal-title").innerText = memo.title;
-                document.getElementById("modal-postedBy").innerText = `Posted By: ${memo.postedBy}`;
-                document.getElementById("modal-timestamp").innerText = `Posted on: ${memo.timestamp.toDate().toLocaleString()}`;
-                document.getElementById("modal-content").innerText = memo.content;
-                // Set Memo ID for acknowledgment
-                document.getElementById("acknowledge-btn").dataset.memoId = memoId;
-                // Display attachments
-                const attachmentsDiv = document.getElementById("modal-attachments");
-                attachmentsDiv.innerHTML = "";
-                memo.attachments?.forEach(url => {
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.target = "_blank";
-                    link.classList.add("text-blue-300", "underline", "block", "mt-2");
-                    link.innerText = "📎 View Attachment";
-                    attachmentsDiv.appendChild(link);
-                });
-                // Check if the user already acknowledged the memo
-                const user = firebase.auth().currentUser;
-                if (user) {
-                    const acknowledgedEntry = memo.acknowledgedDetails?.find(entry => entry.uid === user.uid);
-                    if (acknowledgedEntry) {
-                        // Hide the "Acknowledge" button
-                        document.getElementById("acknowledge-btn").style.display = "none";
-                        // Show the acknowledgment timestamp
-                        document.getElementById("acknowledgment-info").classList.remove("hidden");
-                        document.getElementById("acknowledgment-timestamp").innerText = acknowledgedEntry.timestamp.toDate().toLocaleString();
-                    } else {
-                        // Reset acknowledgment section and show button if not acknowledged
-                        document.getElementById("acknowledge-btn").style.display = "block";
-                        document.getElementById("acknowledgment-info").classList.add("hidden");
-                    }
-                }
-                document.getElementById("memo-modal").classList.remove("hidden");
-            } else {
-                alert("Memo not found!");
-            }
-        }).catch(error => {
-            console.error("Error fetching memo:", error);
-            alert("Failed to load memo details.");
-        });
+document.addEventListener("click", async (event) => {
+  if (event.target.classList.contains("view-btn")) {
+    const memoId = event.target.dataset.id;
+    try {
+      const memoDoc = await db.collection("memos").doc(memoId).get();
+      if (!memoDoc.exists) {
+        alert("Memo not found!");
+        return;
+      }
+      const memo = memoDoc.data();
+
+      // Show memo basic info
+      document.getElementById("modal-title").innerText = memo.title;
+      document.getElementById("modal-postedBy").innerText = `Posted By: ${memo.postedBy}`;
+      document.getElementById("modal-timestamp").innerText = `Posted on: ${memo.timestamp.toDate().toLocaleString()}`;
+      document.getElementById("modal-content").innerText = memo.content;
+
+      // Set Memo ID for acknowledgment button
+      const acknowledgeBtn = document.getElementById("acknowledge-btn");
+      acknowledgeBtn.dataset.memoId = memoId;
+
+      // Show attachments
+      const attachmentsDiv = document.getElementById("modal-attachments");
+      attachmentsDiv.innerHTML = "";
+      memo.attachments?.forEach(url => {
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.classList.add("text-blue-300", "underline", "block", "mt-2");
+        link.innerText = "📎 View Attachment";
+        attachmentsDiv.appendChild(link);
+      });
+
+// Fetch the space doc to get joinedParticipants
+const spaceDoc = await db.collection("spaces").doc(memo.spaceId).get();
+const joinedParticipants = spaceDoc.exists ? spaceDoc.data().joinedParticipants || [] : [];
+
+// التحقق من صلاحيات الأدمن
+const currentUser = firebase.auth().currentUser;
+const isAdmin = currentUser && spaceDoc.exists && spaceDoc.data().createdBy === currentUser.uid;
+
+// إظهار زر التقرير لو المستخدم أدمن
+const reportBtn = document.getElementById("report-modal");
+if (reportBtn) {
+  reportBtn.style.display = isAdmin ? "block" : "none";
+}
+
+// Get arrays of UIDs who acknowledged
+const acknowledgedUIDs = (memo.acknowledgedDetails || []).map(entry => entry.uid);
+
+// Helper: Fetch user details for given uids
+async function fetchUsersInfo(uids) {
+  if (uids.length === 0) return [];
+  const usersSnapshots = await db.collection("users").where(firebase.firestore.FieldPath.documentId(), "in", uids).get();
+  return usersSnapshots.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+}
+
+// Fetch user info
+const acknowledgedUsers = await fetchUsersInfo(acknowledgedUIDs);
+const pendingUIDs = joinedParticipants.filter(uid => !acknowledgedUIDs.includes(uid));
+const pendingUsers = await fetchUsersInfo(pendingUIDs);
+
+// عرض قائمة Acknowledged فقط لو أدمن
+const ackListDiv = document.getElementById("acknowledgment-list");
+ackListDiv.innerHTML = "";
+
+if (isAdmin) {
+  if (acknowledgedUsers.length > 0) {
+    const title = document.createElement("h4");
+    title.textContent = "Acknowledged By:";
+    title.classList.add("font-semibold", "mb-2");
+    ackListDiv.appendChild(title);
+
+    acknowledgedUsers.forEach(user => {
+      const ackDetail = (memo.acknowledgedDetails || []).find(a => a.uid === user.uid);
+      const ackTime = ackDetail?.timestamp?.toDate().toLocaleString() || "N/A";
+
+      const item = document.createElement("div");
+      item.classList.add("flex", "items-center", "space-x-3", "mb-1");
+
+      const img = document.createElement("img");
+      img.src = user.profilePic || "https://i.imgur.com/6VBx3io.png";
+      img.alt = user.name;
+      img.classList.add("w-10", "h-10", "rounded-full", "object-cover");
+
+      const info = document.createElement("div");
+      info.innerHTML = `<p class="font-semibold">${user.name}</p><p class="text-xs text-gray-400">${ackTime}</p>`;
+
+      item.appendChild(img);
+      item.appendChild(info);
+      ackListDiv.appendChild(item);
+    });
+  } else {
+    ackListDiv.innerHTML = "<p class='text-gray-400'>No acknowledgments yet.</p>";
+  }
+}
+
+// عرض قائمة Pending فقط لو أدمن
+const pendingListDiv = document.getElementById("pending-list");
+pendingListDiv.innerHTML = "";
+
+if (isAdmin) {
+  if (pendingUsers.length > 0) {
+    const title = document.createElement("h4");
+    title.textContent = "Pending Acknowledgment:";
+    title.classList.add("font-semibold", "mb-2", "mt-4");
+    pendingListDiv.appendChild(title);
+
+    pendingUsers.forEach(user => {
+      const item = document.createElement("div");
+      item.classList.add("flex", "items-center", "space-x-3", "mb-1");
+
+      const img = document.createElement("img");
+      img.src = user.profilePic || "https://i.imgur.com/6VBx3io.png";
+      img.alt = user.name;
+      img.classList.add("w-10", "h-10", "rounded-full", "object-cover");
+
+      const info = document.createElement("div");
+      info.innerHTML = `<p class="font-semibold">${user.name}</p>`;
+
+      item.appendChild(img);
+      item.appendChild(info);
+      pendingListDiv.appendChild(item);
+    });
+  } else {
+    pendingListDiv.innerHTML = "<p class='text-gray-400'>All users have acknowledged.</p>";
+  }
+}
+
+      // Check if current user acknowledged, show/hide acknowledge button accordingly
+      if (currentUser) {
+        const acknowledgedEntry = (memo.acknowledgedDetails || []).find(entry => entry.uid === currentUser.uid);
+        if (acknowledgedEntry) {
+          acknowledgeBtn.style.display = "none";
+          document.getElementById("acknowledgment-info").classList.remove("hidden");
+          document.getElementById("acknowledgment-timestamp").innerText = acknowledgedEntry.timestamp.toDate().toLocaleString();
+        } else {
+          acknowledgeBtn.style.display = "block";
+          document.getElementById("acknowledgment-info").classList.add("hidden");
+        }
+      }
+
+      // Show the modal
+      document.getElementById("memo-modal").classList.remove("hidden");
+
+    } catch (error) {
+      console.error("Error fetching memo details:", error);
+      alert("Failed to load memo details.");
     }
+  }
 });
+
+
+
+
+
+
+
+
 // Close modal when "Close" is clicked
 document.getElementById("close-modal").addEventListener("click", () => {
     document.getElementById("memo-modal").classList.add("hidden"); 
 });
+// Handle memo acknowledgment
 // Handle memo acknowledgment
 document.getElementById("acknowledge-btn").addEventListener("click", () => {
     const memoId = document.getElementById("acknowledge-btn").dataset.memoId;  // ✅ FIX: Get Memo ID Properly
@@ -203,8 +314,19 @@ document.getElementById("acknowledge-btn").addEventListener("click", () => {
         alert("Please log in to acknowledge this memo.");
         return;
     }
+
     const userRef = db.collection("users").doc(user.uid);
     const memoRef = db.collection("memos").doc(memoId);
+    const timestamp = firebase.firestore.Timestamp.now();
+
+    const newAck = {
+        uid: user.uid,
+        name: user.displayName || "Unknown",
+        photoURL: user.photoURL || null,
+        timestamp: timestamp
+    };
+
+    // Ensure user profile exists
     userRef.get().then(async (userDoc) => {
         if (!userDoc.exists) {
             await userRef.set({
@@ -215,31 +337,37 @@ document.getElementById("acknowledge-btn").addEventListener("click", () => {
                 acknowledgedMemos: []
             });
         }
-        return db.runTransaction(async (transaction) => {
-            const memoSnap = await transaction.get(memoRef);
-            const userSnap = await transaction.get(userRef);
-            if (!memoSnap.exists) throw new Error("Memo not found");
-            if (!userSnap.exists) throw new Error("User not found");
-            const memoData = memoSnap.data();
-            const acknowledgedDetails = memoData.acknowledgedDetails || [];
-            if (acknowledgedDetails.some(entry => entry.uid === user.uid)) {
-                alert("You have already acknowledged this memo.");
-                return;
-            }
-            acknowledgedDetails.push({
-                uid: user.uid,
-                name: userSnap.data().name,
-                photoURL: userSnap.data().profilePic,
-                timestamp: firebase.firestore.Timestamp.now()
-            });
-            transaction.update(memoRef, { acknowledgedDetails });
+
+        // Update memo and user docs
+        const batch = db.batch();
+
+        batch.update(memoRef, {
+            acknowledgedDetails: firebase.firestore.FieldValue.arrayUnion(newAck)
+        });
+
+        batch.update(userRef, {
+            acknowledgedMemos: firebase.firestore.FieldValue.arrayUnion(memoId)
+        });
+
+        batch.commit().then(() => {
+            // Show UI update
             alert("Memo acknowledged successfully!");
-            // Hide the modal after acknowledging
-            document.getElementById("memo-modal").classList.add("hidden");
+
+            // Hide acknowledge button and show timestamp
+            document.getElementById("acknowledge-btn").style.display = "none";
+            const ackInfo = document.getElementById("acknowledgment-info");
+            ackInfo.classList.remove("hidden");
+            document.getElementById("acknowledgment-timestamp").innerText = new Date().toLocaleString();
+
+            // Optionally: Close modal if desired
+            // document.getElementById("memo-modal").classList.add("hidden");
+        }).catch((error) => {
+            console.error("Error during acknowledgment:", error);
+            alert("Failed to acknowledge memo. " + error.message);
         });
     }).catch(error => {
-        console.error("Error acknowledging memo:", error);
-        alert("Failed to acknowledge memo. " + error.message);
+        console.error("Error fetching user doc:", error);
+        alert("Failed to load user profile. " + error.message);
     });
 });
   //Logout
@@ -279,3 +407,7 @@ document.getElementById("reset-filters").addEventListener("click", () => {
         row.style.display = ""; // Reset visibility
     });
 });
+
+
+
+
