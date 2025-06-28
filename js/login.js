@@ -23,3 +23,22 @@ function login() {
       alert("Login failed: " + error.message);
     });
 }
+
+
+
+function resetPassword() {
+  const email = document.getElementById("email").value;
+
+  if (!email) {
+    alert("من فضلك أدخل الإيميل أولاً.");
+    return;
+  }
+
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => {
+      alert("تم إرسال رابط إعادة تعيين كلمة السر إلى بريدك الإلكتروني.");
+    })
+    .catch((error) => {
+      alert("فشل في إرسال الرابط: " + error.message);
+    });
+}
