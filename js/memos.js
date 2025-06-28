@@ -321,8 +321,6 @@ document.getElementById("acknowledge-btn").addEventListener("click", () => {
 
     const newAck = {
         uid: user.uid,
-        name: user.displayName || "Unknown",
-        photoURL: user.photoURL || null,
         timestamp: timestamp
     };
 
@@ -330,9 +328,7 @@ document.getElementById("acknowledge-btn").addEventListener("click", () => {
     userRef.get().then(async (userDoc) => {
         if (!userDoc.exists) {
             await userRef.set({
-                name: user.displayName || "Unknown",
                 email: user.email,
-                profilePic: user.photoURL || null,
                 points: 0,
                 acknowledgedMemos: []
             });
