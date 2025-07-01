@@ -348,6 +348,8 @@ document.getElementById("acknowledge-btn").addEventListener("click", () => {
         batch.commit().then(() => {
             // Show UI update
             alert("Memo acknowledged successfully!");
+                        window.location.reload();
+
 
             // Hide acknowledge button and show timestamp
             document.getElementById("acknowledge-btn").style.display = "none";
