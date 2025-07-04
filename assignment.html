@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Area Assignment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+
+  <div id="assignment-panel" class="max-w-5xl mx-auto bg-[#1E274D] p-6 rounded-lg shadow-lg">
+    <h2 class="text-2xl font-bold text-blue-300 mb-4">📋 Smart Assignment Panel</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block mb-1">Date:</label>
+        <input type="date" id="assign-date" class="w-full p-2 bg-gray-800 rounded">
+      </div>
+      <div>
+        <label class="block mb-1">Shift:</label>
+        <select id="assign-shift" class="w-full p-2 bg-gray-800 rounded">
+          <option value="day">Day</option>
+          <option value="night">Night</option>
+        </select>
+      </div>
+      <div class="col-span-2">
+        <label class="block mb-1">Area:</label>
+        <select id="assign-area" class="w-full p-2 bg-gray-800 rounded"></select>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <h3 class="text-lg font-semibold text-indigo-300 mb-2">Assign Staff (with suggestions)</h3>
+      <div id="staff-suggestions" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto"></div>
+    </div>
+
+    <button id="save-assignment" class="mt-6 bg-green-500 px-4 py-2 rounded">💾 Save Assignment</button>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79",
+      storageBucket: "ctwo-eee79.appspot.com",
+      messagingSenderId: "788657051205",
+      appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let currentSpaceId = null;
+    let areas = [];
+    let staffList = [];
+
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (!user) return;
+
+      const spaceSnapshot = await db.collection("spaces").where("createdBy", "==", user.uid).get();
+      if (spaceSnapshot.empty) return;
+
+      const spaceDoc = spaceSnapshot.docs[0];
+      currentSpaceId = spaceDoc.id;
+      const spaceData = spaceDoc.data();
+      areas = spaceData.areas || [];
+      staffList = spaceData.joinedParticipants || [];
+
+      const areaSelect = document.getElementById("assign-area");
+      areas.forEach(area => {
+        const opt = document.createElement("option");
+        opt.value = area.code;
+        opt.textContent = area.name;
+        areaSelect.appendChild(opt);
+      });
+
+      await loadStaffSuggestions();
+    });
+
+    document.getElementById("assign-area").addEventListener("change", loadStaffSuggestions);
+    document.getElementById("assign-date").addEventListener("change", loadStaffSuggestions);
+    document.getElementById("assign-shift").addEventListener("change", loadStaffSuggestions);
+
+    async function loadStaffSuggestions() {
+      const areaCode = document.getElementById("assign-area").value;
+      const dateStr = document.getElementById("assign-date").value;
+      const shift = document.getElementById("assign-shift").value;
+
+      if (!areaCode || !dateStr || !shift) return;
+
+      const staffDiv = document.getElementById("staff-suggestions");
+      staffDiv.innerHTML = "Loading...";
+
+      const userSnapshots = await db.collection("users")
+        .where(firebase.firestore.FieldPath.documentId(), "in", staffList).get();
+
+      const absencesSnapshot = await db.collection("absences")
+        .where("date", "==", dateStr).where("shift", "==", shift).get();
+
+      const absentUIDs = absencesSnapshot.docs.map(doc => doc.data().uid);
+
+      const allAssignmentsSnapshot = await db.collection("assignments")
+        .where("spaceId", "==", currentSpaceId).get();
+
+      const staffDivs = [];
+      userSnapshots.forEach(doc => {
+        const user = doc.data();
+        const uid = doc.id;
+
+        const assignments = allAssignmentsSnapshot.docs.filter(d => d.data().staff.some(s => s.uid === uid));
+        const sameArea = assignments.filter(a => a.data().areaCode === areaCode);
+        const sameMonth = assignments.filter(a => a.data().date?.startsWith(dateStr.slice(0, 7)));
+
+        const lastAssigned = sameArea.sort((a, b) => b.data().date.localeCompare(a.data().date))[0];
+        const lastDate = lastAssigned ? lastAssigned.data().date : "N/A";
+        const absentToday = absentUIDs.includes(uid);
+
+        const div = document.createElement("div");
+        div.innerHTML = `
+          <label class="flex items-start space-x-2 bg-gray-800 p-3 rounded">
+            <input type="checkbox" value="${uid}" data-name="${user.name || user.email}" class="mt-1">
+            <div>
+              <div class="font-semibold text-white">${user.name || user.email}</div>
+              <div class="text-sm text-gray-400">
+                🕓 Last here: ${lastDate} <br>
+                📊 Assigned this month: ${sameMonth.length} <br>
+                ${absentToday ? '<span class="text-red-400">🚫 Absent today</span>' : '<span class="text-green-400">✅ Available</span>'}
+              </div>
+            </div>
+          </label>
+        `;
+        staffDivs.push(div);
+      });
+
+      document.getElementById("staff-suggestions").innerHTML = "";
+      staffDivs.forEach(el => document.getElementById("staff-suggestions").appendChild(el));
+    }
+
+    document.getElementById("save-assignment").addEventListener("click", async () => {
+      const date = document.getElementById("assign-date").value;
+      const shift = document.getElementById("assign-shift").value;
+      const areaCode = document.getElementById("assign-area").value;
+      const selected = Array.from(document.querySelectorAll("#staff-suggestions input:checked")).map(cb => ({
+        uid: cb.value,
+        name: cb.dataset.name
+      }));
+
+      if (!date || !areaCode || selected.length === 0) {
+        alert("❗ Please complete all fields and select staff.");
+        return;
+      }
+
+      await db.collection("assignments").add({
+        spaceId: currentSpaceId,
+        areaCode,
+        date,
+        shift,
+        staff: selected,
+        assignedBy: firebase.auth().currentUser.uid,
+        timestamp: firebase.firestore.Timestamp.now()
+      });
+
+      alert("✅ Assignment saved");
+    });
+  </script>
+
+</body>
+</html>
