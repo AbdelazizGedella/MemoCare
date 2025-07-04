@@ -14,6 +14,16 @@
   <div id="assignment-panel" class="max-w-5xl mx-auto bg-[#1E274D] p-6 rounded-lg shadow-lg">
     <h2 class="text-2xl font-bold text-blue-300 mb-4">📋 Smart Assignment Panel</h2>
 
+    <!-- Admin Only Area Add Form -->
+    <div id="admin-area-section" class="mb-6 hidden">
+      <h3 class="text-lg font-semibold text-yellow-300 mb-2">➕ Add New Area</h3>
+      <div class="flex gap-2">
+        <input id="new-area-name" placeholder="Area Name" class="p-2 bg-gray-800 rounded w-1/2" />
+        <input id="new-area-code" placeholder="Code" class="p-2 bg-gray-800 rounded w-1/4" />
+        <button id="add-area-btn" class="bg-blue-500 px-4 py-2 rounded">Add</button>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label class="block mb-1">Date:</label>
@@ -53,6 +63,7 @@
     const db = firebase.firestore();
 
     let currentSpaceId = null;
+    let currentSpaceDoc = null;
     let areas = [];
     let staffList = [];
 
@@ -62,21 +73,43 @@
       const spaceSnapshot = await db.collection("spaces").where("createdBy", "==", user.uid).get();
       if (spaceSnapshot.empty) return;
 
-      const spaceDoc = spaceSnapshot.docs[0];
-      currentSpaceId = spaceDoc.id;
-      const spaceData = spaceDoc.data();
+      currentSpaceDoc = spaceSnapshot.docs[0];
+      currentSpaceId = currentSpaceDoc.id;
+      const spaceData = currentSpaceDoc.data();
       areas = spaceData.areas || [];
       staffList = spaceData.joinedParticipants || [];
 
+      // Show admin area section
+      document.getElementById("admin-area-section").classList.remove("hidden");
+
+      populateAreaSelect();
+      await loadStaffSuggestions();
+    });
+
+    function populateAreaSelect() {
       const areaSelect = document.getElementById("assign-area");
+      areaSelect.innerHTML = "";
       areas.forEach(area => {
         const opt = document.createElement("option");
         opt.value = area.code;
         opt.textContent = area.name;
         areaSelect.appendChild(opt);
       });
+    }
 
-      await loadStaffSuggestions();
+    document.getElementById("add-area-btn").addEventListener("click", async () => {
+      const name = document.getElementById("new-area-name").value.trim();
+      const code = document.getElementById("new-area-code").value.trim();
+      if (!name || !code) {
+        alert("Please fill in both area name and code.");
+        return;
+      }
+      areas.push({ name, code });
+      await db.collection("spaces").doc(currentSpaceId).update({ areas });
+      populateAreaSelect();
+      document.getElementById("new-area-name").value = "";
+      document.getElementById("new-area-code").value = "";
+      alert("✅ Area added.");
     });
 
     document.getElementById("assign-area").addEventListener("change", loadStaffSuggestions);
