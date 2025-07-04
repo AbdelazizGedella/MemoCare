@@ -30,7 +30,9 @@ function fetchMemos() {
         }
 
         let memoTable = document.getElementById("memo-table");
-        memoTable.innerHTML = ""; // Clear previous data
+        if (!lastVisible) { // Only clear on initial load
+            memoTable.innerHTML = ""; // Clear previous data
+        }
 
         db.collection("spaces").where("joinedParticipants", "array-contains", user.uid).get()
             .then(spacesSnapshot => {
@@ -39,6 +41,7 @@ function fetchMemos() {
 
                 spacesSnapshot.forEach(spaceDoc => {
                     joinedSpaceIds.push(spaceDoc.id);
+                    
                     spaceNames[spaceDoc.id] = spaceDoc.data().name;
                 });
 
@@ -348,8 +351,6 @@ document.getElementById("acknowledge-btn").addEventListener("click", () => {
         batch.commit().then(() => {
             // Show UI update
             alert("Memo acknowledged successfully!");
-                        window.location.reload();
-
 
             // Hide acknowledge button and show timestamp
             document.getElementById("acknowledge-btn").style.display = "none";
@@ -409,3 +410,229 @@ document.getElementById("reset-filters").addEventListener("click", () => {
 
 
 
+
+// ✅ إضافة الزر في HTML موجود مسبقًا (check-overall-btn)
+// ✅ إضافة modal في HTML موجود مسبقًا (overall-compliance-modal)
+// الكود الكامل بعد الضغط على الزر
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const checkBtn = document.getElementById("check-overall-btn");
+  const modal = document.getElementById("overall-compliance-modal");
+  const contentDiv = document.getElementById("overall-compliance-content");
+
+  firebase.auth().onAuthStateChanged(async (user) => {
+    if (!user) return;
+
+    const spacesSnapshot = await db.collection("spaces").where("createdBy", "==", user.uid).get();
+    if (spacesSnapshot.empty) return;
+
+    checkBtn.style.display = "inline-block";
+
+    checkBtn.addEventListener("click", async () => {
+      contentDiv.innerHTML = "<p class='text-gray-300'>Loading data...</p>";
+      modal.classList.remove("hidden");
+
+      let html = "";
+
+      for (const spaceDoc of spacesSnapshot.docs) {
+        const spaceData = spaceDoc.data();
+        const spaceId = spaceDoc.id;
+        const spaceName = spaceData.name || "Unnamed Space";
+        const participants = spaceData.joinedParticipants || [];
+
+        const memosSnapshot = await db.collection("memos").where("spaceId", "==", spaceId).get();
+        const totalMemos = memosSnapshot.size;
+
+        const ackCount = {};
+        const userUnackMemos = {};
+        participants.forEach(uid => {
+          ackCount[uid] = 0;
+          userUnackMemos[uid] = [];
+        });
+
+        memosSnapshot.forEach(memoDoc => {
+          const memoData = memoDoc.data();
+          const ackDetails = memoData.acknowledgedDetails || [];
+          participants.forEach(uid => {
+            const acknowledged = ackDetails.some(entry => entry.uid === uid);
+            if (acknowledged) {
+              ackCount[uid]++;
+            } else {
+              userUnackMemos[uid].push(memoData.title || "Untitled Memo");
+            }
+          });
+        });
+
+        const userDocs = await db.collection("users").where(firebase.firestore.FieldPath.documentId(), "in", participants).get();
+
+        let table = `
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold text-indigo-300 mb-2">📁 ${spaceName}</h3>
+            <table class="w-full text-left border border-gray-600 text-white">
+              <thead class="bg-gray-700">
+                <tr>
+                  <th class="p-2">User</th>
+                  <th class="p-2">Acknowledged</th>
+                  <th class="p-2">Total Memos</th>
+                  <th class="p-2">Compliance %</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        userDocs.forEach(userDoc => {
+          const uid = userDoc.id;
+          const user = userDoc.data();
+          const name = user.name || user.email || "Unknown";
+          const acknowledged = ackCount[uid];
+          const percentage = totalMemos > 0 ? ((acknowledged / totalMemos) * 100).toFixed(1) : 0;
+          const color = percentage >= 80 ? "text-green-400" : percentage >= 50 ? "text-yellow-400" : "text-red-400";
+
+          const unacknowledgedTitles = userUnackMemos[uid];
+          const tooltipText = unacknowledgedTitles.length > 0
+            ? unacknowledgedTitles.map(t => `• ${t}`).join('\n')
+            : "✅ Acknowledged All";
+
+          table += `
+            <tr class="border-b border-gray-700">
+              <td class="p-2">
+                <span title="${tooltipText.replace(/"/g, '&quot;')}" class="underline cursor-help hover:text-blue-300">
+                  ${name}
+                </span>
+              </td>
+              <td class="p-2">${acknowledged}</td>
+              <td class="p-2">${totalMemos}</td>
+              <td class="p-2 font-bold ${color}">${percentage}%</td>
+            </tr>
+          `;
+        });
+
+        table += "</tbody></table></div>";
+        html += table;
+      }
+
+      contentDiv.innerHTML = html || "<p class='text-red-400'>No data available.</p>";
+    });
+  });
+});
+
+
+
+
+
+    // ✅ Firebase Auth Listener + Latest Acknowledge Fetch
+  firebase.auth().onAuthStateChanged(async (user) => {
+    if (!user) return;
+
+    try {
+      const memosSnapshot = await db.collection("memos").get();
+      const latestAcknowledges = [];
+
+      memosSnapshot.forEach(doc => {
+        const memo = doc.data();
+        const title = memo.title || "Untitled Memo";
+
+        (memo.acknowledgedDetails || []).forEach(entry => {
+          if (entry.timestamp && entry.uid) {
+            latestAcknowledges.push({
+              memoTitle: title,
+              uid: entry.uid,
+              timestamp: entry.timestamp.toDate()
+            });
+          }
+        });
+      });
+
+      // Sort by timestamp descending
+      latestAcknowledges.sort((a, b) => b.timestamp - a.timestamp);
+      const top3 = latestAcknowledges.slice(0, 3);
+
+      // Fetch usernames
+      const uids = [...new Set(top3.map(x => x.uid))];
+      const userSnapshots = await db.collection("users")
+        .where(firebase.firestore.FieldPath.documentId(), "in", uids).get();
+
+      const uidToName = {};
+      userSnapshots.forEach(doc => {
+        const data = doc.data();
+        uidToName[doc.id] = data.name || data.email || "Unknown";
+      });
+
+      // Render Notification List
+      const notificationList = document.getElementById("notification-list");
+      notificationList.innerHTML = "";
+
+      top3.forEach(entry => {
+        const name = uidToName[entry.uid] || "Unknown";
+        const memoTitle = entry.memoTitle;
+        const timeString = entry.timestamp.toLocaleString();
+
+        const item = document.createElement("li");
+        item.innerHTML = `
+          <span class="text-yellow-400 font-semibold">${name}</span>
+          acknowledged
+          <span class="text-green-400 font-semibold">"${memoTitle}"</span>
+          <span class="text-gray-400 text-xs">at ${timeString}</span>
+        `;
+        notificationList.appendChild(item);
+      });
+    } catch (err) {
+      console.error("Error loading latest acknowledgments", err);
+    }
+  });
+
+  // 🔄 Show All Notifications Button
+  document.getElementById("show-all-notifications").addEventListener("click", async () => {
+    try {
+      const memosSnapshot = await db.collection("memos").get();
+      const allAcknowledges = [];
+
+      memosSnapshot.forEach(doc => {
+        const memo = doc.data();
+        const title = memo.title || "Untitled Memo";
+
+        (memo.acknowledgedDetails || []).forEach(entry => {
+          if (entry.timestamp && entry.uid) {
+            allAcknowledges.push({
+              memoTitle: title,
+              uid: entry.uid,
+              timestamp: entry.timestamp.toDate()
+            });
+          }
+        });
+      });
+
+      allAcknowledges.sort((a, b) => b.timestamp - a.timestamp);
+
+      const uids = [...new Set(allAcknowledges.map(x => x.uid))];
+      const userSnapshots = await db.collection("users")
+        .where(firebase.firestore.FieldPath.documentId(), "in", uids).get();
+
+      const uidToName = {};
+      userSnapshots.forEach(doc => {
+        const data = doc.data();
+        uidToName[doc.id] = data.name || data.email || "Unknown";
+      });
+
+      const notificationList = document.getElementById("notification-list");
+      notificationList.innerHTML = "";
+
+      allAcknowledges.forEach(entry => {
+        const name = uidToName[entry.uid] || "Unknown";
+        const memoTitle = entry.memoTitle;
+        const timeString = entry.timestamp.toLocaleString();
+
+        const item = document.createElement("li");
+        item.innerHTML = `
+          <span class="text-yellow-400 font-semibold">${name}</span>
+          acknowledged
+          <span class="text-green-400 font-semibold">"${memoTitle}"</span>
+          <span class="text-gray-400 text-xs">at ${timeString}</span>
+        `;
+        notificationList.appendChild(item);
+      });
+    } catch (err) {
+      console.error("Error fetching all notifications:", err);
+    }
+  });
