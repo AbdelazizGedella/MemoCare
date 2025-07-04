@@ -38,7 +38,6 @@
     navigator.serviceWorker.register('./firebase-messaging-sw.js')
       .then((registration) => {
         console.log('✅ SW Registered:', registration.scope);
-        messaging.useServiceWorker(registration); // مهم علشان FCM
       })
       .catch((err) => {
         console.error('❌ SW Registration Error:', err);
