@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memo || Certificates</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+  <!-- App Logic -->
+  <script defer src="./js/certificate.js"></script>
+
+  <!-- Favicon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png" />
+  <link rel="manifest" href="/icon/site.webmanifest" />
+</head>
+
+<body class="bg-gray-900 text-white">
+
+  <!-- Top Navigation -->
+  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center z-50">
+    <h1 class="text-2xl font-bold text-white">Certificate Manager</h1>
+    <span id="user-greeting" class="text-green-300 text-lg"></span>
+  </div>
+
+  <!-- Sidebar -->
+  <div
+    class="fixed top-20 left-4 w-30 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center z-40"
+  >
+    <ul class="space-y-6">
+      <li><a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-home text-2xl"></i><span class="text-sm mt-1">Home</span></a></li>
+      <li><a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-user-circle text-2xl"></i><span class="text-sm mt-1">Profile</span></a></li>
+      <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-clock text-2xl"></i><span class="text-sm mt-1">Shift Portal</span></a></li>
+      <li><a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-paper-plane text-2xl"></i><span class="text-sm mt-1">Request</span></a></li>
+      <li><a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-calendar-alt text-2xl"></i><span class="text-sm mt-1">Leave</span></a></li>
+      <li><a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-rocket text-2xl"></i><span class="text-sm mt-1">Spaces</span></a></li>
+      <li><a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-file-alt text-2xl"></i><span class="text-sm mt-1">Memos</span></a></li>
+      <li><a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-tablet-alt text-2xl"></i><span class="text-sm mt-1">Devices</span></a></li>
+      <li><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-trophy text-2xl"></i><span class="text-sm mt-1">Leaderboard</span></a></li>
+      <li><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
+            class="fas fa-lock text-2xl"></i><span class="text-sm mt-1">Admin</span></a></li>
+    </ul>
+    <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
+      <i class="fas fa-sign-out-alt text-2xl"></i>
+    </button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="ml-0 md:ml-44 px-4 mt-28">
+
+    <h1 class="text-xl font-semibold mb-6">Upload Certificate</h1>
+
+    <!-- Certificate Upload Form -->
+    <div class="bg-gray-800 p-6 rounded-lg shadow-md max-w-md">
+      <label for="certificateType" class="block mb-2">Select Certificate</label>
+      <select id="certificateType" class="w-full mb-4 p-2 rounded text-black">
+        <option value="BLS">BLS</option>
+        <option value="ACLS">ACLS</option>
+        <option value="PALS">PALS</option>
+        <option value="C.SEDATION">C.SEDATION</option>
+        <option value="MOH">MOH</option>
+        <option value="SCFHS">SCFHS</option>
+      </select>
+
+      <label for="certificateFile" class="block mb-2">Upload File</label>
+      <input type="file" id="certificateFile" class="w-full mb-4 p-2 rounded text-black" />
+
+      <label for="expiryDate" class="block mb-2">Expiry Date</label>
+      <input type="date" id="expiryDate" class="w-full mb-4 p-2 rounded text-black" />
+
+      <button onclick="uploadCertificate()" id="uploadBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+        Upload Certificate
+      </button>
+    </div>
+
+    <div id="userCertTable" class="mt-10"></div>
+
+    <!-- Admin Section -->
+    <div id="adminView" class="hidden mt-10">
+      <h2 class="text-lg font-semibold mb-4">Pending Certificates</h2>
+      <div id="certList" class="space-y-4"></div>
+    </div>
+  </div>
+</body>
+</html>
