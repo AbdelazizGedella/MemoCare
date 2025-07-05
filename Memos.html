@@ -3,12 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>Memo Acknowledgment Dashboard</title>
 
-  <title>Memo || Memos</title>
-
-  
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
@@ -23,95 +19,67 @@
   <!-- App Logic -->
   <script defer src="./js/memos.js"></script>
 
-
-
-  
-  <!--  Favicon and Apple Touch Icons -->
+  <!-- Favicon -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
-<link rel="manifest" href="/icon/site.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+  <link rel="manifest" href="/icon/site.webmanifest">
 
-
+  <style>
+    @media (max-width: 768px) {
+      .sidebar {
+        left: 0 !important;
+        width: 100% !important;
+        flex-direction: row !important;
+        overflow-x: auto;
+        justify-content: space-around;
+        padding: 1rem 0.5rem;
+      }
+      .sidebar ul {
+        flex-direction: row !important;
+        gap: 1rem !important;
+      }
+      .sidebar li span {
+        font-size: 0.65rem !important;
+      }
+      .main-content {
+        padding: 6rem 1rem 2rem 1rem !important;
+        margin-left: 0 !important;
+      }
+    }
+  </style>
 </head>
+
 <body class="bg-gray-900 text-white">
-  
+
   <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center">
-    <h1 class="text-2xl font-bold text-white-300">Memo Acknowledgment System</h1>
+  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center z-50">
+    <h1 class="text-2xl font-bold text-white">Memo Acknowledgment System</h1>
     <span id="user-greeting" class="text-green-400 text-lg"></span>
   </div>
 
   <!-- Sidebar -->
-<div class="fixed top-20 left-4 w-30 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center">
-    <ul class="space-y-6">
-        <li class="text-center">
-            <a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-home text-2xl"></i>
-                <span class="text-sm mt-1">Home</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-user-circle text-2xl"></i>
-                <span class="text-sm mt-1">Profile</span>
-            </a>
-        </li>
-                       <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
-
-        <li class="text-center">
-            <a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-paper-plane text-2xl"></i>
-                <span class="text-sm mt-1">Request</span>
-            </a>
-        </li>
-           <li class="text-center">
-            <a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-calendar-alt text-2xl"></i>
-                <span class="text-sm mt-1">Leave Planner</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-rocket text-2xl"></i>
-                <span class="text-sm mt-1">Spaces</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="Memos.html" class="flex flex-col items-center text-blue-500">
-                <i class="fas fa-file-alt text-2xl"></i>
-                <span class="text-sm mt-1">Memos</span>
-            </a>
-        </li>
-             <li class="text-center">
-            <a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-tablet-alt text-2xl"></i>
-                <span class="text-sm mt-1">Devices</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-trophy text-2xl"></i>
-                <span class="text-sm mt-1">Leaderboard</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-lock text-2xl"></i>
-                <span class="text-sm mt-1">Admin</span>
-            </a>
-        </li>
+  <div class="fixed top-20 left-4 md:left-4 w-30 md:w-28 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center sidebar z-40">
+    <ul class="space-y-6 flex flex-col">
+      <li class="text-center"><a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-home text-2xl"></i><span class="text-sm mt-1">Home</span></a></li>
+      <li class="text-center"><a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-user-circle text-2xl"></i><span class="text-sm mt-1">Profile</span></a></li>
+      <li class="text-center"><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
+      <li class="text-center"><a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-paper-plane text-2xl"></i><span class="text-sm mt-1">Request</span></a></li>
+      <li class="text-center"><a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-calendar-alt text-2xl"></i><span class="text-sm mt-1">Leave Planner</span></a></li>
+      <li class="text-center"><a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-rocket text-2xl"></i><span class="text-sm mt-1">Spaces</span></a></li>
+      <li class="text-center"><a href="Memos.html" class="flex flex-col items-center text-blue-500"><i class="fas fa-file-alt text-2xl"></i><span class="text-sm mt-1">Memos</span></a></li>
+      <li class="text-center"><a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-tablet-alt text-2xl"></i><span class="text-sm mt-1">Devices</span></a></li>
+      <li class="text-center"><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-trophy text-2xl"></i><span class="text-sm mt-1">Leaderboard</span></a></li>
+      <li class="text-center"><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-lock text-2xl"></i><span class="text-sm mt-1">Admin</span></a></li>
     </ul>
     <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
-        <i class="fas fa-sign-out-alt text-2xl"></i>
+      <i class="fas fa-sign-out-alt text-2xl"></i>
     </button>
-</div>
+  </div>
 
   <!-- Main Content Area -->
-  <div class="flex-1 overflow-y-auto p-20 ml-24">
- 
-
-
+  <div class="flex-1 overflow-y-auto p-20 ml-24 main-content">
+    
 <!-- Memo Details Modal -->
 <div id="memo-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center hidden overflow-y-auto p-4 z-50">
   <div class="bg-[#151F42] p-6 rounded-lg shadow-md w-full max-w-lg mx-auto">
@@ -232,8 +200,6 @@
 
 <div id="loading-indicator" class="text-center text-blue-400 mt-4 hidden">Loading more memos...</div>
 
-
-    
   </div>
 
 </body>
