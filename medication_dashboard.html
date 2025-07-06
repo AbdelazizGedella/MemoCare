@@ -9,11 +9,25 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-900 text-white p-4">
-  <h1 class="text-xl sm:text-2xl font-bold mb-4 text-center">📋 Medication Check Summary</h1>
+<body class="bg-gray-900 text-white p-6">
+  <h1 class="text-2xl font-bold mb-4">📋 Medication Check Log</h1>
 
-  <div class="mb-4 max-w-md mx-auto">
-    <input id="searchInput" oninput="filterTable()" placeholder="Search by medication name or code..." class="input input-bordered w-full" />
+  <div class="flex flex-col sm:flex-row gap-4 mb-6">
+    <div>
+      <label>Start Date</label>
+      <input type="date" id="startDate" class="input input-bordered" />
+    </div>
+    <div>
+      <label>End Date</label>
+      <input type="date" id="endDate" class="input input-bordered" />
+    </div>
+    <div class="self-end">
+      <button onclick="loadLogs()" class="btn btn-primary mt-1">🔍 Load</button>
+    </div>
+  </div>
+
+  <div class="mb-4">
+    <input id="searchInput" oninput="filterTable()" placeholder="Search medication..." class="input input-bordered w-full max-w-sm" />
   </div>
 
   <div class="overflow-x-auto">
@@ -32,7 +46,7 @@
     </table>
   </div>
 
-  <div id="summary" class="mt-8 px-2 sm:px-6"></div>
+  <div id="summary" class="mt-8"></div>
 
   <script>
     const firebaseConfig = {
@@ -45,14 +59,13 @@
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    const logTable = document.getElementById("logTable");
-
     let medicationsMap = {};
+    const logTable = document.getElementById("logTable");
 
     auth.onAuthStateChanged(async (user) => {
       if (user) {
         await preloadMedications();
-        loadTodayLogs();
+        loadLogs();
       } else {
         alert("Please login first.");
       }
@@ -63,10 +76,16 @@
       meds.forEach(doc => medicationsMap[doc.id] = doc.data());
     }
 
-    async function loadTodayLogs() {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    async function loadLogs() {
+      const start = new Date(document.getElementById("startDate").value);
+      const end = new Date(document.getElementById("endDate").value);
+      if (isNaN(start) || isNaN(end)) {
+        alert("Please choose valid dates.");
+        return;
+      }
+
+      // Adjust end date to include full day
+      end.setHours(23, 59, 59, 999);
 
       const snapshot = await db.collection("medication checklist log sheet")
         .where("checkedAt", ">=", firebase.firestore.Timestamp.fromDate(start))
@@ -81,10 +100,8 @@
     function renderTable(logs) {
       logTable.innerHTML = "";
       const summary = document.getElementById("summary");
-
-      const lastSeen = {};
-      const latestPerLocation = {};
       const grouped = {};
+      const lastSeen = {};
       summary.innerHTML = `<h3 class="text-lg font-bold mb-2">📊 Summary by Medication</h3>`;
 
       logs.forEach(log => {
@@ -98,7 +115,6 @@
         const prevQty = lastSeen[key] ?? null;
         const diff = prevQty !== null ? qty - prevQty : "—";
         lastSeen[key] = qty;
-        latestPerLocation[key] = qty;
 
         grouped[code] = grouped[code] || {};
         grouped[code][loc] = (grouped[code][loc] || 0) + qty;
@@ -123,22 +139,13 @@
         logTable.appendChild(tr);
       });
 
-      const totalByCode = {};
-      Object.entries(latestPerLocation).forEach(([key, value]) => {
-        const [code] = key.split("_");
-        totalByCode[code] = (totalByCode[code] || 0) + value;
-      });
-
       Object.entries(grouped).forEach(([code, locs]) => {
         const name = medicationsMap[code]?.medicationName || code;
-        const totalStock = totalByCode[code] || 0;
+        const total = Object.values(locs).reduce((a, b) => a + b, 0);
         const dist = Object.entries(locs).map(([loc, val]) => `${loc}: ${val}`).join(" | ");
-
         summary.innerHTML += `
-          <p class="text-sm mb-1"><strong>${name}</strong> (${code}) → 
-            <span class="text-yellow-300">Current Total Stock: ${totalStock}</span> |
-            <span class="text-gray-300">Today's Logs → ${dist}</span>
-          </p>
+          <p class="text-sm mb-1"><strong>${name}</strong> (${code}) → Total: 
+          <span class="text-green-400">${total}</span> → ${dist}</p>
         `;
       });
     }
