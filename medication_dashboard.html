@@ -3,50 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Medication Log Report</title>
+  <title>Medication Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-900 text-white p-6">
-  <h1 class="text-2xl font-bold mb-4">📋 Medication Check Log</h1>
+<body class="bg-gray-900 text-white p-4">
+  <div class="max-w-6xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6 text-center">📊 Medication Check Dashboard</h1>
 
-  <div class="flex flex-col sm:flex-row gap-4 mb-6">
-    <div>
-      <label>Start Date</label>
-      <input type="date" id="startDate" class="input input-bordered" />
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <input id="searchInput" type="text" placeholder="🔍 Search by code or name" class="input input-bordered w-full" />
+      <input id="startDate" type="date" class="input input-bordered w-full" />
+      <input id="endDate" type="date" class="input input-bordered w-full" />
     </div>
-    <div>
-      <label>End Date</label>
-      <input type="date" id="endDate" class="input input-bordered" />
+
+    <div class="overflow-x-auto">
+      <table class="table w-full text-sm">
+        <thead>
+          <tr class="bg-gray-700 text-white">
+            <th>Code</th>
+            <th>Name</th>
+            <th>Location</th>
+            <th>Qty (+Diff)</th>
+            <th>Expiry</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="logTable" class="bg-gray-800"></tbody>
+      </table>
     </div>
-    <div class="self-end">
-      <button onclick="loadLogs()" class="btn btn-primary mt-1">🔍 Load</button>
-    </div>
-  </div>
 
-  <div class="mb-4">
-    <input id="searchInput" oninput="filterTable()" placeholder="Search medication..." class="input input-bordered w-full max-w-sm" />
+    <div id="summary" class="mt-8"></div>
   </div>
-
-  <div class="overflow-x-auto">
-    <table class="table w-full text-sm border border-gray-600">
-      <thead class="bg-gray-700 text-gray-300 text-xs">
-        <tr>
-          <th>Code</th>
-          <th>Name</th>
-          <th>Location</th>
-          <th>Quantity (Diff)</th>
-          <th>Expiry</th>
-          <th>Checked At</th>
-        </tr>
-      </thead>
-      <tbody id="logTable" class="bg-gray-800"></tbody>
-    </table>
-  </div>
-
-  <div id="summary" class="mt-8"></div>
 
   <script>
     const firebaseConfig = {
@@ -54,54 +44,68 @@
       authDomain: "ctwo-eee79.firebaseapp.com",
       projectId: "ctwo-eee79"
     };
-
     firebase.initializeApp(firebaseConfig);
+
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    let medicationsMap = {};
     const logTable = document.getElementById("logTable");
+    const startInput = document.getElementById("startDate");
+    const endInput = document.getElementById("endDate");
+    const searchInput = document.getElementById("searchInput");
+
+    const today = new Date().toISOString().split("T")[0];
+    startInput.value = today;
+    endInput.value = today;
+
+    let allLogs = [];
+    let medicationsMap = {};
 
     auth.onAuthStateChanged(async (user) => {
       if (user) {
         await preloadMedications();
-        loadLogs();
+        await fetchLogs();
       } else {
-        alert("Please login first.");
+        alert("Please log in.");
       }
     });
 
     async function preloadMedications() {
       const meds = await db.collection("medications").get();
-      meds.forEach(doc => medicationsMap[doc.id] = doc.data());
+      meds.forEach(doc => {
+        medicationsMap[doc.id] = doc.data();
+      });
     }
 
-    async function loadLogs() {
-      const start = new Date(document.getElementById("startDate").value);
-      const end = new Date(document.getElementById("endDate").value);
-      if (isNaN(start) || isNaN(end)) {
-        alert("Please choose valid dates.");
-        return;
-      }
+    async function fetchLogs() {
+      logTable.innerHTML = "";
+      document.getElementById("summary").innerHTML = "";
 
-      // Adjust end date to include full day
+      const start = new Date(startInput.value);
+      const end = new Date(endInput.value);
       end.setHours(23, 59, 59, 999);
 
-      const snapshot = await db.collection("medication checklist log sheet")
-        .where("checkedAt", ">=", firebase.firestore.Timestamp.fromDate(start))
-        .where("checkedAt", "<=", firebase.firestore.Timestamp.fromDate(end))
-        .orderBy("checkedAt", "asc")
+      const snapshot = await db.collection("medication_checklist_log_sheet")
+        .where("checkedAt", ">=", start)
+        .where("checkedAt", "<=", end)
+        .orderBy("checkedAt", "desc")
         .get();
 
-      const logs = snapshot.docs.map(doc => doc.data());
-      renderTable(logs);
+      allLogs = [];
+      snapshot.forEach(doc => {
+        allLogs.push(doc.data());
+      });
+
+      renderTable(allLogs);
     }
 
     function renderTable(logs) {
       logTable.innerHTML = "";
       const summary = document.getElementById("summary");
+
       const grouped = {};
       const lastSeen = {};
+
       summary.innerHTML = `<h3 class="text-lg font-bold mb-2">📊 Summary by Medication</h3>`;
 
       logs.forEach(log => {
@@ -112,19 +116,17 @@
         const qty = log.quantity;
         const key = `${code}_${loc}`;
 
-        const prevQty = lastSeen[key] ?? null;
-        const diff = prevQty !== null ? qty - prevQty : "—";
-        lastSeen[key] = qty;
-
+        // تجميع وتحليل
         grouped[code] = grouped[code] || {};
         grouped[code][loc] = (grouped[code][loc] || 0) + qty;
 
+        // الفرق عن آخر إدخال
+        const lastQty = lastSeen[key] ?? null;
+        const diff = lastQty !== null ? qty - lastQty : "—";
+        lastSeen[key] = qty;
+
         const expDate = new Date(expiry);
         const isNearExpiry = expiry !== "N/A" && (expDate - new Date() <= 1000 * 60 * 60 * 24 * 30);
-
-        const diffColored = diff !== "—"
-          ? `<span class="text-xs ml-1 ${diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-gray-400'}">(${diff > 0 ? '+' : ''}${diff})</span>`
-          : "";
 
         const tr = document.createElement("tr");
         tr.className = isNearExpiry ? "bg-red-800 text-white" : "border-b border-gray-700";
@@ -132,33 +134,40 @@
           <td>${code}</td>
           <td>${name}</td>
           <td>${loc}</td>
-          <td>${qty} ${diffColored}</td>
+          <td>
+            ${qty}
+            ${diff !== "—" ? `<span class="text-xs text-yellow-300 ml-1">(${diff > 0 ? "+" : ""}${diff})</span>` : ""}
+          </td>
           <td>${expiry}</td>
           <td>${log.checkedAt.toDate().toLocaleString()}</td>
         `;
         logTable.appendChild(tr);
       });
 
+      // ملخص إجمالي
       Object.entries(grouped).forEach(([code, locs]) => {
         const name = medicationsMap[code]?.medicationName || code;
         const total = Object.values(locs).reduce((a, b) => a + b, 0);
         const dist = Object.entries(locs).map(([loc, val]) => `${loc}: ${val}`).join(" | ");
+
         summary.innerHTML += `
           <p class="text-sm mb-1"><strong>${name}</strong> (${code}) → Total: 
-          <span class="text-green-400">${total}</span> → ${dist}</p>
+            <span class="text-green-400">${total}</span> → ${dist}</p>
         `;
       });
     }
 
-    function filterTable() {
-      const filter = document.getElementById("searchInput").value.toLowerCase();
-      const rows = logTable.getElementsByTagName("tr");
-      for (let row of rows) {
-        const code = row.cells[0]?.textContent.toLowerCase() || "";
-        const name = row.cells[1]?.textContent.toLowerCase() || "";
-        row.style.display = (code.includes(filter) || name.includes(filter)) ? "" : "none";
-      }
-    }
+    searchInput.addEventListener("input", () => {
+      const term = searchInput.value.toLowerCase();
+      const filtered = allLogs.filter(log =>
+        log.medicationCode.toLowerCase().includes(term) ||
+        log.medicationName.toLowerCase().includes(term)
+      );
+      renderTable(filtered);
+    });
+
+    startInput.addEventListener("change", fetchLogs);
+    endInput.addEventListener("change", fetchLogs);
   </script>
 </body>
 </html>
