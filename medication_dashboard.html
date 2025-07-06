@@ -99,12 +99,12 @@
       renderTable(allLogs);
     }
 
-    function renderTable(logs) {
+ function renderTable(logs) {
   logTable.innerHTML = "";
   const summary = document.getElementById("summary");
 
   const grouped = {};
-  const lastSeen = {};
+  const lastSeen = {}; // key: `${medicationCode}_${location}` → previous quantity
 
   summary.innerHTML = `<h3 class="text-lg font-bold mb-2">📊 Summary by Medication</h3>`;
 
@@ -116,20 +116,20 @@
     const qty = log.quantity;
     const key = `${code}_${loc}`;
 
-    // تجميع وتحليل
+    // تحليل الفرق بناءً على ترتيب الزمن من الأقدم إلى الأحدث
+    const prevQty = lastSeen[key] ?? null;
+    const diff = prevQty !== null ? qty - prevQty : "—";
+    lastSeen[key] = qty;
+
+    // تحليل الكميات الكلية
     grouped[code] = grouped[code] || {};
     grouped[code][loc] = (grouped[code][loc] || 0) + qty;
-
-    // الفرق عن آخر إدخال - الاتجاه معكوس عشان الترتيب من الأحدث للأقدم
-    const lastQty = lastSeen[key] ?? null;
-    const diff = lastQty !== null ? lastQty - qty : "—";
-    lastSeen[key] = qty;
 
     const expDate = new Date(expiry);
     const isNearExpiry = expiry !== "N/A" && (expDate - new Date() <= 1000 * 60 * 60 * 24 * 30);
 
     const diffColored = diff !== "—"
-      ? `<span class="text-xs ml-1 ${diff > 0 ? 'text-red-400' : 'text-green-400'}">(${diff > 0 ? "-" : "+"}${Math.abs(diff)})</span>`
+      ? `<span class="text-xs ml-1 ${diff > 0 ? 'text-green-400' : 'text-red-400'}">(${diff > 0 ? "+" : ""}${diff})</span>`
       : "";
 
     const tr = document.createElement("tr");
@@ -145,7 +145,7 @@
     logTable.appendChild(tr);
   });
 
-  // ملخص إجمالي
+  // عرض إجمالي التوزيع
   Object.entries(grouped).forEach(([code, locs]) => {
     const name = medicationsMap[code]?.medicationName || code;
     const total = Object.values(locs).reduce((a, b) => a + b, 0);
