@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medication Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-4">
+  <div class="max-w-6xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6 text-center">📊 Medication Check Dashboard</h1>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <input id="searchInput" type="text" placeholder="🔍 Search by code or name" class="input input-bordered w-full" />
+      <input id="startDate" type="date" class="input input-bordered w-full" />
+      <input id="endDate" type="date" class="input input-bordered w-full" />
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table w-full text-sm">
+        <thead>
+          <tr class="bg-gray-700 text-white">
+            <th>Code</th>
+            <th>Name</th>
+            <th>Location</th>
+            <th>Qty (+Diff)</th>
+            <th>Expiry</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="logTable" class="bg-gray-800"></tbody>
+      </table>
+    </div>
+
+    <div id="summary" class="mt-8"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    const logTable = document.getElementById("logTable");
+    const startInput = document.getElementById("startDate");
+    const endInput = document.getElementById("endDate");
+    const searchInput = document.getElementById("searchInput");
+
+    const today = new Date().toISOString().split("T")[0];
+    startInput.value = today;
+    endInput.value = today;
+
+    let allLogs = [];
+    let medicationsMap = {};
+
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        await preloadMedications();
+        await fetchLogs();
+      } else {
+        alert("Please log in.");
+      }
+    });
+
+    async function preloadMedications() {
+      const meds = await db.collection("medications").get();
+      meds.forEach(doc => {
+        medicationsMap[doc.id] = doc.data();
+      });
+    }
+
+    async function fetchLogs() {
+      logTable.innerHTML = "";
+      document.getElementById("summary").innerHTML = "";
+
+      const start = new Date(startInput.value);
+      const end = new Date(endInput.value);
+      end.setHours(23, 59, 59, 999);
+
+      const snapshot = await db.collection("medication_checklist_log_sheet")
+        .where("checkedAt", ">=", start)
+        .where("checkedAt", "<=", end)
+        .orderBy("checkedAt", "desc")
+        .get();
+
+      allLogs = [];
+      snapshot.forEach(doc => {
+        allLogs.push(doc.data());
+      });
+
+      renderTable(allLogs);
+    }
+
+    function renderTable(logs) {
+      logTable.innerHTML = "";
+      const summary = document.getElementById("summary");
+
+      const grouped = {};
+      const lastSeen = {};
+
+      summary.innerHTML = `<h3 class="text-lg font-bold mb-2">📊 Summary by Medication</h3>`;
+
+      logs.forEach(log => {
+        const code = log.medicationCode;
+        const name = medicationsMap[code]?.medicationName || log.medicationName;
+        const expiry = medicationsMap[code]?.expiryDate || "N/A";
+        const loc = log.location;
+        const qty = log.quantity;
+        const key = `${code}_${loc}`;
+
+        // تجميع وتحليل
+        grouped[code] = grouped[code] || {};
+        grouped[code][loc] = (grouped[code][loc] || 0) + qty;
+
+        // الفرق عن آخر إدخال
+        const lastQty = lastSeen[key] ?? null;
+        const diff = lastQty !== null ? qty - lastQty : "—";
+        lastSeen[key] = qty;
+
+        const expDate = new Date(expiry);
+        const isNearExpiry = expiry !== "N/A" && (expDate - new Date() <= 1000 * 60 * 60 * 24 * 30);
+
+        const tr = document.createElement("tr");
+        tr.className = isNearExpiry ? "bg-red-800 text-white" : "border-b border-gray-700";
+        tr.innerHTML = `
+          <td>${code}</td>
+          <td>${name}</td>
+          <td>${loc}</td>
+          <td>
+            ${qty}
+            ${diff !== "—" ? `<span class="text-xs text-yellow-300 ml-1">(${diff > 0 ? "+" : ""}${diff})</span>` : ""}
+          </td>
+          <td>${expiry}</td>
+          <td>${log.checkedAt.toDate().toLocaleString()}</td>
+        `;
+        logTable.appendChild(tr);
+      });
+
+      // ملخص إجمالي
+      Object.entries(grouped).forEach(([code, locs]) => {
+        const name = medicationsMap[code]?.medicationName || code;
+        const total = Object.values(locs).reduce((a, b) => a + b, 0);
+        const dist = Object.entries(locs).map(([loc, val]) => `${loc}: ${val}`).join(" | ");
+
+        summary.innerHTML += `
+          <p class="text-sm mb-1"><strong>${name}</strong> (${code}) → Total: 
+            <span class="text-green-400">${total}</span> → ${dist}</p>
+        `;
+      });
+    }
+
+    searchInput.addEventListener("input", () => {
+      const term = searchInput.value.toLowerCase();
+      const filtered = allLogs.filter(log =>
+        log.medicationCode.toLowerCase().includes(term) ||
+        log.medicationName.toLowerCase().includes(term)
+      );
+      renderTable(filtered);
+    });
+
+    startInput.addEventListener("change", fetchLogs);
+    endInput.addEventListener("change", fetchLogs);
+  </script>
+</body>
+</html>
