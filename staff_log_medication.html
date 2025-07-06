@@ -2,34 +2,39 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Log Medication</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="p-6 bg-gray-900 text-white">
-  <h1 class="text-2xl font-bold mb-4">🧾 Medication Log Entry</h1>
+<body class="p-4 bg-gray-900 text-white">
 
-  <div class="space-y-4 max-w-md">
-    <input id="code" placeholder="Enter Medication Code" class="input input-bordered w-full" />
-    
-    <select id="location" class="select select-bordered w-full">
-      <option disabled selected>Select Location</option>
-      <option>Fast track</option>
-      <option>Resus</option>
-      <option>Medication room</option>
-      <option>Charge drawer</option>
-    </select>
+  <div class="max-w-lg mx-auto">
+    <h1 class="text-2xl font-bold mb-6 text-center">🧾 Medication Log Entry</h1>
 
-    <input id="quantity" type="number" min="1" placeholder="Quantity" class="input input-bordered w-full" />
+    <div class="space-y-4">
+      <input id="code" placeholder="Enter Medication Code" class="input input-bordered w-full" />
+      
+      <select id="location" class="select select-bordered w-full">
+        <option disabled selected>Select Location</option>
+        <option>Fast track</option>
+        <option>Resus</option>
+        <option>Medication room</option>
+        <option>Charge drawer</option>
+      </select>
 
-    <button onclick="logMedication()" class="btn btn-primary w-full">📥 Log Entry</button>
-  </div>
+      <input id="quantity" type="number" min="1" placeholder="Quantity" class="input input-bordered w-full" />
 
-  <div class="mt-10">
-    <h2 class="text-xl font-semibold mb-2">🔁 Recent Entries</h2>
-    <div id="entries" class="space-y-2"></div>
+      <button id="logBtn" onclick="logMedication()" class="btn btn-primary w-full">📥 Log Entry</button>
+      <p id="logStatus" class="text-sm text-yellow-300 text-center"></p>
+    </div>
+
+    <div class="mt-10">
+      <h2 class="text-xl font-semibold mb-3">🔁 Recent Entries</h2>
+      <div id="entries" class="space-y-3"></div>
+    </div>
   </div>
 
   <script>
@@ -45,7 +50,7 @@
 
     let currentUID = null;
     let currentUserName = null;
-    const spaceID = "ER-space"; // ← عدّل بناءً على تسجيل دخول المستخدم أو بياناته
+    const spaceID = "ER-space"; // ← عدّل بناءً على بياناتك
 
     auth.onAuthStateChanged(async user => {
       if (user) {
@@ -62,43 +67,60 @@
       const code = document.getElementById("code").value.trim();
       const location = document.getElementById("location").value;
       const quantity = parseInt(document.getElementById("quantity").value);
+      const logStatus = document.getElementById("logStatus");
+      const logBtn = document.getElementById("logBtn");
 
       if (!code || !location || !quantity || quantity <= 0) {
-        alert("Please fill all fields.");
+        alert("Please fill all fields correctly.");
         return;
       }
 
-      const medDoc = await db.collection("medications").doc(code).get();
-      if (!medDoc.exists) {
-        alert("Medication not found. Please contact admin.");
-        return;
+      logStatus.textContent = "⏳ Fetching medication info...";
+      logBtn.disabled = true;
+
+      try {
+        const medDoc = await db.collection("medications").doc(code).get();
+        if (!medDoc.exists) {
+          alert("❌ Medication not found. Please contact admin.");
+          logStatus.textContent = "";
+          logBtn.disabled = false;
+          return;
+        }
+
+        const name = medDoc.data().medicationName;
+
+        await db.collection("medication_checklist_log_sheet").add({
+          medicationCode: code,
+          medicationName: name,
+          location: location,
+          quantity: quantity,
+          checkedBy: currentUID,
+          staffName: currentUserName,
+          checkedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          spaceID: spaceID
+        });
+
+        logStatus.textContent = "✅ Entry logged successfully.";
+        document.getElementById("code").value = "";
+        document.getElementById("location").selectedIndex = 0;
+        document.getElementById("quantity").value = "";
+        loadLatest();
+      } catch (error) {
+        console.error("Logging error:", error);
+        alert("⚠️ Error while logging entry.");
+      } finally {
+        logBtn.disabled = false;
+        setTimeout(() => {
+          logStatus.textContent = "";
+        }, 3000);
       }
-
-      const name = medDoc.data().medicationName;
-
-      await db.collection("medication checklist log sheet").add({
-        medicationCode: code,
-        medicationName: name,
-        location: location,
-        quantity: quantity,
-        checkedBy: currentUID,
-        staffName: currentUserName,
-        checkedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        spaceID: spaceID
-      });
-
-      document.getElementById("code").value = "";
-      document.getElementById("location").selectedIndex = 0;
-      document.getElementById("quantity").value = "";
-
-      loadLatest();
     }
 
     async function loadLatest() {
       const container = document.getElementById("entries");
       container.innerHTML = "";
 
-      const snapshot = await db.collection("medication checklist log sheet")
+      const snapshot = await db.collection("medication_checklist_log_sheet")
         .where("checkedBy", "==", currentUID)
         .orderBy("checkedAt", "desc")
         .limit(10)
@@ -109,11 +131,11 @@
         const time = d.checkedAt?.toDate().toLocaleString() || "Unknown";
 
         const div = document.createElement("div");
-        div.className = "bg-gray-800 p-3 rounded";
+        div.className = "bg-gray-800 p-4 rounded";
         div.innerHTML = `
           <p><strong>${d.medicationName}</strong> (${d.medicationCode})</p>
           <p>Location: ${d.location} | Quantity: ${d.quantity}</p>
-          <p class="text-sm text-gray-400">At: ${time}</p>
+          <p class="text-sm text-gray-400">Logged at: ${time}</p>
         `;
         container.appendChild(div);
       });
