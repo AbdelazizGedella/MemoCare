@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Log Medication</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 bg-gray-900 text-white">
+  <h1 class="text-2xl font-bold mb-4">🧾 Medication Log Entry</h1>
+
+  <div class="space-y-4 max-w-md">
+    <input id="code" placeholder="Enter Medication Code" class="input input-bordered w-full" />
+    
+    <select id="location" class="select select-bordered w-full">
+      <option disabled selected>Select Location</option>
+      <option>Fast track</option>
+      <option>Resus</option>
+      <option>Medication room</option>
+      <option>Charge drawer</option>
+    </select>
+
+    <input id="quantity" type="number" min="1" placeholder="Quantity" class="input input-bordered w-full" />
+
+    <button onclick="logMedication()" class="btn btn-primary w-full">📥 Log Entry</button>
+  </div>
+
+  <div class="mt-10">
+    <h2 class="text-xl font-semibold mb-2">🔁 Recent Entries</h2>
+    <div id="entries" class="space-y-2"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let currentUID = null;
+    let currentUserName = null;
+    const spaceID = "ER-space"; // ← عدّل بناءً على تسجيل دخول المستخدم أو بياناته
+
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        currentUID = user.uid;
+        const userDoc = await db.collection("users").doc(currentUID).get();
+        currentUserName = userDoc.exists ? userDoc.data().name : "Unknown";
+        loadLatest();
+      } else {
+        alert("Please log in");
+      }
+    });
+
+    async function logMedication() {
+      const code = document.getElementById("code").value.trim();
+      const location = document.getElementById("location").value;
+      const quantity = parseInt(document.getElementById("quantity").value);
+
+      if (!code || !location || !quantity || quantity <= 0) {
+        alert("Please fill all fields.");
+        return;
+      }
+
+      const medDoc = await db.collection("medications").doc(code).get();
+      if (!medDoc.exists) {
+        alert("Medication not found. Please contact admin.");
+        return;
+      }
+
+      const name = medDoc.data().medicationName;
+
+      await db.collection("medication checklist log sheet").add({
+        medicationCode: code,
+        medicationName: name,
+        location: location,
+        quantity: quantity,
+        checkedBy: currentUID,
+        staffName: currentUserName,
+        checkedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        spaceID: spaceID
+      });
+
+      document.getElementById("code").value = "";
+      document.getElementById("location").selectedIndex = 0;
+      document.getElementById("quantity").value = "";
+
+      loadLatest();
+    }
+
+    async function loadLatest() {
+      const container = document.getElementById("entries");
+      container.innerHTML = "";
+
+      const snapshot = await db.collection("medication checklist log sheet")
+        .where("checkedBy", "==", currentUID)
+        .orderBy("checkedAt", "desc")
+        .limit(10)
+        .get();
+
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        const time = d.checkedAt?.toDate().toLocaleString() || "Unknown";
+
+        const div = document.createElement("div");
+        div.className = "bg-gray-800 p-3 rounded";
+        div.innerHTML = `
+          <p><strong>${d.medicationName}</strong> (${d.medicationCode})</p>
+          <p>Location: ${d.location} | Quantity: ${d.quantity}</p>
+          <p class="text-sm text-gray-400">At: ${time}</p>
+        `;
+        container.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
