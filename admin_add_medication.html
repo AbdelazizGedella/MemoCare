@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin | Add Medication</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 bg-gray-900 text-white">
+  <h1 class="text-2xl font-bold mb-4">➕ Add New Medication</h1>
+
+  <div class="space-y-4 max-w-md">
+    <input id="code" placeholder="Medication Code (e.g. 1201165)" class="input input-bordered w-full" />
+    <input id="name" placeholder="Medication Name" class="input input-bordered w-full" />
+    <input id="expiry" type="date" class="input input-bordered w-full" />
+
+    <button onclick="addMedication()" class="btn btn-success w-full">✅ Save Medication</button>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let adminUID = null;
+
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        adminUID = user.uid;
+      } else {
+        alert("Please log in");
+      }
+    });
+
+    async function addMedication() {
+      const code = document.getElementById("code").value.trim();
+      const name = document.getElementById("name").value.trim();
+      const expiry = document.getElementById("expiry").value;
+
+      if (!code || !name || !expiry) {
+        alert("Please fill all fields.");
+        return;
+      }
+
+      await db.collection("medications").doc(code).set({
+        medicationName: name,
+        expiryDate: expiry,
+        addedBy: adminUID,
+        addedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      alert("Medication added successfully.");
+      document.getElementById("code").value = "";
+      document.getElementById("name").value = "";
+      document.getElementById("expiry").value = "";
+    }
+  </script>
+</body>
+</html>
