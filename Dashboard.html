@@ -29,35 +29,14 @@
 
 <body class="bg-[#07102F] text-white pt-20">
   <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center z-50">
-    <h1 class="text-xl sm:text-2xl font-bold text-white">Memo Acknowledgment System</h1>
-    <span id="user-greeting" class="text-white text-sm sm:text-lg"></span>
+  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-3 sm:p-4 shadow-md flex flex-col sm:flex-row justify-between items-center z-50">
+    <h1 class="text-lg sm:text-2xl font-bold text-white text-center sm:text-left w-full sm:w-auto">Memo Acknowledgment System</h1>
   </div>
 
-  <div class="flex flex-col md:flex-row mt-20">
-    <!-- Sidebar -->
-    <div class="md:fixed md:top-20 md:left-4 md:w-32 w-full bg-[#151F42] p-4 md:p-6 shadow-lg rounded-lg flex md:flex-col flex-row items-center justify-around md:justify-start z-40">
-      <ul class="space-y-4 md:space-y-6 flex md:flex-col flex-row flex-wrap gap-2 md:gap-0">
-        <li><a href="#" class="flex flex-col items-center text-blue-500"><i class="fas fa-home text-2xl"></i><span class="text-xs">Home</span></a></li>
-        <li><a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-user-circle text-2xl"></i><span class="text-xs">Profile</span></a></li>
-               <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
-                            <li><a href="certificate.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-certificate text-2xl"></i><span class="text-xs">Certificate</span></a></li>
-                       <li><a href="medications.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-drug text-2xl"></i><span class="text-xs">Medications</span></a></li>
-        <li><a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-paper-plane text-2xl"></i><span class="text-xs">Request</span></a></li>
-        <li><a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-calendar-alt text-2xl"></i><span class="text-xs">Leave</span></a></li>
-        <li><a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-rocket text-2xl"></i><span class="text-xs">Spaces</span></a></li>
-        <li><a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-file-alt text-2xl"></i><span class="text-xs">Memos</span></a></li>
-        <li><a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-tablet-alt text-2xl"></i><span class="text-xs">Devices</span></a></li>
-        <li><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-trophy text-2xl"></i><span class="text-xs">Leaderboard</span></a></li>
-        <li><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-lock text-2xl"></i><span class="text-xs">Admin</span></a></li>
-      </ul>
-      <button id="logout-btn" class="mt-4 text-white hover:text-red-500 md:mt-6">
-        <i class="fas fa-sign-out-alt text-2xl"></i>
-      </button>
-    </div>
+  
 
     <!-- Main Content -->
-    <div class="flex-1 overflow-y-auto px-4 py-6 md:px-20 md:ml-40">
+    <div class="flex-1 overflow-y-auto px-4 py-6 md:px-20 ">
       <!-- Add your main dashboard content here -->
       <!-- Use w-full and responsive flex-cols as needed -->
 
@@ -158,106 +137,120 @@
   </div>
 </div>
 
+
+
+
+<!-- Quick Access Dashboard -->
+<section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 p-4 mt-4">
+  <!-- Access Item -->
+  <a href="Profile.html" class="bg-gradient-to-br from-[#1e3a8a] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-user-circle text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Profile</span>
+  </a>
+  <a href="shift-portal.html" class="bg-gradient-to-br from-[#0f766e] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-clock text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Shift Portal</span>
+  </a>
+  <a href="certificate.html" class="bg-gradient-to-br from-[#78350f] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-certificate text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Certificates</span>
+  </a>
+  <a href="medications.html" class="bg-gradient-to-br from-[#365314] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-pills text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Medications</span>
+  </a>
+  <a href="request.html" class="bg-gradient-to-br from-[#4b5563] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-paper-plane text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Request</span>
+  </a>
+  <a href="leave.html" class="bg-gradient-to-br from-[#9333ea] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-calendar-alt text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Leave</span>
+  </a>
+  <a href="spaces.html" class="bg-gradient-to-br from-[#059669] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-rocket text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Spaces</span>
+  </a>
+  <a href="Memos.html" class="relative bg-gradient-to-br from-[#2563eb] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-file-alt text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Memos</span>
+    <!-- Notification badge -->
+    <span id="unack-badge" class="hidden absolute top-2 right-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white z-10"></span>
+  </a>
+  <script>
+    // Show badge if there are unacknowledged memos, show green check if zero
+    document.addEventListener('DOMContentLoaded', function () {
+      const unackMemoCountElem = document.getElementById('unack-memo-count');
+      const badge = document.getElementById('unack-badge');
+      if (unackMemoCountElem && badge) {
+        // Use MutationObserver to update badge when count changes
+        const updateBadge = () => {
+          let text = unackMemoCountElem.textContent.trim();
+          // If loading (empty or hidden), hide badge
+          if (!text || unackMemoCountElem.classList.contains('hidden')) {
+            badge.classList.add('hidden');
+            return;
+          }
+          let count = parseInt(text) || 0;
+          if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.classList.remove('hidden');
+            badge.classList.remove('bg-green-600');
+            badge.classList.add('bg-red-600');
+            badge.innerHTML = count > 99 ? '99+' : count;
+          } else {
+            // Show green checkmark
+            badge.innerHTML = '<i class="fas fa-check text-white"></i>';
+            badge.classList.remove('hidden');
+            badge.classList.remove('bg-red-600');
+            badge.classList.add('bg-green-600');
+          }
+        };
+        // Initial check
+        updateBadge();
+        // Observe changes to the count
+        const observer = new MutationObserver(updateBadge);
+        observer.observe(unackMemoCountElem, { childList: true, characterData: true, subtree: true });
+      }
+    });
+  </script>
+  </script>
+  <a href="device.html" class="bg-gradient-to-br from-[#b91c1c] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-tablet-alt text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Devices</span>
+  </a>
+  <a href="leaderboard.html" class="bg-gradient-to-br from-[#f59e0b] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-trophy text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Leaderboard</span>
+  </a>
+  <a href="admin.html" class="bg-gradient-to-br from-[#7c3aed] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-lock text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Admin</span>
+  </a>
+  <button id="logout-btn" class="bg-gradient-to-br from-[#ef4444] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-sign-out-alt text-white text-3xl mb-2"></i>
+    <span class="text-white text-sm font-medium">Logout</span>
+  </button>
+</section>
+
+
+
+
+
+
+
+
+
+
+
     <!-- Activity log -->
       <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-left w-full mt-6">
         <h2 class="text-2xl font-semibold text-blue-300">Activity Log & Updates</h2>
         <ul id="activity-log" class="list-none pl-6 text-white"></ul>
     </div>
 
-    <div class="flex flex-col space-y-4 mt-6">
-      <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
-        <!-- Best Responder -->
-        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
-          <p><span id="best-fastest-time" class="text-3xl font-bold text-yellow-400">Loading...</span></p>  
-          <h2 class="text-2xl font-semibold text-blue-300">Best Responder</h2>
-          <p><strong>Memo Title:</strong> <span id="best-fastest-memo" class="text-green-400">Loading...</span></p>
-          <p><strong>User:</strong> <span id="best-fastest-user" class="text-white">Loading...</span></p>
-        </div>
-        <!-- Current User's Fastest Response -->
-        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
-          <p><span id="fastest-time" class="text-3xl font-bold text-yellow-400">Loading...</span></p>  
-          <h2 class="text-2xl font-semibold text-blue-300 mb-2">Your Fastest Response</h2>
-          <p><strong>Memo Title:</strong> <span id="fastest-memo" class="text-green-400">Loading...</span></p>
-          <p class="text-gray-500 text-sm mt-2"><strong>Response Recorded At:</strong> <span id="fastest-time-stamp">Loading...</span></p>
-        </div>
-      </div>
 
-      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full">
-        <h2 class="text-2xl font-semibold text-blue-300">Leaderboard - Rapid Response</h2>
-        <label for="month-select" class="text-white mt-2">Select Month:</label>
-        <select id="month-select" class="bg-gray-700 text-white p-2 rounded">
-            <option value="4" selected>April</option>
-            <option value="1">January</option>
-            <option value="2">February</option>
-            <option value="3">March</option>
-            <option value="5">May</option>
-            <option value="6">June</option>
-            <option value="7">July</option>
-            <option value="8">August</option>
-            <option value="9">September</option>
-            <option value="10">October</option>
-            <option value="11">November</option>
-            <option value="12">December</option>
-        </select>
-        <p><strong>Your Rank:</strong> <span id="user-rank" class="text-green-400">Loading...</span></p>
-        <h3 class="text-xl font-semibold text-blue-300 mt-4">Top 3 Users</h3>
-        <ul id="top-users-list" class="list-none text-white"></ul>
-      </div>
-
-      <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
-        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
-          <h2 class="text-2xl font-semibold text-blue-300">Fastest Responders</h2>
-          <label for="month-select" class="text-white mt-2">Select Month:</label>
-          <select id="month-select" class="bg-gray-700 text-white p-2 rounded">
-              <option value="0" selected>Overall</option>
-          </select>
-          <div class="overflow-x-auto">
-            <table class="w-full text-white mt-4">
-              <thead>
-                  <tr class="text-blue-400">
-                      <th>#Rank</th>
-                      <th>#Pic</th>
-                      <th>Name</th>
-                      <th>Response Time</th>
-                  </tr>
-              </thead>
-              <tbody id="fastest-leaderboard"></tbody>
-            </table>
-          </div>
-          <button id="show-more-fastest" class="mt-4 bg-blue-600 hover:bg-blue-800 text-white p-2 rounded">
-              Show More >>
-          </button>
-        </div>
-        <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full md:w-1/2">
-          <h2 class="text-2xl font-semibold text-blue-300">Highest Points Collectors</h2>
-          <div class="overflow-x-auto">
-            <table class="w-full text-white mt-4">
-              <thead>
-                  <tr class="text-blue-400">
-                      <th>#Rank</th>
-                      <th>#Pic</th>
-                      <th>Name</th>
-                      <th>Points</th>
-                  </tr>
-              </thead>
-              <tbody id="points-leaderboard"></tbody>
-            </table>
-          </div>
-          <button id="show-more-points" class="mt-4 bg-blue-600 hover:bg-blue-800 text-white p-2 rounded">
-              Show More >>
-          </button>
-        </div>
-      </div>
-
-      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center w-full mt-6">
-        <h2 class="text-2xl font-semibold text-blue-300">Acknowledgment Performance Overview</h2>
-        <p><strong>Average Response Time:</strong> <span id="avg-response-time" class="text-yellow-400">Loading...</span></p>
-        <p><strong>Your Rank:</strong> <span id="user-rank" class="text-green-400">Loading...</span></p>
-        <h3 class="text-xl font-semibold text-blue-300 mt-4">Leaderboard - Overall Acknowledgments</h3>
-        <ul id="acknowledge-leaderboard" class="list-none text-white"></ul>
-        <p id="performance-trend" class="text-xl font-bold mt-4">Loading...</p>
-      </div>
-    </div>
+  
 
     </div>
   </div></body>
