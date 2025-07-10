@@ -28,56 +28,110 @@
 
 <body class="bg-gray-900 text-white">
 
-  <!-- Top Navigation -->
-  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center z-50">
-    <h1 class="text-2xl font-bold text-white">Certificate Manager</h1>
-    <span id="user-greeting" class="text-green-300 text-lg"></span>
+ <!-- Top Navigation Bar -->
+  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-3 sm:p-4 shadow-md flex flex-col sm:flex-row justify-between items-center z-50">
+    <h1 class="text-lg sm:text-2xl font-bold text-white text-center sm:text-left w-full sm:w-auto">Certificate Manager</h1>
+    <span id="user-greeting" class="text-white text-sm sm:text-lg mt-2 sm:mt-0 w-full sm:w-auto text-center sm:text-right"></span>
   </div>
 
-  <!-- Sidebar -->
-  <div
-    class="fixed top-20 left-4 w-30 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center z-40"
-  >
-    <ul class="space-y-6">
-      <li><a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-home text-2xl"></i><span class="text-sm mt-1">Home</span></a></li>
-      <li><a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-user-circle text-2xl"></i><span class="text-sm mt-1">Profile</span></a></li>
-      <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-clock text-2xl"></i><span class="text-sm mt-1">Shift Portal</span></a></li>
-      <li><a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-paper-plane text-2xl"></i><span class="text-sm mt-1">Request</span></a></li>
-      <li><a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-calendar-alt text-2xl"></i><span class="text-sm mt-1">Leave</span></a></li>
-      <li><a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-rocket text-2xl"></i><span class="text-sm mt-1">Spaces</span></a></li>
-      <li><a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-file-alt text-2xl"></i><span class="text-sm mt-1">Memos</span></a></li>
-      <li><a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-tablet-alt text-2xl"></i><span class="text-sm mt-1">Devices</span></a></li>
-      <li><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-trophy text-2xl"></i><span class="text-sm mt-1">Leaderboard</span></a></li>
-      <li><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i
-            class="fas fa-lock text-2xl"></i><span class="text-sm mt-1">Admin</span></a></li>
-    </ul>
-    <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
-      <i class="fas fa-sign-out-alt text-2xl"></i>
-    </button>
-  </div>
+  <div class="flex flex-col md:flex-row mt-20">
+    <!-- Sidebar -->
+    <!-- Sidebar with Responsive Hamburger Menu -->
+    <nav class="md:fixed md:top-20 md:left-4 md:w-32 w-full bg-[#151F42] p-4 md:p-6 shadow-lg rounded-lg flex md:flex-col flex-row items-center justify-around md:justify-start z-40 relative">
+      <!-- Hamburger Button (Mobile Only) -->
+      <button id="sidebar-toggle" class="md:hidden absolute top-2 right-2 text-white focus:outline-none" aria-label="Open sidebar">
+      <i class="fas fa-bars text-2xl"></i>
+      </button>
+      <!-- Sidebar Menu -->
+      <ul id="sidebar-menu" class="space-y-4 md:space-y-6 flex md:flex-col flex-row flex-wrap gap-2 md:gap-0 md:static absolute top-12 left-0 w-full md:w-auto bg-[#151F42] md:bg-transparent rounded-lg md:rounded-none shadow-lg md:shadow-none transition-all duration-300 z-50 md:flex visible hidden">
+      <li><a href="Dashboard.html" class="flex flex-col items-center  hover:text-blue-500"><i class="fas fa-home text-2xl"></i><span class="text-xs">Home</span></a></li>
+      <li><a href="#" class="flex flex-col items-center text-blue-500"><i class="fas fa-user-circle text-2xl"></i><span class="text-xs">Profile</span></a></li>
+      <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
+      <li><a href="certificate.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-certificate text-2xl"></i><span class="text-xs">Certificate</span></a></li>
+      <li><a href="medications.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-pills text-2xl"></i><span class="text-xs">Medications</span></a></li>
+      <li><a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-paper-plane text-2xl"></i><span class="text-xs">Request</span></a></li>
+      <li><a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-calendar-alt text-2xl"></i><span class="text-xs">Leave</span></a></li>
+      <li><a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-rocket text-2xl"></i><span class="text-xs">Spaces</span></a></li>
+      <li><a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-file-alt text-2xl"></i><span class="text-xs">Memos</span></a></li>
+      <li><a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-tablet-alt text-2xl"></i><span class="text-xs">Devices</span></a></li>
+      <li><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-trophy text-2xl"></i><span class="text-xs">Leaderboard</span></a></li>
+      <li><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-lock text-2xl"></i><span class="text-xs">Admin</span></a></li>
+   
+      <li>
+        <button id="logout-btn" class="flex flex-col items-center text-white hover:text-red-500">
+        <i class="fas fa-sign-out-alt text-2xl"></i>
+        <span class="text-xs">Logout</span>
+        </button>
+      </li>
+      </ul>
+    </nav>
+    <script>
+      // Sidebar toggle for mobile
+      const sidebarToggle = document.getElementById('sidebar-toggle');
+      const sidebarMenu = document.getElementById('sidebar-menu');
+      function closeSidebarOnDesktop() {
+      if (window.innerWidth >= 768) {
+        sidebarMenu.classList.remove('hidden');
+        sidebarMenu.classList.add('flex');
+      } else {
+        sidebarMenu.classList.add('hidden');
+        sidebarMenu.classList.remove('flex');
+      }
+      }
+      sidebarToggle.addEventListener('click', () => {
+      sidebarMenu.classList.toggle('hidden');
+      sidebarMenu.classList.toggle('flex');
+      });
+      window.addEventListener('resize', closeSidebarOnDesktop);
+      // Initial state
+      closeSidebarOnDesktop();
+    </script>
 
   <!-- Main Content -->
   <div class="ml-0 md:ml-44 px-4 mt-28">
 
-    <h1 class="text-xl font-semibold mb-6">Upload Certificate</h1>
+<!-- Certificate Buttons Section -->
+<section class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 w-full max-w-md mx-auto mt-8 px-2">
+  <!-- Upload Certificate Button -->
+  <button id="openUploadModal" class="bg-gradient-to-br from-[#2563eb] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-upload text-white text-2xl mb-2"></i>
+    <span class="text-white text-sm font-medium text-center">Upload Certificate</span>
+  </button>
 
+  <!-- Pending Approval Button -->
+  <button id="showPendingApprovalBtn" class="bg-gradient-to-br from-[#f59e0b] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300">
+    <i class="fas fa-clock text-white text-2xl mb-2"></i>
+    <span class="text-white text-sm font-medium text-center">Pending Approval</span>
+  </button>
+
+</section>
+
+<!-- Admin Section: Pending Certificates -->
+<div id="adminView" class="hidden mt-10 px-4 max-w-3xl mx-auto">
+  <h2 class="text-lg font-semibold mb-4 text-white">Pending Certificates for Approval</h2>
+  <div id="certList" class="space-y-4">
+    <!-- Certificates will be injected here by JS -->
+  </div>
+</div>
+
+<!-- Space Summary Button (will be shown only if admin) -->
+<div id="spaceSummaryBtnContainer" class="flex justify-center"></div>
+
+<!-- Modal for Upload Certificate -->
+<div id="uploadModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden">
+  <div class="bg-gray-900 bg-opacity-90 backdrop-blur-lg rounded-xl shadow-2xl p-8 max-w-md w-full relative">
+    <button id="closeUploadModal" class="absolute top-3 right-3 text-gray-300 hover:text-white text-2xl focus:outline-none">
+      <i class="fas fa-times"></i>
+    </button>
+    <h1 class="text-xl font-semibold mb-6">Upload Certificate</h1>
     <!-- Certificate Upload Form -->
-    <div class="bg-gray-800 p-6 rounded-lg shadow-md max-w-md">
+    <div>
       <label for="certificateType" class="block mb-2">Select Certificate</label>
-      <select id="certificateType" class="w-full mb-4 p-2 rounded text-black">
+      <select id="certificateType" class="w-full mb-4 p-2 rounded text-blue-200">
         <option value="BLS">BLS</option>
         <option value="ACLS">ACLS</option>
         <option value="PALS">PALS</option>
-        <option value="C.SEDATION">C.SEDATION</option>
+        <option value="SEDATION">SEDATION</option>
         <option value="MOH">MOH</option>
         <option value="SCFHS">SCFHS</option>
       </select>
@@ -86,20 +140,161 @@
       <input type="file" id="certificateFile" class="w-full mb-4 p-2 rounded text-black" />
 
       <label for="expiryDate" class="block mb-2">Expiry Date</label>
-      <input type="date" id="expiryDate" class="w-full mb-4 p-2 rounded text-black" />
+      <input type="date" id="expiryDate" class="w-full mb-4 p-2 rounded text-blue-300" />
 
-      <button onclick="uploadCertificate()" id="uploadBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+      <button onclick="uploadCertificate()" id="uploadBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full">
         Upload Certificate
       </button>
     </div>
+  </div>
+</div>
 
-    <div id="userCertTable" class="mt-10"></div>
+<script>
+  const openBtn = document.getElementById('openUploadModal');
+  const modal = document.getElementById('uploadModal');
+  const closeBtn = document.getElementById('closeUploadModal');
 
-    <!-- Admin Section -->
-    <div id="adminView" class="hidden mt-10">
-      <h2 class="text-lg font-semibold mb-4">Pending Certificates</h2>
-      <div id="certList" class="space-y-4"></div>
-    </div>
+  openBtn.addEventListener('click', () => {
+    modal.classList.remove('hidden');
+  });
+
+  closeBtn.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+    }
+  });
+</script>
+
+<!-- Certificate Table -->
+<div id="userCertTable" class="mt-10 w-full overflow-x-auto px-2">
+  <table class="min-w-full bg-gray-800 rounded-lg shadow-md">
+    <tbody id="userCertTableBody">
+      <!-- Certificate rows will be injected here by JS -->
+    </tbody>
+  </table>
+</div>
+
+
+  <script>
+  // Show Admin Section on Pending Approval button click
+  document.getElementById('showPendingApprovalBtn').addEventListener('click', function () {
+    const adminView = document.getElementById('adminView');
+    adminView.classList.remove('hidden');
+    adminView.scrollIntoView({ behavior: 'smooth' });
+
+    // Call the function to load pending certificates
+    loadPendingCertificates();
+  });
+</script>
+
+
+
+
+ <!-- ✅ Modal تقرير الشهادات -->
+<div id="certSummaryModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
+  <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-5xl relative">
+    <button onclick="document.getElementById('certSummaryModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">×</button>
+    <h2 class="text-xl font-bold mb-4">📋 تقرير الشهادات الإجمالي</h2>
+    <table class="w-full text-sm text-white border border-gray-700">
+      <thead class="bg-gray-800">
+        <tr>
+          <th class="px-4 py-2">الشهادة</th>
+          <th class="px-4 py-2">✅ Active</th>
+          <th class="px-4 py-2">⚠️ Near</th>
+          <th class="px-4 py-2">❌ Expired</th>
+          <th class="px-4 py-2">🚫 Missing</th>
+          <th class="px-4 py-2">👁 View</th>
+        </tr>
+      </thead>
+      <tbody id="certSummaryTable" class="bg-gray-900"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ✅ Modal تصنيف الموظفين -->
+<div id="certRankingModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
+  <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative">
+    <button onclick="document.getElementById('certRankingModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">×</button>
+    <h2 class="text-xl font-bold mb-4">🏅 تصنيف الموظفين حسب الالتزام</h2>
+    <input id="searchRankingInput" type="text" placeholder="ابحث بالاسم..." class="w-full mb-4 p-2 rounded bg-gray-800 text-white" oninput="renderRankingList()" />
+    <div id="certRankingBody" class="space-y-2 text-sm text-white max-h-[60vh] overflow-y-auto"></div>
+  </div>
+</div>
+
+<!-- ✅ Modal تفصيلي لكل شهادة -->
+<div id="detailedCertModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
+  <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative">
+    <button onclick="document.getElementById('detailedCertModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">×</button>
+    <h2 id="detailedCertTitle" class="text-xl font-bold mb-4"></h2>
+    <ul id="detailedCertList" class="space-y-1 text-white text-sm max-h-[60vh] overflow-y-auto"></ul>
+  </div>
+</div>
+
+
+
+
+
+
+<!-- Space Members Certificates Summary Module -->
+<div id="spaceCertSummary" class="hidden mt-10 px-4">
+  <h2 class="text-lg font-semibold mb-4">Certificates Summary by Space Members</h2>
+
+  <!-- Filter Controls -->
+  <div class="flex flex-wrap gap-4 mb-4">
+    <select id="filterCertificateType" class="p-2 rounded bg-gray-800 text-white">
+      <option value="ALL">All Certificates</option>
+      <option value="BLS">BLS</option>
+      <option value="ACLS">ACLS</option>
+      <option value="PALS">PALS</option>
+      <option value="SEDATION">SEDATION</option>
+      <option value="MOH">MOH</option>
+      <option value="SCFHS">SCFHS</option>
+    </select>
+    <select id="filterStatus" class="p-2 rounded bg-gray-800 text-white">
+      <option value="ALL">All Status</option>
+      <option value="Active">✅ Active</option>
+      <option value="Near Expiry">⚠️ Near Expiry</option>
+      <option value="Expired">❌ Expired</option>
+    </select>
+  </div>
+
+  <div id="spaceCertTableContainer" class="overflow-x-auto">
+    <table class="min-w-full text-sm text-left text-white border border-gray-600">
+      <thead class="bg-gray-700 text-gray-300">
+        <tr>
+          <th class="px-4 py-2">Name</th>
+          <th class="px-4 py-2">BLS</th>
+          <th class="px-4 py-2">ACLS</th>
+          <th class="px-4 py-2">PALS</th>
+          <th class="px-4 py-2">SEDATION</th>
+          <th class="px-4 py-2">MOH</th>
+          <th class="px-4 py-2">SCFHS</th>
+        </tr>
+      </thead>
+<tbody id="overviewCertTableBody" class="bg-gray-800 text-white">
+        <!-- JS will inject rows here -->
+      </tbody>
+    </table>
+  </div>
+
+
+
+  <div id="certViewerModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
+  <div class="bg-gray-900 p-6 rounded-xl shadow-2xl max-w-3xl w-full relative">
+    
+    <button onclick="document.getElementById('certViewerModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl"><i class="fas fa-times"></i></button>
+    <iframe id="certIframe" src="" class="w-full h-[70vh] rounded-lg" frameborder="0"></iframe>
+  </div>
+</div>
+
+
+
+
+</div>
   </div>
 </body>
 </html>
