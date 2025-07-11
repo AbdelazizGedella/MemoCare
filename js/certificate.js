@@ -217,12 +217,24 @@ async function checkIfAdminAndLoadSpaceCertificates() {
         <button onclick="openCertRankingReport()" class="bg-gradient-to-br from-pink-600 via-pink-800 to-pink-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
           <i class="fas fa-trophy text-2xl mb-1"></i>
           <span class="text-white text-sm font-medium text-center">Staff Ranking</span>
-        </button>
-        <button onclick="document.getElementById('adminView').classList.remove('hidden'); document.getElementById('adminView').scrollIntoView({behavior:'smooth'});"
-          class="bg-gradient-to-br from-yellow-500 via-yellow-700 to-yellow-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
-          <i class="fas fa-clock text-2xl mb-1"></i>
-          <span class="text-white text-sm font-medium text-center">Pending Certificates</span>
-        </button>
+  <button id="showPendingApprovalBtn"
+  class="bg-gradient-to-br from-yellow-500 via-yellow-700 to-yellow-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
+  <i class="fas fa-clock text-2xl mb-1"></i>
+  <span class="text-white text-sm font-medium text-center">Pending Certificates</span>
+</button>
+<script>
+  // ✅ Show Admin Section on Pending Approval button click
+  document.getElementById('showPendingApprovalBtn').addEventListener('click', function () {
+    const adminView = document.getElementById('adminView');
+    adminView.classList.remove('hidden');
+    adminView.scrollIntoView({ behavior: 'smooth' });
+
+    // Load the pending certificates
+    loadPendingCertificates();
+  });
+</script>
+
+
       `;
       break;
     }
