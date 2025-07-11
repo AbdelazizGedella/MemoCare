@@ -52,10 +52,12 @@ function loadRecentUploads() {
         console.log(`📂 شهادة: ${certType}`, certData);
 
         if (
-          typeof certData === "object" &&
-          certData?.uploadedAt &&
-          certData?.fileURL
-        ) {
+  typeof certData === "object" &&
+  certData?.uploadedAt &&
+  certData?.fileURL &&
+  certData.status === "approved"
+)
+ {
           console.log("✅ تمت الإضافة:", certType, certData);
           items.push({
             uid,
@@ -278,7 +280,15 @@ async function loadOverviewCertificateTable() {
     ]);
 
     const name = userDoc.exists ? userDoc.data().name || uid : uid;
-    const certs = certDoc.exists ? certDoc.data() : {};
+const allCerts = certDoc.exists ? certDoc.data() : {};
+const certs = {};
+
+// فقط خذ الشهادات اللي حالتها approved
+for (const [key, value] of Object.entries(allCerts)) {
+  if (value.status === "approved") {
+    certs[key] = value;
+  }
+}
 
     const rowHTML = `
       <tr>
@@ -359,7 +369,7 @@ async function loadPendingCertificates() {
     const userDoc = await db.collection("users").doc(uid).get();
     const userName = userDoc.exists ? userDoc.data().name : uid;
 
-     ["BLS", "ACLS", "PALS", "C.SEDATION", "MOH" ,"SCFHS"].forEach(certType => {
+["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(certType => {
       if (data[certType] && data[certType].status === "pending") {
         const cert = data[certType];
 
