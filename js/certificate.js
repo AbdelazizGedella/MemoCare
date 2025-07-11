@@ -236,7 +236,17 @@ function getColorClass(status) {
 
 
 function getCertCell(cert) {
-  if (!cert) return `<td class="px-4 py-2 text-gray-400 italic">-</td>`;
+  if (!cert) {
+    return `<td class="px-4 py-2 text-gray-400 italic">-</td>`;
+  }
+
+  // ✅ لو الحالة مرفوضة فقط
+  if (cert.status === "rejected") {
+    console.log("❌ شهادة مرفوضة", cert);
+    return `<td class="px-4 py-2 bg-red-600 text-white text-center font-bold rounded">REJECTED</td>`;
+  }
+
+  // ✅ باقي الحالات
   const { daysLeft, status } = getCertStatus(cert.expiryDate);
 
   let months = 0;
@@ -258,6 +268,8 @@ function getCertCell(cert) {
     <div class="mt-1"><button onclick="viewCert('${cert.fileURL}')" class="text-white hover:text-blue-400"><i class='fas fa-eye'></i></button></div>
   </td>`;
 }
+
+
 
 let allCertRows = [];
 
