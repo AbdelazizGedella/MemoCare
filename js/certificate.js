@@ -116,41 +116,6 @@ function loadRecentUploads() {
   });
 }
 
-
-
-
-async function uploadCertificate() {
-  const file = certificateFile.files[0];
-  const expiry = expiryDate.value;
-  const type = certificateType.value;
-  if (!file || !expiry || !type) return alert("Fill all fields");
-
-  uploadBtn.disabled = true;
-  uploadBtn.textContent = "Uploading...";
-
-  const fileName = `${type}_${Date.now()}_${file.name}`;
-  const ref = storage.ref(`certificates/${currentUID}/${fileName}`);
-  await ref.put(file);
-  const url = await ref.getDownloadURL();
-
-  const docRef = db.collection("Database").doc(currentUID);
-  const oldDoc = await docRef.get();
-  const data = oldDoc.exists ? oldDoc.data() : {};
-  data[type] = {
-    fileURL: url,
-    expiryDate: expiry,
-    uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    status: "pending"
-  };
-  await docRef.set(data);
-  alert("Uploaded successfully.");
-  certificateFile.value = "";
-  expiryDate.value = "";
-  loadUserCertificates();
-  uploadBtn.disabled = false;
-  uploadBtn.textContent = "Upload Certificate";
-}
-
 async function loadUserCertificates() {
   const container = document.getElementById("userCertTableBody");
   container.innerHTML = "";
@@ -191,6 +156,42 @@ async function loadUserCertificates() {
   });
 }
 
+
+
+async function uploadCertificate() {
+  const file = certificateFile.files[0];
+  const expiry = expiryDate.value;
+  const type = certificateType.value;
+  if (!file || !expiry || !type) return alert("Fill all fields");
+
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = "Uploading...";
+
+  const fileName = `${type}_${Date.now()}_${file.name}`;
+  const ref = storage.ref(`certificates/${currentUID}/${fileName}`);
+  await ref.put(file);
+  const url = await ref.getDownloadURL();
+
+  const docRef = db.collection("Database").doc(currentUID);
+  const oldDoc = await docRef.get();
+  const data = oldDoc.exists ? oldDoc.data() : {};
+  data[type] = {
+    fileURL: url,
+    expiryDate: expiry,
+    uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    status: "pending"
+  };
+  await docRef.set(data);
+  alert("Uploaded successfully.");
+  certificateFile.value = "";
+  expiryDate.value = "";
+  loadUserCertificates();
+  uploadBtn.disabled = false;
+  uploadBtn.textContent = "Upload Certificate";
+}
+
+
+
 async function checkIfAdminAndLoadSpaceCertificates() {
   const user = auth.currentUser;
   if (!user) return;
@@ -201,7 +202,7 @@ async function checkIfAdminAndLoadSpaceCertificates() {
     if (data.createdBy === user.uid) {
       const uids = data.joinedParticipants || [];
       document.getElementById("spaceCertSummary").classList.remove("hidden");
-loadOverviewCertificateTable();
+      loadOverviewCertificateTable();
 
       document.getElementById("spaceSummaryBtnContainer").innerHTML = `
         <button onclick="document.getElementById('spaceCertSummary').classList.remove('hidden'); document.getElementById('spaceCertSummary').scrollIntoView({behavior:'smooth'});"
@@ -216,6 +217,11 @@ loadOverviewCertificateTable();
         <button onclick="openCertRankingReport()" class="bg-gradient-to-br from-pink-600 via-pink-800 to-pink-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
           <i class="fas fa-trophy text-2xl mb-1"></i>
           <span class="text-white text-sm font-medium text-center">Staff Ranking</span>
+        </button>
+        <button onclick="document.getElementById('adminView').classList.remove('hidden'); document.getElementById('adminView').scrollIntoView({behavior:'smooth'});"
+          class="bg-gradient-to-br from-yellow-500 via-yellow-700 to-yellow-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
+          <i class="fas fa-clock text-2xl mb-1"></i>
+          <span class="text-white text-sm font-medium text-center">Pending Certificates</span>
         </button>
       `;
       break;
@@ -381,13 +387,6 @@ async function loadPendingCertificates() {
   const certList = document.getElementById("certList");
   certList.innerHTML = "";
 
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const spacesSnap = await db.collection("spaces").get();
-  const isAdmin = spacesSnap.docs.some(doc => doc.data().createdBy === user.uid);
-  if (!isAdmin) return; // 🛑 ممنوع
-
   const snapshot = await db.collection("Database").get();
 
   snapshot.forEach(async (doc) => {
@@ -396,7 +395,7 @@ async function loadPendingCertificates() {
     const userDoc = await db.collection("users").doc(uid).get();
     const userName = userDoc.exists ? userDoc.data().name : uid;
 
-    ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(certType => {
+["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(certType => {
       if (data[certType] && data[certType].status === "pending") {
         const cert = data[certType];
 
@@ -417,7 +416,6 @@ async function loadPendingCertificates() {
     });
   });
 }
-
 
 async function approve(uid, certType) {
   const comment = prompt("Enter approval comment (optional):");
