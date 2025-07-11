@@ -25,8 +25,16 @@ auth.onAuthStateChanged(async (user) => {
     loadUserCertificates();
     checkIfAdminAndLoadSpaceCertificates();
     loadRecentUploads();
+
+    // 🔐 فقط لو المستخدم مدير في أحد الـ spaces:
+    const spacesSnap = await db.collection("spaces").get();
+    const isAdmin = spacesSnap.docs.some(doc => doc.data().createdBy === currentUID);
+    if (isAdmin) {
+      loadPendingCertificates();
+    }
   }
 });
+
 
 
 
@@ -373,6 +381,13 @@ async function loadPendingCertificates() {
   const certList = document.getElementById("certList");
   certList.innerHTML = "";
 
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const spacesSnap = await db.collection("spaces").get();
+  const isAdmin = spacesSnap.docs.some(doc => doc.data().createdBy === user.uid);
+  if (!isAdmin) return; // 🛑 ممنوع
+
   const snapshot = await db.collection("Database").get();
 
   snapshot.forEach(async (doc) => {
@@ -381,7 +396,7 @@ async function loadPendingCertificates() {
     const userDoc = await db.collection("users").doc(uid).get();
     const userName = userDoc.exists ? userDoc.data().name : uid;
 
-["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(certType => {
+    ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(certType => {
       if (data[certType] && data[certType].status === "pending") {
         const cert = data[certType];
 
@@ -402,6 +417,7 @@ async function loadPendingCertificates() {
     });
   });
 }
+
 
 async function approve(uid, certType) {
   const comment = prompt("Enter approval comment (optional):");
