@@ -197,18 +197,33 @@ function viewSpaceDetails(spaceId) {
                         </ul>
                     `;
 
-                    document.getElementById("space-modal-content").innerHTML = modalContent;
-                    document.getElementById("space-modal").classList.remove("hidden");
+document.getElementById("space-modal-content").innerHTML = modalContent;
+document.getElementById("space-modal").classList.remove("hidden");
 
-                    const joinBtn = document.getElementById("join-space-btn");
-                    if (currentUserUID !== createdByUID &&
-                        !participantsJoinedUIDs.includes(currentUserUID) &&
-                        !participantsPendingUIDs.includes(currentUserUID)) {
-                        joinBtn.style.display = "block";
-                        joinBtn.onclick = () => sendJoinRequest(spaceId, currentUserUID);
-                    } else {
-                        joinBtn.style.display = "none";
-                    }
+const joinBtn = document.getElementById("join-space-btn");
+
+// ✅ لو المستخدم هو صاحب الـ space → أظهر زر إدارة المشاركين
+if (currentUserUID === createdByUID) {
+    const manageBtn = document.createElement("button");
+    manageBtn.textContent = "🛠 Manage Participants";
+    manageBtn.className = "bg-yellow-500 px-4 py-2 mt-4 rounded w-full";
+    manageBtn.onclick = () => {
+        window.location.href = `space-details.html?spaceId=${spaceId}`;
+    };
+    document.getElementById("space-modal-content").appendChild(manageBtn);
+}
+
+// ✅ لو المستخدم مش صاحب الـ space ومش ضمن المشاركين → أظهر زر الانضمام
+if (
+    currentUserUID !== createdByUID &&
+    !participantsJoinedUIDs.includes(currentUserUID) &&
+    !participantsPendingUIDs.includes(currentUserUID)
+) {
+    joinBtn.style.display = "block";
+    joinBtn.onclick = () => sendJoinRequest(spaceId, currentUserUID);
+} else {
+    joinBtn.style.display = "none";
+}
                 })
                 .catch(error => console.error("Error fetching user details:", error));
         })
