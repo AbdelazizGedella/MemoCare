@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Details</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sortable/0.8.0/js/sortable.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+  <h1 class="text-2xl font-bold mb-4 text-blue-400">🛠 Space Participant Management</h1>
+
+  <div id="loading" class="text-yellow-400">Loading space data...</div>
+  <div id="content" class="hidden">
+    <h2 id="space-name" class="text-xl font-semibold text-white"></h2>
+    <p id="space-description" class="text-gray-300 mb-4"></p>
+
+    <input type="text" id="searchInput" placeholder="🔍 Search by name or email..." class="mb-4 p-2 rounded bg-gray-700 w-full">
+    <button onclick="exportToExcel()" class="bg-green-600 px-4 py-2 mb-4 rounded">⬇ Export to Excel</button>
+    <div class="overflow-x-auto">
+      <table id="participants-table" class="w-full text-sm bg-gray-800 rounded sortable">
+        <thead>
+          <tr class="text-yellow-300">
+            <th class="p-2">#</th>
+            <th class="p-2">Name</th>
+            <th class="p-2">Email</th>
+            <th class="p-2">Care Email</th>
+            <th class="p-2">Phone</th>
+            <th class="p-2">Nationality</th>
+            <th class="p-2">Gender</th>
+            <th class="p-2">Contract Type</th>
+            <th class="p-2">Birth Date</th>
+            <th class="p-2">Start Date</th>
+            <th class="p-2">Contract End</th>
+            <th class="p-2">IQAMA</th>
+            <th class="p-2">PASSPORT</th>
+            <th class="p-2">DEGREE</th>
+            <th class="p-2">SPECIALITY</th>
+            <th class="p-2">BLS</th>
+            <th class="p-2">ACLS</th>
+            <th class="p-2">Edit</th>
+          </tr>
+        </thead>
+        <tbody id="participants-body"></tbody>
+      </table>
+    </div>
+
+    <div id="statistics" class="mt-8"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79",
+      storageBucket: "ctwo-eee79.appspot.com",
+      messagingSenderId: "788657051205",
+      appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const spaceId = urlParams.get("spaceId");
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        alert("Please login first.");
+        window.location.href = "login.html";
+        return;
+      }
+
+      db.collection("spaces").doc(spaceId).get().then(doc => {
+        if (!doc.exists) return;
+        const space = doc.data();
+
+        if (space.createdBy !== user.uid) {
+          alert("Access denied. Only the creator can manage this space.");
+          window.location.href = "spaces.html";
+          return;
+        }
+
+        document.getElementById("space-name").innerText = space.name;
+        document.getElementById("space-description").innerText = space.description;
+
+        loadParticipants(space.joinedParticipants || []);
+      });
+    });
+
+    let allUsers = [];
+
+    function loadParticipants(uids) {
+      Promise.all(uids.map(uid => db.collection("users").doc(uid).get())).then(userDocs => {
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("content").classList.remove("hidden");
+
+        allUsers = userDocs;
+        renderTable(userDocs);
+
+        document.getElementById("searchInput").addEventListener("input", e => {
+          const val = e.target.value.toLowerCase();
+          const filtered = allUsers.filter(doc => {
+            const d = doc.data();
+            return d.name?.toLowerCase().includes(val) || d.email?.toLowerCase().includes(val);
+          });
+          renderTable(filtered);
+        });
+      });
+    }
+
+    function renderTable(userDocs) {
+      let bodyHTML = userDocs.map((doc, i) => {
+        const d = doc.data();
+        return `
+          <tr class="border-b border-gray-600">
+            <td class="p-2">${i + 1}</td>
+            <td class="p-2">${d.name || '-'}</td>
+            <td class="p-2">${d.email || '-'}</td>
+            <td class="p-2">${d.careEmail || '-'}</td>
+            <td class="p-2">${d.phone || '-'}</td>
+            <td class="p-2">${d.nationality || '-'}</td>
+            <td class="p-2">${d.gender || '-'}</td>
+            <td class="p-2">${d.contractType || '-'}</td>
+            <td class="p-2">${d.birthDate || '-'}</td>
+            <td class="p-2">${d.startDate || '-'}</td>
+            <td class="p-2">${d.contractEndDate || '-'}</td>
+            <td class="p-2">${d.iqama || '-'}</td>
+            <td class="p-2">${d.passport || '-'}</td>
+            <td class="p-2">${d.degree || '-'}</td>
+            <td class="p-2">${d.speciality || '-'}</td>
+            <td class="p-2">${d.blsExpiry || '-'}</td>
+            <td class="p-2">${d.aclsExpiry || '-'}</td>
+            <td class="p-2"><button onclick="editUser('${doc.id}')" class="bg-blue-600 px-2 py-1 rounded text-white text-sm">Edit</button></td>
+          </tr>
+        `;
+      }).join("");
+      document.getElementById("participants-body").innerHTML = bodyHTML;
+    }
+
+    function editUser(uid) {
+      window.location.href = `edit-user.html?uid=${uid}`;
+    }
+
+    function exportToExcel() {
+      const table = document.getElementById("participants-table");
+      const workbook = XLSX.utils.table_to_book(table);
+      XLSX.writeFile(workbook, "participants.xlsx");
+    }
+
+    function generateStatistics(userDocs) {
+      let nationalities = {};
+      let soonToExpire = [];
+      const now = new Date();
+
+      userDocs.forEach(doc => {
+        const d = doc.data();
+        const nat = d.nationality || "Unknown";
+        nationalities[nat] = (nationalities[nat] || 0) + 1;
+
+        if (d.contractEndDate) {
+          let endDate = new Date(d.contractEndDate);
+          let diff = (endDate - now) / (1000 * 60 * 60 * 24);
+          if (diff < 60) {
+            soonToExpire.push(`${d.name || "Unknown"} → ${Math.ceil(diff)} days left`);
+          }
+        }
+      });
+
+      document.getElementById("statistics").innerHTML = `
+        <div class="bg-gray-800 p-4 rounded">
+          <h3 class="text-lg font-bold text-purple-400 mb-2">📊 Stats</h3>
+          <p class="text-yellow-300 mb-2">🌍 Nationalities:</p>
+          <ul class="text-white mb-4">
+            ${Object.entries(nationalities).map(([nat, count]) => `<li>${nat}: ${count}</li>`).join("")}
+          </ul>
+          <p class="text-red-400 mb-2">⏳ Contracts Ending Soon:</p>
+          <ul class="text-white">
+            ${soonToExpire.length ? soonToExpire.map(e => `<li>${e}</li>`).join("") : "<li>None</li>"}
+          </ul>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit User</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6">
+  <div class="max-w-3xl mx-auto bg-gray-800 p-6 rounded shadow">
+    <h1 class="text-2xl font-bold mb-4 text-blue-400">📝 Edit User Profile</h1>
+    <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <input type="hidden" id="uid" />
+
+      <div><label>Name</label><input id="name" class="input input-bordered w-full" /></div>
+      <div><label>Email</label><input id="email" class="input input-bordered w-full" /></div>
+      <div><label>Care Email</label><input id="careEmail" class="input input-bordered w-full" /></div>
+      <div><label>Phone</label><input id="phone" class="input input-bordered w-full" /></div>
+      <div><label>Nationality</label><input id="nationality" class="input input-bordered w-full" /></div>
+      <div><label>Gender</label><select id="gender" class="select select-bordered w-full"><option>Male</option><option>Female</option></select></div>
+      <div><label>Contract Type</label><select id="contractType" class="select select-bordered w-full"><option>Local</option><option>Mouwasat</option><option>International</option></select></div>
+      <div><label>Birth Date</label><input id="birthDate" type="date" class="input input-bordered w-full" /></div>
+      <div><label>Start Date</label><input id="startDate" type="date" class="input input-bordered w-full" /></div>
+      <div><label>Contract End Date</label><input id="contractEndDate" type="date" class="input input-bordered w-full" /></div>
+      <div><label>IQAMA Number</label><input id="iqama" class="input input-bordered w-full" /></div>
+      <div><label>Passport Number</label><input id="passport" class="input input-bordered w-full" /></div>
+      <div><label>Degree</label><input id="degree" class="input input-bordered w-full" /></div>
+      <div><label>Speciality</label><input id="speciality" class="input input-bordered w-full" /></div>
+
+      <!-- Certification Dates -->
+      <div><label>BLS Expiry</label><input id="blsExpiry" type="date" class="input input-bordered w-full" disabled /></div>
+      <div><label>ACLS Expiry</label><input id="aclsExpiry" type="date" class="input input-bordered w-full" disabled /></div>
+      <div><label>SEDATION Expiry</label><input id="sedationExpiry" type="date" class="input input-bordered w-full" disabled /></div>
+      <div><label>MOH Expiry</label><input id="mohExpiry" type="date" class="input input-bordered w-full" disabled /></div>
+      <div><label>SCFHS Expiry</label><input id="scfhsExpiry" type="date" class="input input-bordered w-full" disabled /></div>
+    </form>
+
+    <div class="mt-6 flex justify-end">
+      <button onclick="saveChanges()" class="btn btn-success">💾 Save Changes</button>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79",
+      storageBucket: "ctwo-eee79.appspot.com",
+      messagingSenderId: "788657051205",
+      appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get("uid");
+    document.getElementById("uid").value = uid;
+
+    db.collection("users").doc(uid).get().then(doc => {
+      if (!doc.exists) return alert("User not found");
+      const d = doc.data();
+      for (const key in d) {
+        const input = document.getElementById(key);
+        if (input) input.value = d[key];
+      }
+    });
+
+    db.collection("Database").doc(uid).get().then(doc => {
+      if (doc.exists) {
+        const certs = doc.data();
+        const getDate = key => certs[key]?.expiryDate?.toString().split("T")[0] || "";
+        document.getElementById("blsExpiry").value = getDate("BLS");
+        document.getElementById("aclsExpiry").value = getDate("ACLS");
+        document.getElementById("sedationExpiry").value = getDate("SEDATION");
+        document.getElementById("mohExpiry").value = getDate("MOH");
+        document.getElementById("scfhsExpiry").value = getDate("SCFHS");
+      }
+    });
+
+    function saveChanges() {
+      const updates = {};
+      ["name", "email", "careEmail", "phone", "nationality", "gender", "contractType", "birthDate", "startDate", "contractEndDate", "iqama", "passport", "degree", "speciality"].forEach(id => {
+        updates[id] = document.getElementById(id).value;
+      });
+
+      db.collection("users").doc(uid).update(updates).then(() => {
+        alert("✅ Profile updated successfully");
+        window.history.back();
+      }).catch(err => alert("❌ Error: " + err.message));
+    }
+  </script>
+</body>
+</html>
