@@ -189,6 +189,8 @@ async function saveContract() {
 
     await db.collection("users").doc(userId).update({ contract_end_date: contractDate });
     alert("Contract date saved!");
+window.location.reload(true);
+
 }
 
 // ✅ Function to Save Past Leave Records
@@ -428,16 +430,36 @@ function loadUserSpaces(currentUserUID) {
         .then(snapshot => {
             const spaceSelect = document.getElementById("space-select");
             spaceSelect.innerHTML = "";
+
             snapshot.forEach(doc => {
                 const spaceData = doc.data();
                 const option = document.createElement("option");
-                option.value = doc.id; // 🔥 Space ID
+                option.value = doc.id;
                 option.textContent = spaceData.name;
+                option.dataset.createdBy = spaceData.createdBy; // ⬅️ add this to store admin UID
                 spaceSelect.appendChild(option);
             });
+
+            // Add listener when selection changes
+            spaceSelect.addEventListener("change", () => {
+                const selectedOption = spaceSelect.options[spaceSelect.selectedIndex];
+                const selectedAdmin = selectedOption.dataset.createdBy;
+                const isAdmin = selectedAdmin === auth.currentUser.uid;
+
+                const adminPlannerDiv = document.querySelector("#leave-grid-admin").closest("div");
+                if (isAdmin) {
+                    adminPlannerDiv.classList.remove("hidden");
+                } else {
+                    adminPlannerDiv.classList.add("hidden");
+                }
+            });
+
+            // Trigger change for default selected space
+            spaceSelect.dispatchEvent(new Event("change"));
         })
         .catch(error => console.error("Error fetching joined spaces:", error));
 }
+
 
 
 
