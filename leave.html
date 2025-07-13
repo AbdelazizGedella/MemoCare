@@ -101,103 +101,196 @@
 <!-- User Profile Section -->
 
     <div class="container mx-auto p-6">
+    <!-- ✅ Header & Instructions -->
+    
         <h1 class="text-3xl font-bold text-blue-300">📝 Annual Leave Planner</h1>
+<br>
+<div class="backdrop-blur-md bg-gradient-to-r from-blue-900 via-slate-700 to-blue-800 p-4 rounded-xl shadow-lg border border-white/10 mb-6">
+      <h2 class="text-white text-xl font-bold">📢 Leave Instructions</h2>
+      <ul class="text-white text-sm mt-2 list-disc ml-5">
+        <li><span class="text-yellow-300 font-semibold">No Annual Leave</span> allowed during <span class="text-yellow-300">Ramadan</span> or <span class="text-yellow-300">Zulhijjah</span>.</li>
+        <li>📆 <strong>Ramadan 2026</strong>: ~Feb 18 – Mar 19</li>
+        <li>📆 <strong>Zulhijjah 2026</strong>: ~May 15 – Jun 13</li>
+        <li>✅ Try to plan your leaves <span class="underline">starting from the 1st of each month</span>.</li>
+        <li>📊 Ideal distribution: <strong>3 leaves/month</strong> across <strong>10 months</strong> (excluding restricted periods)</li>
+      </ul>
+    </div>
+
+<!-- Steps UI -->
 
 
-        
-        <!-- Enter Contract Details -->
-<div class="bg-[#151F42] p-6 rounded-lg shadow-md mt-6">
-    <h2 class="text-xl font-bold text-blue-300">📃 Enter Contract Details</h2>
-    <label>Contract End Date:</label>
-    <input type="date" id="contract-date" class="bg-gray-700 p-2 rounded w-full">
-    <button onclick="saveContract()" class="mt-4 bg-green-500 p-2 rounded w-full">Save</button>
+<ul class="steps w-full mt-6 mb-4">
+  <li class="step step-primary" id="step-1-indicator">Contract Details</li>
+  <li class="step" id="step-2-indicator">Leaves 2025</li>
+  <li class="step" id="step-3-indicator">Planner & Submit</li>
+</ul>
+
+
+<!-- Sections Wrapper -->
+<div id="steps-container">
+<!-- Step 1: Contract Section -->
+<div id="step-1" class="space-y-6">
+
+  <div class="flex gap-6">
+    <div class="bg-[#151F42] p-6 rounded-lg shadow-md flex-1">
+        <h2 class="text-xl font-bold text-blue-300">📃 Enter Contract Details</h2>
+        <label>Contract End Date:</label>
+        <input type="date" id="contract-date" class="bg-gray-700 p-2 rounded w-full">
+        <button onclick="saveContract()" class="mt-4 bg-green-500 p-2 rounded w-full">Save</button>
+    </div>
+
+    <div class="bg-[#151F42] p-6 rounded-lg shadow-md flex-1">
+        <h2 class="text-xl font-bold text-green-300">Contract Details</h2>
+        <p>End Date: <span id="contract-end-date"></span></p>
+    </div>
+  </div>
+
+  <button onclick="goToStep(2)" class="btn btn-primary w-full mt-4">Next: Leave Section</button>
+
 </div>
 
-<!-- Enter Past Leave History -->
-<div class="bg-[#151F42] p-6 rounded-lg shadow-md mt-6">
-    <h2 class="text-xl font-bold text-yellow-300">📅 Enter Past Leaves (2024)</h2>
-    <label>From:</label>
-    <input type="date" id="past-leave-from" class="bg-gray-700 p-2 rounded w-full">
-    <label>To:</label>
-    <input type="date" id="past-leave-to" class="bg-gray-700 p-2 rounded w-full">
-    <label>Duration (days):</label>
-    <input type="number" id="past-leave-days" class="bg-gray-700 p-2 rounded w-full">
-    <label>Leave Type:</label>
-    <select id="past-leave-type" class="bg-gray-700 p-2 rounded w-full">
-        <option value="Annual">Annual</option>
-        <option value="Emergency">Emergency</option>
-    </select>
-    <button onclick="savePastLeave()" class="mt-4 bg-blue-500 p-2 rounded w-full">Save Leave</button>
-</div>
+<!-- Step 2: Leave Section -->
+<div id="step-2" class="hidden space-y-6">
 
-        <!-- Dashboard -->
-        <div class="grid grid-cols-2 gap-6 mt-6">
-            <!-- Contract Info -->
-            <div class="bg-[#151F42] p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-bold text-green-300">Contract Details</h2>
-<p>End Date: <span id="contract-end-date"></span></p>
 
-            </div>
+  <div class="flex gap-6">
+    <!-- Leave Input Form -->
+    <div class="bg-[#151F42] p-6 rounded-lg shadow-md flex-1">
+        <h2 class="text-xl font-bold text-yellow-300">📅 Enter Past Leaves (2025)</h2>
+        <label>From:</label>
+        <input type="date" id="past-leave-from" class="bg-gray-700 p-2 rounded w-full">
+        <label>To:</label>
+        <input type="date" id="past-leave-to" class="bg-gray-700 p-2 rounded w-full">
+        <label>Duration (days):</label>
+        <input type="number" id="past-leave-days" class="bg-gray-700 p-2 rounded w-full">
+        <label>Leave Type:</label>
+        <select id="past-leave-type" class="bg-gray-700 p-2 rounded w-full">
+            <option value="Annual">Annual</option>
+            <option value="Emergency">Emergency</option>
+        </select>
+        <button onclick="savePastLeave()" class="mt-4 bg-blue-500 p-2 rounded w-full">Save Leave</button>
+    </div>
 
-            <!-- Leave History -->
-            <div class="bg-[#151F42] p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-bold text-yellow-300">Past Leaves (2024)</h2>
-                <table class="min-w-full divide-y divide-gray-700">
-                     <thead>
+    <!-- Leave History Table -->
+    <div class="bg-[#151F42] p-6 rounded-lg shadow-md flex-1 overflow-auto max-h-[500px]">
+        <h2 class="text-xl font-bold text-yellow-300">Past Leaves (2025)</h2>
+        <table class="min-w-full divide-y divide-gray-700">
+            <thead>
                 <tr>
                   <th class="px-4 py-2 text-left text-sm font-semibold text-gray-300">From</th>
                   <th class="px-4 py-2 text-left text-sm font-semibold text-gray-300">To</th>
                   <th class="px-4 py-2 text-left text-sm font-semibold text-gray-300">Days</th>
                   <th class="px-4 py-2 text-left text-sm font-semibold text-gray-300">Type</th>
                 </tr>
-                </thead>
-                  <tbody id="leave-history-list" class="divide-y divide-gray-600">
-                    <!-- Leave rows will be injected here -->
-                  </tbody>
-                </table>
-            </div>
-        </div>
+            </thead>
+            <tbody id="leave-history-list" class="divide-y divide-gray-600">
+                <!-- Leave rows will be injected here -->
+            </tbody>
+        </table>
+    </div>
+  </div>
 
-        <!-- 12-Month Leave Selection -->
-      <!-- 12-Month Leave Selection -->
-<div class="mt-6 bg-[#151F42] p-6 rounded-lg shadow-md">
-    <h2 class="text-xl font-bold text-blue-300">📅 12-Month Leave Planner</h2>
-    <div id="leave-grid" class="grid grid-cols-4 gap-4 mt-4"></div>
+  <div class="flex gap-2 mt-4">
+    <button onclick="goToStep(1)" class="btn btn-outline btn-secondary flex-1">⬅ Back</button>
+    <button onclick="goToStep(3)" class="btn btn-primary flex-1">Next Step</button>
+  </div>
 </div>
 
 
+ <!-- Step 3: Annual Leave Planning + Submit Request -->
+<div id="step-3" class="hidden space-y-6">
 
+     <!-- Submit Leave Request -->
+  <div class="bg-[#151F42] p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-bold text-green-300">📝 Submit Leave Request</h2>
+    <label>Type:</label>
+    <select id="leave-type" class="bg-gray-700 p-2 rounded w-full">
+        <option value="Annual">Annual</option>
+        <option value="Emergency">Emergency</option>
+    </select>
 
-        <!-- Leave Request Form -->
-        <div class="mt-6 bg-[#151F42] p-6 rounded-lg shadow-md">
-            <h2 class="text-xl font-bold text-green-300">Submit Leave Request</h2>
-            <label>Type:</label>
-            <select id="leave-type" class="bg-gray-700 p-2 rounded w-full">
-                <option value="Annual">Annual</option>
-                <option value="Emergency">Emergency</option>
-            </select>
-            <!-- Space Selection Dropdown -->
-          <!-- Space Selection Dropdown -->
-
-    <label class="block text-sm">Select Space:</label>
+    <label class="mt-4 block text-sm">Select Space:</label>
     <select id="space-select" class="input input-sm input-bordered w-full bg-gray-700 text-white"></select>
 
-           
-            <label class="mt-4">From:</label>
-            <input type="date" id="leave-from" class="bg-gray-700 p-2 rounded w-full">
-            <label class="mt-4">To:</label>
-            <input type="date" id="leave-to" class="bg-gray-700 p-2 rounded w-full">
-            <button onclick="submitLeaveRequest()" class="mt-4 bg-blue-500 p-2 rounded w-full">Submit Request</button>
-        </div>
+    <label class="mt-4">From:</label>
+    <input type="date" id="leave-from" class="bg-gray-700 p-2 rounded w-full">
+
+    <label class="mt-4">To:</label>
+    <input type="date" id="leave-to" class="bg-gray-700 p-2 rounded w-full">
+
+    <button onclick="submitLeaveRequest()" class="mt-4 bg-blue-500 p-2 rounded w-full">Submit Request</button>
+  </div>
+
+  <!-- Leave Planner -->
+  <div class="bg-[#151F42] p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-bold text-blue-300">📅 12-Month Leave Planner</h2>
+    <div id="leave-grid" class="grid grid-cols-4 gap-4 mt-4">
+      <!-- يمكنك لاحقًا توليد شهور أو مربعات ديناميكيًا -->
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Jan</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Feb</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Mar</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Apr</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">May</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Jun</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Jul</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Aug</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Sep</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Oct</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Nov</div>
+      <div class="bg-gray-700 text-white text-center py-4 rounded">Dec</div>
+    </div>
+  </div>
+
+ 
+
+  <div class="flex justify-between mt-4">
+    <button onclick="goToStep(2)" class="btn btn-outline btn-secondary">⬅ Back</button>
+    <!-- تقدر تحط Finish هنا لو عايز -->
+    <button onclick="alert('All steps completed ✅')" class="btn btn-success">✅ Finish</button>
+  </div>
+</div>
+
+</div>
+
+
+<script>
+let currentStep = 1;
+
+function goToStep(step) {
+  // Hide all steps
+  document.querySelectorAll('#steps-container > div').forEach(div => div.classList.add('hidden'));
+
+  // Show selected step
+  const target = document.getElementById(`step-${step}`);
+  if (target) {
+    target.classList.remove('hidden');
+    currentStep = step;
+  }
+
+  // Update step indicators
+  for (let i = 1; i <= 3; i++) {
+    const indicator = document.getElementById(`step-${i}-indicator`);
+    if (indicator) {
+      indicator.classList.remove('step-primary');
+      if (i <= step) indicator.classList.add('step-primary');
+    }
+  }
+}
+
+// Optional: start at step 1
+document.addEventListener("DOMContentLoaded", () => {
+  goToStep(1);
+});
+</script>
 
 
 
-
-        
         <div class="mt-6 bg-[#151F42] p-6 rounded-lg shadow-md">
     <h2 class="text-xl font-bold text-blue-300">📅 [Admins Only] 12-Month Leave Planner</h2>
     <div id="leave-grid-admin" class="grid grid-cols-4 gap-4 mt-4"></div>
 </div>
+
+        
 
     </div>
 
