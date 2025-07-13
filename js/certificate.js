@@ -106,7 +106,7 @@ function loadRecentUploads() {
         return `<li class="bg-gray-700 p-3 rounded shadow border-l-4 border-blue-500">
           <span class="text-sm font-semibold text-blue-300">${name}</span>
           <span class="text-xs">Upload <strong>${item.certType}</strong> - 
-            <span class="${colorClass}">Will Expire in ( ${item.expiry} )</span>
+            <span class="${colorClass}">Expire in ( ${item.expiry} )</span>
           </span>
         </li>`;
       })
