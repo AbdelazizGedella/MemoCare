@@ -1,57 +1,89 @@
+<!-- ✅ دمج صفحة تعديل المستخدم داخل Space Details باستخدام Modal + إصلاح عرض البيانات + اختيارات ثابتة + تاريخ + شهادات -->
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Space Details</title>
+  <title>Space Details + Edit User Modal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/sortable/0.8.0/js/sortable.min.js"></script>
 </head>
 <body class="bg-gray-900 text-white p-6">
   <h1 class="text-2xl font-bold mb-4 text-blue-400">🛠 Space Participant Management</h1>
-
   <div id="loading" class="text-yellow-400">Loading space data...</div>
   <div id="content" class="hidden">
     <h2 id="space-name" class="text-xl font-semibold text-white"></h2>
     <p id="space-description" class="text-gray-300 mb-4"></p>
-
-    <input type="text" id="searchInput" placeholder="🔍 Search by name or email..." class="mb-4 p-2 rounded bg-gray-700 w-full">
+    <input type="text" id="searchInput" placeholder="🔍 Search..." class="mb-4 p-2 rounded bg-gray-700 w-full">
     <button onclick="exportToExcel()" class="bg-green-600 px-4 py-2 mb-4 rounded">⬇ Export to Excel</button>
     <div class="overflow-x-auto">
-      <table id="participants-table" class="w-full text-sm bg-gray-800 rounded sortable">
+    <!-- أضف زر فوق الجدول -->
+<button id="showChartsBtn" class="btn btn-info mb-4">📊 Show Charts</button>
+
+<!-- Container يعرض الرسومات في صفوف متجاوبة -->
+<div id="chartsContainer" class="hidden mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+  <div class="chart-wrapper p-2 bg-gray-800 rounded">
+    <h3 class="text-yellow-400 mb-2 text-center font-semibold">Gender Distribution</h3>
+    <canvas id="genderChart"></canvas>
+  </div>
+
+  <div class="chart-wrapper p-2 bg-gray-800 rounded">
+    <h3 class="text-yellow-400 mb-2 text-center font-semibold">Contract Types</h3>
+    <canvas id="contractChart"></canvas>
+  </div>
+
+  <div class="chart-wrapper p-2 bg-gray-800 rounded">
+    <h3 class="text-yellow-400 mb-2 text-center font-semibold">Nationality Distribution</h3>
+    <canvas id="nationalityChart"></canvas>
+  </div>
+
+  <div class="chart-wrapper p-2 bg-gray-800 rounded">
+    <h3 class="text-yellow-400 mb-2 text-center font-semibold">Degree Distribution</h3>
+    <canvas id="degreeChart"></canvas>
+  </div>
+
+  <div class="chart-wrapper p-2 bg-gray-800 rounded md:col-span-2">
+    <h3 class="text-yellow-400 mb-2 text-center font-semibold">Certificates Status</h3>
+    <canvas id="certificatesChart"></canvas>
+  </div>
+
+</div>
+<br>
+
+<!-- إضافة Chart.js من CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+      <table id="participants-table" class="table table-zebra w-full">
         <thead>
-          <tr class="text-yellow-300">
-            <th class="p-2">#</th>
-            <th class="p-2">Name</th>
-            <th class="p-2">Email</th>
-            <th class="p-2">Care Email</th>
-            <th class="p-2">Phone</th>
-            <th class="p-2">Nationality</th>
-            <th class="p-2">Gender</th>
-            <th class="p-2">Contract Type</th>
-            <th class="p-2">Birth Date</th>
-            <th class="p-2">Start Date</th>
-            <th class="p-2">Contract End</th>
-            <th class="p-2">IQAMA</th>
-            <th class="p-2">PASSPORT</th>
-            <th class="p-2">DEGREE</th>
-            <th class="p-2">SPECIALITY</th>
-            <th class="p-2">BLS</th>
-            <th class="p-2">ACLS</th>
-            <th class="p-2">Edit</th>
+          <tr class="text-yellow-300 text-xs">
+            <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Contract Type</th><th>Gender</th><th>StartDate</th><th>EndDate</th><th>DOB</th><th>IQAMA</th><th>PASSPORT</th><th>Degree</th><th>Speciality</th>
+            <th>Dataflow</th>
+<th>BLS Expiry</th><th>ACLS Expiry</th><th>SEDATION</th><th>MOH</th><th>SCFHS</th>
+            <th>Edit</th>
           </tr>
         </thead>
         <tbody id="participants-body"></tbody>
       </table>
     </div>
-
     <div id="statistics" class="mt-8"></div>
   </div>
+
+  <!-- ✅ Edit User Modal -->
+  <dialog id="editModal" class="modal">
+    <div class="modal-box w-11/12 max-w-5xl bg-gray-800">
+      <h2 class="text-xl font-bold text-blue-400 mb-4">📝 Edit User Profile</h2>
+      <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-4"></form>
+      <div class="mt-4 flex justify-end gap-2">
+        <button class="btn" onclick="document.getElementById('editModal').close()">❌ Cancel</button>
+        <button onclick="saveChanges()" class="btn btn-success">💾 Save</button>
+      </div>
+    </div>
+  </dialog>
 
   <script>
     const firebaseConfig = {
@@ -65,86 +97,162 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
+    let currentUserUID = null;
+    let editingUID = null;
+    let participantsUIDs = [];
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const spaceId = urlParams.get("spaceId");
+    const spaceId = new URLSearchParams(window.location.search).get("spaceId");
+    auth.onAuthStateChanged(async user => {
+      if (!user) return location.href = "login.html";
+      currentUserUID = user.uid;
+      const userDoc = await db.collection("users").doc(currentUserUID).get();
+      if (!userDoc.data()?.admin) return alert("Access denied.");
 
-    auth.onAuthStateChanged(user => {
-      if (!user) {
-        alert("Please login first.");
-        window.location.href = "login.html";
+      const spaceDoc = await db.collection("spaces").doc(spaceId).get();
+      if (!spaceDoc.exists) return;
+      const space = spaceDoc.data();
+      document.getElementById("space-name").textContent = space.name;
+      document.getElementById("space-description").textContent = space.description;
+
+      participantsUIDs = space.joinedParticipants || [];
+      if (!participantsUIDs.length) {
+        document.getElementById("loading").innerText = "No participants found.";
         return;
       }
 
-      db.collection("spaces").doc(spaceId).get().then(doc => {
-        if (!doc.exists) return;
-        const space = doc.data();
-
-        if (space.createdBy !== user.uid) {
-          alert("Access denied. Only the creator can manage this space.");
-          window.location.href = "spaces.html";
-          return;
-        }
-
-        document.getElementById("space-name").innerText = space.name;
-        document.getElementById("space-description").innerText = space.description;
-
-        loadParticipants(space.joinedParticipants || []);
-      });
+      loadParticipants(participantsUIDs);
     });
 
-    let allUsers = [];
+    async function loadParticipants(uids) {
+      try {
+        const userDocs = await Promise.all(uids.map(uid => db.collection("users").doc(uid).get()));
+        const certDocs = await Promise.all(uids.map(uid => db.collection("Database").doc(uid).get()));
 
-    function loadParticipants(uids) {
-      Promise.all(uids.map(uid => db.collection("users").doc(uid).get())).then(userDocs => {
         document.getElementById("loading").classList.add("hidden");
         document.getElementById("content").classList.remove("hidden");
 
-        allUsers = userDocs;
-        renderTable(userDocs);
 
-        document.getElementById("searchInput").addEventListener("input", e => {
-          const val = e.target.value.toLowerCase();
-          const filtered = allUsers.filter(doc => {
-            const d = doc.data();
-            return d.name?.toLowerCase().includes(val) || d.email?.toLowerCase().includes(val);
-          });
-          renderTable(filtered);
-        });
-      });
-    }
+           // خزّن بيانات المستخدمين كاملة في مصفوفة عالمية
+    participantsData = userDocs.map((doc, i) => {
+      const d = doc.data() || {};
+      const cert = certDocs[i]?.data() || {};
+      return { user: d, cert };
+    });
 
-    function renderTable(userDocs) {
-      let bodyHTML = userDocs.map((doc, i) => {
-        const d = doc.data();
-        return `
-          <tr class="border-b border-gray-600">
-            <td class="p-2">${i + 1}</td>
-            <td class="p-2">${d.name || '-'}</td>
-            <td class="p-2">${d.email || '-'}</td>
-            <td class="p-2">${d.careEmail || '-'}</td>
-            <td class="p-2">${d.phone || '-'}</td>
-            <td class="p-2">${d.nationality || '-'}</td>
-            <td class="p-2">${d.gender || '-'}</td>
-            <td class="p-2">${d.contractType || '-'}</td>
-            <td class="p-2">${d.birthDate || '-'}</td>
-            <td class="p-2">${d.startDate || '-'}</td>
-            <td class="p-2">${d.contractEndDate || '-'}</td>
-            <td class="p-2">${d.iqama || '-'}</td>
-            <td class="p-2">${d.passport || '-'}</td>
-            <td class="p-2">${d.degree || '-'}</td>
-            <td class="p-2">${d.speciality || '-'}</td>
-            <td class="p-2">${d.blsExpiry || '-'}</td>
-            <td class="p-2">${d.aclsExpiry || '-'}</td>
-            <td class="p-2"><button onclick="editUser('${doc.id}')" class="bg-blue-600 px-2 py-1 rounded text-white text-sm">Edit</button></td>
-          </tr>
-        `;
-      }).join("");
-      document.getElementById("participants-body").innerHTML = bodyHTML;
+
+        const tbody = document.getElementById("participants-body");
+        tbody.innerHTML = userDocs.map((doc, i) => {
+          if (!doc.exists) return "";
+          const d = doc.data();
+          const cert = certDocs[i]?.data() || {};
+          const getExpiry = key => {
+  const raw = cert[key]?.expiryDate;
+  if (!raw) return "-";
+  try {
+    if (raw.seconds) return new Date(raw.seconds * 1000).toISOString().split("T")[0]; // Timestamp
+    if (typeof raw === "string") return raw.split("T")[0]; // ISO string
+    if (raw instanceof Date) return raw.toISOString().split("T")[0]; // JS Date
+    return "-";
+  } catch {
+    return "-";
+  }
+};
+
+          return `<tr>
+            <td>${i + 1}</td>
+            <td>${d.name || '-'}</td>
+            <td>${d.email || '-'}</td>
+            <td>${d.phone || '-'}</td>
+            <td>${d.contractType || '-'}</td>
+            <td>${d.gender || '-'}</td>
+                        <td>${d.startDate || '-'}</td>
+            <td>${d.contractEndDate || '-'}</td>
+<td>
+  ${d.birthDate || '-'}
+  ${d.birthDate ? `<span class="text-yellow-400">(${calculateAge(d.birthDate)} yrs)</span>` : ''}
+</td>
+            <td>${d.iqama || '-'}</td>
+            <td>${d.passport || '-'}</td>
+            <td>${d.degree || '-'}</td>
+            <td>${d.speciality || '-'}</td>
+<td>${d.dataflow || '-'}</td>
+
+
+            <td>${getExpiry("BLS")}</td>
+            <td>${getExpiry("ACLS")}</td>
+            <td>${getExpiry("SEDATION")}</td>
+            <td>${getExpiry("MOH")}</td>
+            <td>${getExpiry("SCFHS")}</td>
+            <td><button onclick="editUser('${doc.id}')" class="btn btn-sm btn-primary">Edit</button></td>
+          </tr>`;
+        }).join("");
+      } catch (err) {
+        console.error("❌ Failed to load participants:", err);
+        document.getElementById("loading").innerText = "Error loading data.";
+      }
     }
 
     function editUser(uid) {
-      window.location.href = `edit-user.html?uid=${uid}`;
+      editingUID = uid;
+      const form = document.getElementById("editForm");
+      form.innerHTML = "Loading...";
+      db.collection("users").doc(uid).get().then(doc => {
+        const d = doc.data();
+        form.innerHTML = `
+          <div><label>Name</label><input id="edit-name" value="${d.name || ''}" class="input input-bordered w-full" /></div>
+<div><label>Email</label><input id="edit-email" value="${d.email || ''}" class="input input-bordered w-full" disabled /></div>
+          <div><label>Care Email</label><input id="edit-careEmail" value="${d.careEmail || ''}" class="input input-bordered w-full" /></div>
+          <div><label>Phone</label><input id="edit-phone" value="${d.phone || ''}" class="input input-bordered w-full" /></div>
+          <div><label>Nationality</label>
+            <select id="edit-nationality" class="select select-bordered w-full">
+              ${["SAUDI","EGYPTIAN","JORDANIAN","ERITHRIAN","FILIPINO","INDIAN","PAKISTAN","SUDANESE","LEBANESE","TUNISIAN","SOMALI","BURKINA FASO","NIGERIAN","ETHIOPIAN","INDONESIAN","BANGLADESH","KENYAN","YEMENI"].map(n => `<option ${d.nationality===n?'selected':''}>${n}</option>`).join('')}
+            </select>
+          </div>
+          <div><label>Gender</label>
+            <select id="edit-gender" class="select select-bordered w-full">
+              <option ${d.gender==='MALE'?'selected':''}>MALE</option>
+              <option ${d.gender==='FEMALE'?'selected':''}>FEMALE</option>
+            </select>
+          </div>
+          <div><label>Contract Type</label>
+            <select id="edit-contractType" class="select select-bordered w-full">
+              ${["INTERNATIONAL","LOCAL","ALMAWARID","MAHARA"].map(c => `<option ${d.contractType===c?'selected':''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div><label>Birth Date</label><input type="date" id="edit-birthDate" value="${d.birthDate || ''}" class="input input-bordered w-full" /></div>
+          <div><label>Start Date</label><input type="date" id="edit-startDate" value="${d.startDate || ''}" class="input input-bordered w-full" /></div>
+          <div><label>Contract End Date</label><input type="date" id="edit-contractEndDate" value="${d.contractEndDate || ''}" class="input input-bordered w-full" /></div>
+          <div><label>IQAMA</label><input id="edit-iqama" value="${d.iqama || ''}" class="input input-bordered w-full" /></div>
+          <div><label>Passport</label><input id="edit-passport" value="${d.passport || ''}" class="input input-bordered w-full" /></div>
+          <div><label>Degree</label>
+            <select id="edit-degree" class="select select-bordered w-full">
+              ${["Bachelor of Nursing Sciences","Master degree of Nursing Sciences","Diploma degree of Nursing Sciences"].map(opt => `<option ${d.degree===opt?'selected':''}>${opt}</option>`).join('')}
+            </select>
+          </div>
+          <div><label>Dataflow</label><input id="edit-dataflow" value="${d.dataflow || ''}" class="input input-bordered w-full" /></div>
+
+          <div><label>Speciality</label>
+            <select id="edit-speciality" class="select select-bordered w-full">
+              ${["Nurse Specialist","Nurse Technician"].map(opt => `<option ${d.speciality===opt?'selected':''}>${opt}</option>`).join('')}
+            </select>
+          </div>
+        `;
+        document.getElementById("editModal").showModal();
+      });
+    }
+
+    function saveChanges() {
+      if (!editingUID) return;
+      const updates = {};
+      ["name","email","careEmail","phone","nationality","gender","contractType","birthDate","startDate","contractEndDate","iqama","passport","degree","speciality","dataflow"].forEach(id => {
+  updates[id] = document.getElementById(`edit-${id}`).value;
+});
+
+      db.collection("users").doc(editingUID).update(updates).then(() => {
+        alert("✅ Updated");
+        document.getElementById("editModal").close();
+        loadParticipants(participantsUIDs);
+      }).catch(err => alert(err.message));
     }
 
     function exportToExcel() {
@@ -153,39 +261,202 @@
       XLSX.writeFile(workbook, "participants.xlsx");
     }
 
-    function generateStatistics(userDocs) {
-      let nationalities = {};
-      let soonToExpire = [];
-      const now = new Date();
 
-      userDocs.forEach(doc => {
-        const d = doc.data();
-        const nat = d.nationality || "Unknown";
-        nationalities[nat] = (nationalities[nat] || 0) + 1;
+    function calculateAge(birthDateStr) {
+  try {
+    const birthDate = new Date(birthDateStr);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  } catch {
+    return "?";
+  }
+}
 
-        if (d.contractEndDate) {
-          let endDate = new Date(d.contractEndDate);
-          let diff = (endDate - now) / (1000 * 60 * 60 * 24);
-          if (diff < 60) {
-            soonToExpire.push(`${d.name || "Unknown"} → ${Math.ceil(diff)} days left`);
+
+  function createCharts() {
+    if (!participantsData || !participantsData.length) return alert("No data to display charts.");
+
+    // تحضير بيانات الجندر
+    const genderCounts = { MALE: 0, FEMALE: 0 };
+    participantsData.forEach(p => {
+      const g = p.user.gender;
+      if (g === "MALE" || g === "FEMALE") genderCounts[g]++;
+    });
+
+    // تحضير بيانات العقود
+    const contractCounts = {};
+    participantsData.forEach(p => {
+      const c = p.user.contractType || "Unknown";
+      contractCounts[c] = (contractCounts[c] || 0) + 1;
+    });
+
+    // تحضير بيانات الجنسيات
+    const nationalityCounts = {};
+    participantsData.forEach(p => {
+      const n = p.user.nationality || "Unknown";
+      nationalityCounts[n] = (nationalityCounts[n] || 0) + 1;
+    });
+
+    // تحضير بيانات الدرجات العلمية
+    const degreeCounts = {};
+    participantsData.forEach(p => {
+      const deg = p.user.degree || "Unknown";
+      degreeCounts[deg] = (degreeCounts[deg] || 0) + 1;
+    });
+
+    // بيانات شهادات Active / Missing / Expired / Near Expiry
+    const certTypes = ["BLS", "ACLS", "SEDATION", "MOH", "SCFHS"];
+    const certStatus = {};
+    const today = new Date();
+    const nearExpiryDays = 30;
+    const nearExpiryDate = new Date(today.getTime() + nearExpiryDays * 24 * 60 * 60 * 1000);
+
+    certTypes.forEach(cert => {
+      certStatus[cert] = { Active: 0, "Near Expiry": 0, Expired: 0, Missing: 0 };
+    });
+
+    participantsData.forEach(p => {
+      certTypes.forEach(cert => {
+        const expiryRaw = p.cert[cert]?.expiryDate;
+        if (!expiryRaw) {
+          certStatus[cert].Missing++;
+        } else {
+          let expiryDate;
+          if (expiryRaw.seconds) expiryDate = new Date(expiryRaw.seconds * 1000);
+          else if (typeof expiryRaw === "string") expiryDate = new Date(expiryRaw);
+          else expiryDate = expiryRaw instanceof Date ? expiryRaw : null;
+
+          if (!expiryDate || isNaN(expiryDate)) {
+            certStatus[cert].Missing++;
+          } else if (expiryDate < today) {
+            certStatus[cert].Expired++;
+          } else if (expiryDate <= nearExpiryDate) {
+            certStatus[cert]["Near Expiry"]++;
+          } else {
+            certStatus[cert].Active++;
           }
         }
       });
+    });
 
-      document.getElementById("statistics").innerHTML = `
-        <div class="bg-gray-800 p-4 rounded">
-          <h3 class="text-lg font-bold text-purple-400 mb-2">📊 Stats</h3>
-          <p class="text-yellow-300 mb-2">🌍 Nationalities:</p>
-          <ul class="text-white mb-4">
-            ${Object.entries(nationalities).map(([nat, count]) => `<li>${nat}: ${count}</li>`).join("")}
-          </ul>
-          <p class="text-red-400 mb-2">⏳ Contracts Ending Soon:</p>
-          <ul class="text-white">
-            ${soonToExpire.length ? soonToExpire.map(e => `<li>${e}</li>`).join("") : "<li>None</li>"}
-          </ul>
-        </div>
-      `;
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#fbbf24' } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#fbbf24' } },
+        x: { ticks: { color: '#fbbf24' } }
+      }
+    };
+
+    // ضبط ارتفاع كل canvas
+    document.getElementById("genderChart").parentNode.style.height = '250px';
+    document.getElementById("contractChart").parentNode.style.height = '250px';
+    document.getElementById("nationalityChart").parentNode.style.height = '250px';
+    document.getElementById("degreeChart").parentNode.style.height = '250px';
+    document.getElementById("certificatesChart").parentNode.style.height = '300px';
+
+    // شارت الجندر (Pie)
+    new Chart(document.getElementById("genderChart").getContext("2d"), {
+      type: "pie",
+      data: {
+        labels: Object.keys(genderCounts),
+        datasets: [{
+          label: "Gender Distribution",
+          data: Object.values(genderCounts),
+          backgroundColor: ["#3b82f6", "#f43f5e"]
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // شارت العقود (Bar)
+    new Chart(document.getElementById("contractChart").getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: Object.keys(contractCounts),
+        datasets: [{
+          label: "Contract Types",
+          data: Object.values(contractCounts),
+          backgroundColor: "#10b981"
+        }]
+      },
+      options: chartOptions
+    });
+
+    // شارت الجنسيات (Bar)
+    new Chart(document.getElementById("nationalityChart").getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: Object.keys(nationalityCounts),
+        datasets: [{
+          label: "Nationality Distribution",
+          data: Object.values(nationalityCounts),
+          backgroundColor: "#f59e0b"
+        }]
+      },
+      options: chartOptions
+    });
+
+    // شارت الدرجات العلمية (Bar)
+    new Chart(document.getElementById("degreeChart").getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: Object.keys(degreeCounts),
+        datasets: [{
+          label: "Degree Distribution",
+          data: Object.values(degreeCounts),
+          backgroundColor: "#8b5cf6"
+        }]
+      },
+      options: chartOptions
+    });
+
+    // شارت شهادات الحالة (Stacked Bar)
+    const statuses = ["Active", "Near Expiry", "Expired", "Missing"];
+    const datasets = statuses.map((status, i) => ({
+      label: status,
+      data: certTypes.map(cert => certStatus[cert][status]),
+      backgroundColor: ["#10b981","#fbbf24","#ef4444","#9ca3af"][i]
+    }));
+    new Chart(document.getElementById("certificatesChart").getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: certTypes,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, stacked: true, ticks: { color: '#fbbf24' } },
+          x: { stacked: true, ticks: { color: '#fbbf24' } }
+        },
+        plugins: {
+          legend: { labels: { color: '#fbbf24' } }
+        }
+      }
+    });
+  }
+
+  document.getElementById("showChartsBtn").addEventListener("click", () => {
+    const container = document.getElementById("chartsContainer");
+    if (container.classList.contains("hidden")) {
+      container.classList.remove("hidden");
+      createCharts();
+    } else {
+      container.classList.add("hidden");
     }
+  });
+
+
   </script>
 </body>
 </html>
