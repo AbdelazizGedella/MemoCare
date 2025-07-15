@@ -61,7 +61,7 @@
       <table id="participants-table" class="table table-zebra w-full">
         <thead>
           <tr class="text-yellow-300 text-xs">
-            <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Contract Type</th><th>Gender</th><th>StartDate</th><th>EndDate</th><th>DOB</th><th>IQAMA</th><th>PASSPORT</th><th>Degree</th><th>Speciality</th>
+            <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Nationality</th><th>Contract Type</th><th>Gender</th><th>StartDate</th><th>EndDate</th><th>DOB</th><th>IQAMA</th><th>PASSPORT</th><th>Degree</th><th>Speciality</th>
             <th>Dataflow</th>
 <th>BLS Expiry</th><th>ACLS Expiry</th><th>SEDATION</th><th>MOH</th><th>SCFHS</th>
             <th>Edit</th>
@@ -163,6 +163,7 @@
             <td>${d.name || '-'}</td>
             <td>${d.email || '-'}</td>
             <td>${d.phone || '-'}</td>
+            <td>${d.nationality || '-'}</td>
             <td>${d.contractType || '-'}</td>
             <td>${d.gender || '-'}</td>
                         <td>${d.startDate || '-'}</td>
