@@ -352,39 +352,69 @@ async function loadFullLog() {
     return;
   }
 
+    // إعداد العدادات لكل مستخدم
+  const requestCounts = {}; // { uid: { pw: 0, pf: 0 } }
+
+
+    // تجهيز البيانات الأولية وعدّ الـ PW / PF
+  // تجهيز البيانات الأولية وعدّ الـ PW / PF
+  const logs = [];
   for (const doc of snap.docs) {
     const data = doc.data();
+    logs.push({ id: doc.id, ...data });
 
+    const { createdBy, targetUser } = data;
+
+    if (!requestCounts[createdBy]) requestCounts[createdBy] = { pw: 0, pf: 0 };
+    if (!requestCounts[targetUser]) requestCounts[targetUser] = { pw: 0, pf: 0 };
+
+    requestCounts[createdBy].pw++;
+    requestCounts[targetUser].pf++;
+  }
+
+  for (const data of logs) {
+    const { createdBy, targetUser } = data;
+
+    // أسماء المستخدمين
     let createdByName = "Loading...";
     let targetName = "Loading...";
     try {
-      const createdByDoc = await db.collection("users").doc(data.createdBy).get();
-      createdByName = createdByDoc.exists ? createdByDoc.data().name : `Unknown (${data.createdBy})`;
+      const [createdByDoc, targetDoc] = await Promise.all([
+        db.collection("users").doc(createdBy).get(),
+        db.collection("users").doc(targetUser).get(),
+      ]);
 
-      const targetDoc = await db.collection("users").doc(data.targetUser).get();
-      targetName = targetDoc.exists ? targetDoc.data().name : `Unknown (${data.targetUser})`;
+      createdByName = createdByDoc.exists ? createdByDoc.data().name : `Unknown (${createdBy})`;
+      targetName = targetDoc.exists ? targetDoc.data().name : `Unknown (${targetUser})`;
     } catch (e) {
       console.error("Error fetching user info:", e);
     }
 
+    // لون الحالة
     let statusText = data.status || "N/A";
     let statusColor = "text-gray-300";
     if (statusText === "approved") statusColor = "text-green-400";
     else if (statusText === "waiting-approver") statusColor = "text-yellow-300";
     else if (statusText === "waiting-manager") statusColor = "text-blue-300";
- else if (data.status === "rejected") {
-  statusText = "Rejected";
-  statusColor = "text-red-400";
-}
+    else if (statusText === "rejected") {
+      statusText = "Rejected";
+      statusColor = "text-red-400";
+    }
 
-
-
+    // التاريخ
     const createdAt = data.createdAt?.toDate()?.toLocaleString() || "N/A";
 
+    // أضف الصف
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="p-2 text-center">${createdByName}</td>
-      <td class="p-2 text-center">${targetName}</td>
+      <td class="p-2 text-center">
+        ${createdByName}<br>
+        <small class="text-gray-400">PW(${requestCounts[createdBy]?.pw || 0}) : PF(${requestCounts[createdBy]?.pf || 0})</small>
+      </td>
+      <td class="p-2 text-center">
+        ${targetName}<br>
+        <small class="text-gray-400">PW(${requestCounts[targetUser]?.pw || 0}) : PF(${requestCounts[targetUser]?.pf || 0})</small>
+      </td>
       <td class="p-2 text-center">${data.fromDate} (${data.fromShift})</td>
       <td class="p-2 text-center">${data.toDate} (${data.toShift})</td>
       <td class="p-2 text-center ${statusColor}">${statusText}</td>
@@ -393,4 +423,3 @@ async function loadFullLog() {
     tbody.appendChild(tr);
   }
 }
-
