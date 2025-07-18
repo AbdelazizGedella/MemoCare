@@ -124,6 +124,12 @@
     <!-- Notification badge -->
     <span id="history-notification" class="hidden absolute top-2 right-2 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">1</span>
   </button>
+  <button id="full-log-btn" onclick="toggleSection('log-section')" 
+  class="hidden bg-gradient-to-br from-red-600 via-red-800 to-[#232B4D] p-4 rounded-xl font-bold shadow hover:scale-105 transition duration-300 flex flex-col items-center justify-center">
+  <i class="fas fa-book text-white text-2xl mb-2"></i>
+  <span class="text-sm">Full Log</span>
+</button>
+
   <script>
     // Show red badge if approval or manager sections have items
     function checkHistoryNotification() {
@@ -223,6 +229,24 @@
       <tbody id="history-body" class="text-white divide-y divide-gray-700"></tbody>
     </table>
   </section>
+
+  <section id="log-section" class="hidden w-full max-w-screen-lg bg-[#232B4D] rounded-xl p-4 overflow-x-auto toggleable-section">
+  <h3 class="text-lg font-semibold mb-2">📖 Full Exchange Log</h3>
+  <table class="min-w-full text-sm bg-[#232B4D] rounded overflow-hidden">
+    <thead class="bg-gray-800 text-white">
+      <tr>
+        <th class="p-2">Created By</th>
+        <th class="p-2">With</th>
+        <th class="p-2">From</th>
+        <th class="p-2">To</th>
+        <th class="p-2">Status</th>
+        <th class="p-2">Created At</th>
+      </tr>
+    </thead>
+    <tbody id="log-body" class="text-white divide-y divide-gray-700"></tbody>
+  </table>
+</section>
+
 
   <!-- Toggle Script -->
   <script>
