@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-900 text-white">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📊 Survey Results</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script  src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script  src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script  src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+</head>
+<body class="p-6">
+  <div class="max-w-3xl mx-auto space-y-8">
+    <h1 class="text-2xl font-bold text-center mb-4">📊 All My Surveys</h1>
+    <div id="surveys-container" class="space-y-6"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79",
+      storageBucket: "ctwo-eee79.appspot.com",
+      messagingSenderId: "788657051205",
+      appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let currentUser = null;
+
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) return;
+      currentUser = user;
+
+      const surveysSnap = await db.collection("surveys")
+        .where("createdBy", "==", currentUser.uid)
+        .orderBy("createdAt", "desc")
+        .get();
+
+      if (surveysSnap.empty) {
+        document.getElementById("surveys-container").innerHTML = `<p class="text-gray-400 text-center">No surveys found.</p>`;
+        return;
+      }
+
+      for (const doc of surveysSnap.docs) {
+        const data = doc.data();
+        const surveyId = doc.id;
+        const totalVotes = Object.values(data.votes || {}).length;
+        const counts = data.options.map(opt => 
+          Object.values(data.votes || {}).filter(v => v === opt).length
+        );
+
+        const winningIndex = counts.indexOf(Math.max(...counts));
+        const isClosed = data.closed;
+
+        const div = document.createElement("div");
+        div.className = "bg-gray-800 p-4 rounded shadow space-y-4";
+
+        div.innerHTML = `
+          <div>
+            <h2 class="font-bold text-lg mb-2">🗳 ${data.question}</h2>
+            <p class="text-sm text-gray-400">Votes: ${totalVotes}</p>
+            <p class="text-sm">Winning: <span class="text-green-400 font-medium">${data.options[winningIndex] || "N/A"}</span></p>
+            <canvas id="chart-${surveyId}" class="w-full h-40 mt-3"></canvas>
+            <div class="text-xs text-gray-400 mt-2" id="missing-${surveyId}"></div>
+          </div>
+          <div class="text-right">
+            ${!isClosed ? `<button onclick="closeVoting('${surveyId}')" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">🔒 Close Voting</button>` 
+            : `<span class="text-sm text-red-400 font-medium">Voting Closed</span>`}
+          </div>
+        `;
+
+        document.getElementById("surveys-container").appendChild(div);
+
+        // Get votes and options
+        const votes = data.votes || {};
+        const options = data.options;
+        const userNames = data.userNames || {}; // {uid: displayName}
+        // Count votes per option and collect voter names
+        const optionVoters = options.map(opt =>
+          Object.entries(votes)
+            .filter(([uid, v]) => v === opt)
+            .map(([uid]) => userNames[uid] || uid)
+        );
+        // Find min/max for coloring
+        const chartCounts = optionVoters.map(voters => voters.length);
+        const minCount = Math.min(...chartCounts);
+        const bgColors = chartCounts.map(c => c === minCount ? "#ef4444" : "#22c55e");
+
+        // Chart with custom tooltip
+        new Chart(document.getElementById(`chart-${surveyId}`), {
+          type: 'bar',
+          data: {
+            labels: options,
+            datasets: [{
+              label: 'Votes',
+              data: chartCounts,
+              backgroundColor: bgColors
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  afterBody: function(context) {
+                    const idx = context[0].dataIndex;
+                    const voters = optionVoters[idx];
+                    if (voters.length === 0) return 'No votes';
+                    return 'Voters: ' + voters.join(', ');
+                  }
+                }
+              }
+            },
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+
+        // Show missing voters
+        if (data.allVoters && Array.isArray(data.allVoters)) {
+          const votedUids = Object.keys(votes);
+          const missing = data.allVoters.filter(uid => !votedUids.includes(uid));
+          if (missing.length > 0) {
+            const missingNames = missing.map(uid => userNames[uid] || uid);
+            const missingDiv = document.getElementById(`missing-${surveyId}`);
+            // Modal HTML
+            const modalId = `modal-missing-${surveyId}`;
+            // Calculate time since survey creation
+            const createdAt = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate() : (data.createdAt instanceof Date ? data.createdAt : null);
+            let pendingSince = "";
+            if (createdAt) {
+              const now = new Date();
+              const diffMs = now - createdAt;
+              const diffMins = Math.floor(diffMs / 60000);
+              const diffHours = Math.floor(diffMins / 60);
+              const diffDays = Math.floor(diffHours / 24);
+              if (diffDays > 0) {
+                pendingSince = `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+              } else if (diffHours > 0) {
+                pendingSince = `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+              } else {
+                pendingSince = `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+              }
+            }
+            missingDiv.innerHTML = `
+              <button onclick="document.getElementById('${modalId}').classList.remove('hidden')" class="underline text-blue-400">View Missing</button>
+              <div id="${modalId}" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 hidden">
+                <div class="bg-gray-900 text-white rounded-lg shadow-lg max-w-md w-full border border-gray-700">
+                  <div class="flex justify-between items-center border-b border-gray-700 px-4 py-2">
+                    <h3 class="font-bold text-lg">Awaiting for Decision on "${data.question.replace(/"/g, '&quot;')}"</h3>
+                    <button onclick="document.getElementById('${modalId}').classList.add('hidden')" class="text-gray-400 hover:text-white text-xl" aria-label="Close">&times;</button>
+                  </div>
+                  <div class="p-4">
+                    <div class="mb-2 text-sm text-gray-400">Decision pending since: <span class="font-medium text-white">${pendingSince}</span></div>
+                    <table class="min-w-full text-left border border-gray-700">
+                      <thead>
+                        <tr>
+                          <th class="py-2 px-4 border-b border-gray-700">#</th>
+                          <th class="py-2 px-4 border-b border-gray-700">Name</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${missingNames.map((name, i) => `
+                          <tr>
+                            <td class="py-1 px-4 border-b border-gray-800">${i + 1}</td>
+                            <td class="py-1 px-4 border-b border-gray-800">${name}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+        }
+      }
+    });
+
+    async function closeVoting(surveyId) {
+      const confirmClose = confirm("Are you sure you want to close this voting?");
+      if (!confirmClose) return;
+      await db.collection("surveys").doc(surveyId).update({ closed: true });
+      alert("✅ Voting closed.");
+      location.reload();
+    }
+
+    // Toggle missing voters display
+    function toggleMissing(surveyId, names) {
+      const el = document.getElementById(`missing-list-${surveyId}`);
+      if (el.classList.contains('hidden')) {
+        el.textContent = "Missing votes: " + names;
+        el.classList.remove('hidden');
+      } else {
+        el.textContent = "";
+        el.classList.add('hidden');
+      }
+    }
+  </script>
+</body>
+</html>
+</html>

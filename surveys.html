@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Surveys List</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+
+
+
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
+
+    <div class="flex space-x-4 mb-4">
+  <button onclick="showTab('create')" class="tab-button">Create Survey</button>
+  <button onclick="showTab('all')" class="tab-button">All Surveys</button>
+  <button onclick="showTab('mine')" class="tab-button">My Surveys</button>
+</div>
+
+
+
+
+<div class="w-full max-w-4xl flex justify-end mb-4">
+    <a href="create-survey.html" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow transition">
+        + Create Survey
+    </a>
+</div>
+  <h1 class="text-3xl font-bold mb-6">🗳️ Surveys</h1>
+
+  <table class="table-auto w-full max-w-4xl border-collapse border border-gray-700 mb-6">
+    <thead>
+      <tr class="bg-gray-800">
+        <th class="border border-gray-600 p-2 text-left">Title</th>
+        <th class="border border-gray-600 p-2 text-center">Total Votes</th>
+        <th class="border border-gray-600 p-2 text-center">Status</th>
+        <th class="border border-gray-600 p-2 text-center">Action</th>
+        
+      </tr>
+    </thead>
+    <tbody id="survey-table-body">
+      <!-- Rows loaded by JS -->
+    </tbody>
+  </table>
+
+  <!-- Modal for voting and results -->
+  <div id="survey-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+    <div class="bg-gray-800 rounded-lg p-6 max-w-lg w-full relative">
+      <button id="close-modal" class="absolute top-2 right-2 text-gray-400 hover:text-white font-bold text-xl">&times;</button>
+      <h2 id="modal-title" class="text-xl font-bold mb-4"></h2>
+
+      <div id="vote-section" class="mb-4">
+        <!-- voting buttons -->
+      </div>
+
+      <div id="result-section" class="mb-4 hidden">
+        <canvas id="result-chart" width="300" height="150"></canvas>
+        <table class="w-full mt-4 text-left">
+          <thead>
+            <tr>
+              <th class="border-b border-gray-600 pb-1">Participant</th>
+              <th class="border-b border-gray-600 pb-1">Choice</th>
+            </tr>
+          </thead>
+          <tbody id="participants-list">
+            <!-- participant votes -->
+          </tbody>
+        </table>
+        <p class="mt-3 font-semibold" id="winner-text"></p>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    
+  const firebaseConfig = {
+    apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+    authDomain: "ctwo-eee79.firebaseapp.com",
+    projectId: "ctwo-eee79",
+    storageBucket: "ctwo-eee79.appspot.com",
+    messagingSenderId: "788657051205",
+    appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+    measurementId: "G-4VTCQR4ZVR"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  let currentUserId = null;
+  let userData = null;
+  let matchedSpaceId = null;
+  let currentSurveyDoc = null;
+  let chartInstance = null;
+
+  auth.onAuthStateChanged(async user => {
+    if (!user) return location.href = "login.html";
+    currentUserId = user.uid;
+    const userDoc = await db.collection("users").doc(currentUserId).get();
+    if (!userDoc.exists) return alert("User data not found.");
+    userData = userDoc.data();
+
+    // Find space where user joined
+    const spacesSnap = await db.collection("spaces").get();
+    for (const doc of spacesSnap.docs) {
+      if (doc.data().joinedParticipants?.includes(currentUserId)) {
+        matchedSpaceId = doc.id;
+        break;
+      }
+    }
+    if (!matchedSpaceId) return alert("User is not joined to any space.");
+
+    loadSurveyTable();
+  });
+
+  async function loadSurveyTable() {
+    const tableBody = document.getElementById("survey-table-body");
+    tableBody.innerHTML = "";
+
+    const surveysSnap = await db.collection("surveys")
+      .where("spaceId", "==", matchedSpaceId)
+      .orderBy("createdAt", "desc")
+      .get();
+
+    if (surveysSnap.empty) {
+      tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-gray-400 py-4">No surveys found</td></tr>`;
+      return;
+    }
+
+    for (const doc of surveysSnap.docs) {
+      const s = doc.data();
+      const votes = s.votes || {};
+      const totalVotes = Object.keys(votes).length;
+      const totalParticipants = s.totalParticipants || 9999;
+      const isClosed = totalVotes >= totalParticipants;
+      const winner = getWinner(s);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="border border-gray-700 px-3 py-2">${s.question}</td>
+        <td class="border border-gray-700 px-3 py-2 text-center">${totalVotes}</td>
+        <td class="border border-gray-700 px-3 py-2 text-center ${isClosed ? "text-green-400" : "text-yellow-400"}">${isClosed ? "Closed" : "Open"}</td>
+        <td class="border border-gray-700 px-3 py-2 text-center">
+  <button class="bg-gradient-to-br from-green-500 via-blue-600 to-purple-600 hover:opacity-90 px-3 py-1 rounded shadow text-white text-sm font-semibold"
+    onclick="openSurveyModal('${doc.id}')"
+  >📊 Go </button>
+</td>
+
+      `;
+      tableBody.appendChild(tr);
+    }
+  }
+
+  function getWinner(survey) {
+    const votes = survey.votes || {};
+    const optionCounts = {};
+    (survey.options || []).forEach(opt => optionCounts[opt] = 0);
+    Object.values(votes).forEach(vote => {
+      if (optionCounts[vote] !== undefined) optionCounts[vote]++;
+    });
+    let winner = null;
+    let maxCount = -1;
+    for (const [opt, count] of Object.entries(optionCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        winner = opt;
+      }
+    }
+    return winner || "N/A";
+  }
+
+  async function openSurveyModal(surveyId) {
+    currentSurveyDoc = await db.collection("surveys").doc(surveyId).get();
+    if (!currentSurveyDoc.exists) return alert("Survey not found.");
+
+    const survey = currentSurveyDoc.data();
+    const votes = survey.votes || {};
+    const hasVoted = votes[currentUserId] !== undefined && !survey.allowRevote?.[currentUserId];
+    const totalVotes = Object.keys(votes).length;
+    const totalParticipants = survey.totalParticipants || 9999;
+    const isClosed = totalVotes >= totalParticipants;
+
+    document.getElementById("modal-title").textContent = survey.question;
+
+    const voteSection = document.getElementById("vote-section");
+    const resultSection = document.getElementById("result-section");
+    voteSection.innerHTML = "";
+    resultSection.classList.add("hidden");
+
+    if (!isClosed && !hasVoted) {
+      // Show voting buttons
+      for (const option of survey.options) {
+        const btn = document.createElement("button");
+        btn.textContent = option;
+        btn.className = "bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded mr-2 mb-2";
+        btn.onclick = () => submitVote(surveyId, option);
+        voteSection.appendChild(btn);
+      }
+      voteSection.style.display = "block";
+    } else {
+      // Show results
+      voteSection.style.display = "none";
+      showResults(survey);
+      resultSection.classList.remove("hidden");
+    }
+
+    document.getElementById("survey-modal").classList.remove("hidden");
+  }
+
+  async function submitVote(surveyId, option) {
+    const surveyRef = db.collection("surveys").doc(surveyId);
+    await surveyRef.update({
+      [`votes.${currentUserId}`]: option,
+      [`allowRevote.${currentUserId}`]: firebase.firestore.FieldValue.delete()
+    });
+    openSurveyModal(surveyId); // refresh modal with results
+    loadSurveyTable(); // update table votes count
+  }
+
+  function showResults(survey) {
+    const votes = survey.votes || {};
+    const options = survey.options || [];
+
+    // Count votes per option
+    const counts = {};
+    options.forEach(opt => counts[opt] = 0);
+    Object.values(votes).forEach(vote => {
+      if (counts[vote] !== undefined) counts[vote]++;
+    });
+
+    // Update participants list table
+    const participantsList = document.getElementById("participants-list");
+    participantsList.innerHTML = "";
+    for (const [uid, choice] of Object.entries(votes)) {
+    // Fetch user name for each participant (cache to avoid repeated lookups)
+    if (!showResults.userCache) showResults.userCache = {};
+    const cache = showResults.userCache;
+
+    let name = cache[uid];
+    if (!name) {
+        // Try to get from DOM cache first
+        name = uid === currentUserId ? userData.name : null;
+        if (!name) {
+            // Fallback: fetch from Firestore synchronously (not ideal, but works for small lists)
+            // Note: Firestore does not support sync get, so we must mark async and await all names before rendering.
+            name = uid; // fallback to UID for now
+            db.collection("users").doc(uid).get().then(doc => {
+                if (doc.exists) {
+                    cache[uid] = doc.data().name || uid;
+                    // Re-render participants list after fetching name
+                    showResults(survey);
+                }
+            });
+        } else {
+            cache[uid] = name;
+        }
+    }
+    participantsList.innerHTML += `
+        <tr>
+            <td class="border-b border-gray-700 py-1">${uid === currentUserId ? name + " (You)" : name}</td>
+            <td class="border-b border-gray-700 py-1">${choice}</td>
+        </tr>
+    `;
+    }
+
+    // Update winner text
+    const winner = getWinner(survey);
+    const totalVotes = Object.keys(votes).length;
+    const winnerCount = counts[winner] || 0;
+    const percent = totalVotes > 0 ? Math.round((winnerCount / totalVotes) * 100) : 0;
+    document.getElementById("winner-text").textContent = `Winner: ${winner} (${percent}%)`;
+
+    // Draw Chart - Gauge like with doughnut
+    const ctx = document.getElementById("result-chart").getContext("2d");
+    if (chartInstance) chartInstance.destroy();
+
+    // Create a doughnut showing winner percent and rest
+    chartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: [winner, "Others"],
+        datasets: [{
+          data: [percent, 100 - percent],
+          backgroundColor: ['#10b981', '#374151'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        rotation: -90 * (Math.PI / 180),
+        circumference: 180 * (Math.PI / 180),
+        cutout: '70%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+  }
+
+  document.getElementById("close-modal").onclick = () => {
+    document.getElementById("survey-modal").classList.add("hidden");
+  };
+</script>
+
+</body>
+</html>

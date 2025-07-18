@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-900 text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Survey</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+</head>
+<body class="p-6">
+  <div class="max-w-xl mx-auto bg-gray-800 p-6 rounded shadow">
+    <h1 class="text-2xl font-bold mb-4 text-center">📝 Create New Survey</h1>
+    <label class="block mb-2 font-medium">Survey Question</label>
+    <input type="text" id="question" class="w-full p-2 mb-4 bg-gray-700 rounded outline-none" placeholder="e.g. Should we switch to 12-hour shifts?">
+
+    <label class="block mb-2 font-medium">Options</label>
+    <div id="options" class="space-y-2 mb-4">
+      <input type="text" class="w-full p-2 bg-gray-700 rounded option" placeholder="Option 1">
+      <input type="text" class="w-full p-2 bg-gray-700 rounded option" placeholder="Option 2">
+    </div>
+    <button onclick="addOption()" class="mb-4 text-blue-400 hover:underline">+ Add another option</button>
+
+    <button onclick="submitSurvey()" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded font-medium">✅ Create Survey</button>
+    <p id="success" class="text-green-400 mt-4 hidden text-center">Survey created successfully ✅</p>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79",
+      storageBucket: "ctwo-eee79.appspot.com",
+      messagingSenderId: "788657051205",
+      appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let currentUser = null;
+    let matchedSpaceId = null;
+
+    auth.onAuthStateChanged(async user => {
+      if (!user) return;
+      currentUser = user;
+
+      const spacesSnap = await db.collection("spaces").get();
+      for (const doc of spacesSnap.docs) {
+        const data = doc.data();
+        if (Array.isArray(data.joinedParticipants) &&
+            data.joinedParticipants.includes(currentUser.uid)) {
+          matchedSpaceId = doc.id;
+          break;
+        }
+      }
+    });
+
+    function addOption() {
+      const div = document.createElement("div");
+      div.innerHTML = `<input type="text" class="w-full p-2 bg-gray-700 rounded option" placeholder="New Option">`;
+      document.getElementById("options").appendChild(div.firstChild);
+    }
+
+async function submitSurvey() {
+  const question = document.getElementById("question").value.trim();
+  const optionEls = document.querySelectorAll(".option");
+  const options = [...optionEls].map(el => el.value.trim()).filter(v => v);
+
+  if (!question || options.length < 2) {
+    alert("⚠️ Please fill in the question and at least 2 options.");
+    return;
+  }
+
+  if (!matchedSpaceId) {
+    alert("❌ Could not determine your space.");
+    return;
+  }
+
+  // جلب كل المشاركين في الـ space
+  const spaceDoc = await db.collection("spaces").doc(matchedSpaceId).get();
+  const participants = spaceDoc.data()?.joinedParticipants || [];
+
+  // جلب أسمائهم من users
+  const chunks = [];
+  while (participants.length) chunks.push(participants.splice(0, 10)); // Firebase limit: 10 per "in" query
+
+  let userNames = {};
+  for (const chunk of chunks) {
+    const usersSnap = await db.collection("users")
+      .where(firebase.firestore.FieldPath.documentId(), "in", chunk)
+      .get();
+
+    usersSnap.forEach(doc => {
+      userNames[doc.id] = doc.data().name || "Unnamed";
+    });
+  }
+
+  await db.collection("surveys").add({
+    question,
+    options,
+    votes: {},
+    createdBy: currentUser.uid,
+    spaceId: matchedSpaceId,
+    userNames,
+    allVoters: Object.keys(userNames),
+    closed: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  document.getElementById("question").value = "";
+  optionEls.forEach(el => el.value = "");
+  document.getElementById("success").classList.remove("hidden");
+}
+  </script>
+</body>
+</html>
