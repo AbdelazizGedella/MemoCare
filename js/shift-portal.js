@@ -51,12 +51,20 @@ auth.onAuthStateChanged(async user => {
                      spaceDoc.data().joinedParticipants?.includes(currentUserId);
   const isAdmin = userData.admin === true || !pending.empty;
 
-  if (isAdmin) showManagerView();
-  if (isApprover) showApproverView();
+  if (isAdmin) {
+    document.getElementById("full-log-btn").classList.remove("hidden");
+    loadFullLog();
+    showManagerView();
+  }
+
+  if (isApprover) {
+    showApproverView();
+  }
 
   showUserForm();
   loadFullHistory();
 });
+
 
 
 async function showUserForm() {
@@ -136,12 +144,16 @@ async function showApproverView() {
     const data = doc.data();
     const li = document.createElement("li");
     li.className = "bg-gray-700 p-3 rounded";
-    li.innerHTML = `
-      <div><strong>${data.createdByName}</strong> requested to swap 
-        from <b>${data.fromDate}</b> to <b>${data.toDate}</b>
-        (${data.fromShift} → ${data.toShift})</div>
-      <button class="mt-2 bg-green-600 px-3 py-1 rounded" onclick="approve('${doc.id}')">✅ Approve</button>
-    `;
+   li.innerHTML = `
+  <div><strong>${data.createdByName}</strong> requested to swap 
+    from <b>${data.fromDate}</b> to <b>${data.toDate}</b>
+    (${data.fromShift} → ${data.toShift})</div>
+  <div class="mt-2 flex gap-2">
+    <button class="bg-green-600 px-3 py-1 rounded hover:bg-green-700" onclick="approve('${doc.id}')">✅ Approve</button>
+    <button class="bg-red-600 px-3 py-1 rounded hover:bg-red-700" onclick="reject('${doc.id}')">❌ Reject</button>
+  </div>
+`;
+
     list.appendChild(li);
   }
 
@@ -205,16 +217,22 @@ async function showManagerView() {
     }
 
     const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td class="p-2 text-center">${data.createdByName}</td>
-      <td class="p-2 text-center">${data.fromDate} (${data.fromShift})</td>
-      <td class="p-2 text-center">${data.toDate} (${data.toShift})</td>
-      <td class="p-2 text-center">${targetName}</td>
-      <td class="p-2 text-center">
-        <button class="bg-green-600 px-3 py-1 rounded hover:bg-green-700"
-          onclick="finalApprove('${doc.id}')">✅ Approve</button>
-      </td>
-    `;
+   tr.innerHTML = `
+  <td class="p-2 text-center">${data.createdByName}</td>
+  <td class="p-2 text-center">${data.fromDate} (${data.fromShift})</td>
+  <td class="p-2 text-center">${data.toDate} (${data.toShift})</td>
+  <td class="p-2 text-center">${targetName}</td>
+  <td class="p-2 text-center">
+    <div class="flex gap-2 justify-center">
+      <button class="bg-green-600 px-3 py-1 rounded hover:bg-green-700"
+        onclick="finalApprove('${doc.id}')">✅ Approve</button>
+      <button class="bg-red-600 px-3 py-1 rounded hover:bg-red-700"
+        onclick="reject('${doc.id}')">❌ Reject</button>
+
+    </div>
+  </td>
+`;
+
     tableBody.appendChild(tr);
   }
 
@@ -226,6 +244,24 @@ window.finalApprove = async (id) => {
   alert("🎉 Request approved successfully");
   location.reload();
 };
+
+window.reject = async (id) => {
+  const confirmReject = confirm("Are you sure you want to reject this request?");
+  if (!confirmReject) return;
+
+  try {
+    await db.collection("shiftRequests").doc(id).update({
+      status: "rejected"
+    });
+    alert("🚫 Request rejected.");
+    location.reload();
+  } catch (error) {
+    console.error("Error rejecting request:", error);
+    alert("❌ Failed to reject request.");
+  }
+};
+
+
 
 async function loadFullHistory() {
   const tbody = document.getElementById("history-body");
@@ -268,7 +304,12 @@ async function loadFullHistory() {
     } else if (data.status === "approved") {
       statusText = "Approved";
       color = "text-green-400";
-    }
+      
+    }else if (data.status === "rejected") {
+  statusText = "Rejected";
+  color = "text-red-400";
+}
+
 
     // Determine other party
     let otherUserId = data.createdBy === currentUserId ? data.targetUser : data.createdBy;
@@ -298,3 +339,58 @@ async function loadFullHistory() {
     tbody.appendChild(tr);
   }
 }
+
+
+async function loadFullLog() {
+  const tbody = document.getElementById("log-body");
+  tbody.innerHTML = "";
+
+  const snap = await db.collection("shiftRequests").orderBy("createdAt", "desc").get();
+
+  if (snap.empty) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-400 py-3">No shift exchange logs found</td></tr>`;
+    return;
+  }
+
+  for (const doc of snap.docs) {
+    const data = doc.data();
+
+    let createdByName = "Loading...";
+    let targetName = "Loading...";
+    try {
+      const createdByDoc = await db.collection("users").doc(data.createdBy).get();
+      createdByName = createdByDoc.exists ? createdByDoc.data().name : `Unknown (${data.createdBy})`;
+
+      const targetDoc = await db.collection("users").doc(data.targetUser).get();
+      targetName = targetDoc.exists ? targetDoc.data().name : `Unknown (${data.targetUser})`;
+    } catch (e) {
+      console.error("Error fetching user info:", e);
+    }
+
+    let statusText = data.status || "N/A";
+    let statusColor = "text-gray-300";
+    if (statusText === "approved") statusColor = "text-green-400";
+    else if (statusText === "waiting-approver") statusColor = "text-yellow-300";
+    else if (statusText === "waiting-manager") statusColor = "text-blue-300";
+ else if (data.status === "rejected") {
+  statusText = "Rejected";
+  statusColor = "text-red-400";
+}
+
+
+
+    const createdAt = data.createdAt?.toDate()?.toLocaleString() || "N/A";
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="p-2 text-center">${createdByName}</td>
+      <td class="p-2 text-center">${targetName}</td>
+      <td class="p-2 text-center">${data.fromDate} (${data.fromShift})</td>
+      <td class="p-2 text-center">${data.toDate} (${data.toShift})</td>
+      <td class="p-2 text-center ${statusColor}">${statusText}</td>
+      <td class="p-2 text-center">${createdAt}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
