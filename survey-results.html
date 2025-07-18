@@ -106,16 +106,16 @@
             responsive: true,
             plugins: {
               legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  afterBody: function(context) {
-                    const idx = context[0].dataIndex;
-                    const voters = optionVoters[idx];
-                    if (voters.length === 0) return 'No votes';
-                    return 'Voters: ' + voters.join(', ');
-                  }
-                }
-              }
+               tooltip: {
+  callbacks: {
+    afterBody: function(context) {
+      const idx = context[0].dataIndex;
+      const voters = optionVoters[idx];
+      if (voters.length === 0) return ['No votes'];
+      return ['Voters:'].concat(voters.map(v => '- ' + v));
+    }
+  }
+}
             },
             scales: {
               y: { beginAtZero: true }
