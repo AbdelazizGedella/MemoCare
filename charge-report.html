@@ -281,14 +281,15 @@ await db.collection("shiftLogs").add({
     div.className = "bg-gray-800 p-4 rounded";
     div.innerHTML = `
       <div class="font-bold">${data.date} (${data.shift})</div>
-      <div class="text-sm text-gray-400 mb-2">👤 By: ${data.userName || "Unknown"}</div>
+      <div class="text-sm text-violet-400 mb-2">👤 By: ${data.userName || "Unknown"}</div>
     `;
 
   data.answers.forEach((entry) => {
   const { question, answer, comment } = entry;
-  div.innerHTML += `<div><span class="text-blue-300">*\`${question}\`*</span> → <strong>${answer}</strong></div>`;
+const color = answer === "Yes" ? "text-green-400" : "text-red-400";
+div.innerHTML += `<div><span class="text-blue-300">*\`${question}\`*</span> → <strong class="${color}">${answer}</strong></div>`;
   if (comment) {
-    div.innerHTML += `<div class="text-sm text-gray-400 ml-4">📝 ${comment}</div>`;
+    div.innerHTML += `<div class="text-sm text-yellow-400 ml-4">📝 ${comment}</div>`;
   }
 });
 
