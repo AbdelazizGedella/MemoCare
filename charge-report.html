@@ -222,15 +222,17 @@ async function submitShiftLog() {
   const shift = document.getElementById("shiftType").value;
   const qSnap = await db.collection("shiftQuestions").where("isActive", "==", true).get();
 
-  const answers = {};
+ const answers = [];
 
-  qSnap.docs.forEach((doc) => {
-    const qText = doc.data().question;
-    const docId = doc.id;
-    const answer = document.getElementById(`q_${docId}`).value;
-    const comment = document.getElementById(`c_${docId}`).value || "";
-    answers[qText] = { answer, comment };
-  });
+qSnap.docs.forEach((doc) => {
+  const qText = doc.data().question;
+  const docId = doc.id;
+  const answer = document.getElementById(`q_${docId}`).value;
+  const comment = document.getElementById(`c_${docId}`).value || "";
+
+  answers.push({ id: docId, question: qText, answer, comment });
+});
+
 
   // جلب اسم المستخدم
   let userName = "Unknown";
@@ -239,14 +241,15 @@ async function submitShiftLog() {
     userName = userDoc.data().name || "Unknown";
   }
 
-  await db.collection("shiftLogs").add({
-    date,
-    shift,
-    uid: currentUID,
-    userName,
-    answers,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
+await db.collection("shiftLogs").add({
+  date,
+  shift,
+  uid: currentUID,
+  userName,
+  answers, // ← now it's an array
+  timestamp: firebase.firestore.FieldValue.serverTimestamp()
+});
+
 
   alert("Shift log submitted ✅");
 }
@@ -281,12 +284,13 @@ async function submitShiftLog() {
       <div class="text-sm text-gray-400 mb-2">👤 By: ${data.userName || "Unknown"}</div>
     `;
 
-    Object.entries(data.answers).forEach(([q, val]) => {
-      div.innerHTML += `<div><span class="text-blue-300">*\`${q}\`*</span> → <strong>${val.answer}</strong></div>`;
-      if (val.comment) {
-        div.innerHTML += `<div class="text-sm text-gray-400 ml-4">📝 ${val.comment}</div>`;
-      }
-    });
+  data.answers.forEach((entry) => {
+  const { question, answer, comment } = entry;
+  div.innerHTML += `<div><span class="text-blue-300">*\`${question}\`*</span> → <strong>${answer}</strong></div>`;
+  if (comment) {
+    div.innerHTML += `<div class="text-sm text-gray-400 ml-4">📝 ${comment}</div>`;
+  }
+});
 
     logsList.appendChild(div);
   });
