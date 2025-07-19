@@ -1,0 +1,17 @@
+# ملفات البيئة
+.env
+.env.local
+
+# ملفات Firebase Config
+firebase-config.js
+
+# ملفات بناء المشروع
+dist/
+build/
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
+
+# مجلد node_modules
+node_modules/
