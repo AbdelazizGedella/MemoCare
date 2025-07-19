@@ -19,8 +19,7 @@
       <button onclick="showTab('questions')" class="btn-tab">Manage Questions</button>
       <button onclick="showTab('log')" class="btn-tab">Fill Shift Log</button>
       <button onclick="showTab('view')" class="btn-tab">View Logs</button>
-          <button onclick="loadLogs()" class="btn-tab">🔄 Refresh</button>
-
+    <button onclick="loadLogs()" class="btn-tab">🔄 Refresh</button>
     </div>
 
     <!-- Tabs Content -->
@@ -173,14 +172,16 @@ function renderForm(activeQuestions) {
   const form = document.getElementById("shiftForm");
   form.innerHTML = "";
 
-  activeQuestions.forEach((doc, i) => {
+  activeQuestions.forEach((doc) => {
     const q = doc.data();
+    const docId = doc.id;
+
+    const questionId = `q_${docId}`;
+    const commentId = `c_${docId}`;
+    const toggleCommentId = `btn_${docId}`;
+
     const div = document.createElement("div");
     div.className = "mb-4";
-
-    const questionId = `q_${i}`;
-    const commentId = `c_${i}`;
-    const toggleCommentId = `btn_${i}`;
 
     div.innerHTML = `
       <label class="block italic text-blue-300">*\`${q.question}\`*</label>
@@ -193,9 +194,11 @@ function renderForm(activeQuestions) {
       </div>
       <textarea id="${commentId}" class="input w-full mt-2 hidden" placeholder="Enter comment here..."></textarea>
     `;
+
     form.appendChild(div);
   });
 }
+
 
 function toggleCommentButton(selectId, btnId, commentId) {
   const select = document.getElementById(selectId);
@@ -221,14 +224,15 @@ async function submitShiftLog() {
 
   const answers = {};
 
-  qSnap.docs.forEach((doc, i) => {
+  qSnap.docs.forEach((doc) => {
     const qText = doc.data().question;
-    const answer = document.getElementById(`q_${i}`).value;
-    const comment = document.getElementById(`c_${i}`).value || "";
+    const docId = doc.id;
+    const answer = document.getElementById(`q_${docId}`).value;
+    const comment = document.getElementById(`c_${docId}`).value || "";
     answers[qText] = { answer, comment };
   });
 
-  // 🔍 جلب اسم المستخدم من قاعدة بيانات المستخدمين
+  // جلب اسم المستخدم
   let userName = "Unknown";
   const userDoc = await db.collection("users").doc(currentUID).get();
   if (userDoc.exists) {
