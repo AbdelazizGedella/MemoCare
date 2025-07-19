@@ -481,25 +481,31 @@ document.addEventListener("DOMContentLoaded", () => {
               <tbody>
         `;
 
-        userDocs.forEach(userDoc => {
-          const uid = userDoc.id;
-          const user = userDoc.data();
-          const name = user.name || user.email || "Unknown";
-          const acknowledged = ackCount[uid];
-          const percentage = totalMemos > 0 ? ((acknowledged / totalMemos) * 100).toFixed(1) : 0;
-          const color = percentage >= 80 ? "text-green-400" : percentage >= 50 ? "text-yellow-400" : "text-red-400";
+       userDocs.forEach(userDoc => {
+  const uid = userDoc.id;
+  const user = userDoc.data();
+  const name = user.name || user.email || "Unknown";
+  const acknowledged = ackCount[uid];
+  const percentage = totalMemos > 0 ? ((acknowledged / totalMemos) * 100).toFixed(1) : 0;
+  const color = percentage >= 80 ? "text-green-400" : percentage >= 50 ? "text-yellow-400" : "text-red-400";
 
-          const unacknowledgedTitles = userUnackMemos[uid];
-          const tooltipText = unacknowledgedTitles.length > 0
-            ? unacknowledgedTitles.map(t => `• ${t}`).join('\n')
-            : "✅ Acknowledged All";
+  const unacknowledgedTitles = userUnackMemos[uid];
+  const tooltipText = unacknowledgedTitles.length > 0
+    ? unacknowledgedTitles.map(t => `• ${t}`).join('\n')
+    : "✅ Acknowledged All";
+
 
           table += `
             <tr class="border-b border-gray-700">
               <td class="p-2">
-                <span title="${tooltipText.replace(/"/g, '&quot;')}" class="underline cursor-help hover:text-blue-300">
-                  ${name}
-                </span>
+<span 
+  title="${tooltipText.replace(/\"/g, '&quot;')}" 
+  class="user-compliance-chart underline cursor-pointer hover:text-blue-300"
+  onclick="showUserComplianceChart('${uid}', '${name}', ${acknowledged}, ${totalMemos})"
+>
+  ${name}
+</span>
+
               </td>
               <td class="p-2">${acknowledged}</td>
               <td class="p-2">${totalMemos}</td>
@@ -636,3 +642,82 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error fetching all notifications:", err);
     }
   });
+
+
+  // 🟦 Global Chart Instance
+let chartInstance = null;
+
+// 🟢 Function to show chart for a user
+function showUserComplianceChart(uid, name, acknowledged, totalMemos) {
+  const pending = totalMemos - acknowledged;
+  const compliance = ((acknowledged / totalMemos) * 100).toFixed(1);
+
+  // ابحث في DOM
+  let wrapper = document.getElementById("user-compliance-chart-wrapper");
+  if (!wrapper) {
+    const div = document.createElement("div");
+    div.id = "user-compliance-chart-wrapper";
+    div.className = "mt-6 p-4 bg-[#1e293b] rounded-lg";
+    div.innerHTML = `
+      <h3 id="chart-title" class="text-lg font-bold text-blue-300 mb-2 text-center"></h3>
+      <canvas id="user-compliance-chart" class="mx-auto max-w-sm mb-4"></canvas>
+      <div id="pending-memo-list" class="text-white mt-4"></div>
+    `;
+    document.getElementById("overall-compliance-content").appendChild(div);
+    wrapper = div;
+  }
+
+  document.getElementById("chart-title").innerText = `${name} – Compliance: ${compliance}%`;
+  // Show pending count on a new row
+  const chartTitle = document.getElementById("chart-title");
+  const pendingText = document.createElement("div");
+  pendingText.className = "text-sm text-yellow-300 mt-1";
+  pendingText.innerText = `Pending memos: ${pending}`;
+  chartTitle.appendChild(pendingText);
+  wrapper.classList.remove("hidden");
+
+  const ctx = document.getElementById("user-compliance-chart").getContext("2d");
+
+  if (chartInstance) chartInstance.destroy();
+
+  chartInstance = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["✅ Acknowledged", "❌ Not Yet"],
+      datasets: [{
+        data: [acknowledged, pending],
+        backgroundColor: ["#22c55e", "#ef4444"],
+        borderColor: ["#14532d", "#7f1d1d"],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: "white" }
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${context.label}: ${context.parsed}`
+          }
+        }
+      }
+    }
+  });
+
+  // ✅ عرض قائمة التعاميم التي لم يتم الإقرار بها
+  const pendingTitles = window.userUnackMemos?.[uid] || []; // لازم تكون متاحة في scope عام
+  const listDiv = document.getElementById("pending-memo-list");
+  if (pendingTitles.length === 0) {
+    listDiv.innerHTML = `<p class="text-green-400 text-center font-semibold">✅ All memos acknowledged</p>`;
+  } else {
+    listDiv.innerHTML = `
+      <h4 class="font-semibold text-yellow-400 mb-2">Pending Memos (${pendingTitles.length}):</h4>
+      <ul class="list-disc ml-5">
+        ${pendingTitles.map(title => `<li>${title}</li>`).join("")}
+      </ul>
+    `;
+  }
+}
