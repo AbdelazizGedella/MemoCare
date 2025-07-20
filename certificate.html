@@ -15,6 +15,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
   <!-- App Logic -->
   <script defer src="./js/certificate.js"></script>
@@ -229,6 +230,10 @@
 <!-- ✅ Modal تفصيلي لكل شهادة -->
 <div id="detailedCertModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
   <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative">
+    <button onclick="downloadDetailedCertExcel()" class="bg-green-700 px-4 py-2 rounded text-white mt-2 hover:bg-green-800">
+  ⬇️ Download Excel
+</button>
+
     <button onclick="document.getElementById('detailedCertModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">×</button>
     <h2 id="detailedCertTitle" class="text-xl font-bold mb-4"></h2>
     <ul id="detailedCertList" class="space-y-1 text-white text-sm max-h-[60vh] overflow-y-auto"></ul>
