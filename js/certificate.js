@@ -496,9 +496,10 @@ function openCertSummaryReport() {
       const cert = row.certs[type];
       if (!cert) return summary[type].missing.push(row.name);
       const status = getCertStatus(cert.expiryDate).status;
-      if (status.includes("Active")) summary[type].active.push(row.name);
-      else if (status.includes("Near")) summary[type].near.push(row.name);
-      else if (status.includes("Expired")) summary[type].expired.push(row.name);
+   if (status.includes("Active")) summary[type].active.push({ name: row.name, expiryDate: cert.expiryDate });
+else if (status.includes("Near")) summary[type].near.push({ name: row.name, expiryDate: cert.expiryDate });
+else if (status.includes("Expired")) summary[type].expired.push({ name: row.name, expiryDate: cert.expiryDate });
+
     });
   });
 
@@ -525,18 +526,49 @@ function openDetailedCert(certType) {
   const title = document.getElementById("detailedCertTitle");
   title.textContent = `📄 ${certType} Details`;
   list.innerHTML = "";
+
   ["active", "near", "expired", "missing"].forEach(key => {
     const label = key === "active" ? "✅ Active" : key === "near" ? "⚠️ Near" : key === "expired" ? "❌ Expired" : "🚫 Missing";
     list.innerHTML += `<li class='font-bold mt-2'>${label} (${data[key].length})</li>`;
+
     if (data[key].length === 0) {
       list.innerHTML += `<li class='text-gray-400 italic'>No users</li>`;
     } else {
-      data[key].forEach(name => {
-        list.innerHTML += `<li class='pl-4'>• ${name}</li>`;
+      data[key].forEach(item => {
+        let name = item.name || item;  // fallback if item is a string
+        let expiry = item.expiryDate ? formatDate(item.expiryDate) : "N/A";
+        let remaining = item.expiryDate ? getRemaining(item.expiryDate) : "-";
+if (key === "missing") {
+  list.innerHTML += `<li class='pl-4 text-gray-400'>• ${name}</li>`;
+} else {
+  list.innerHTML += `<li class='pl-4'>• ${name} - ${expiry} - Remaining: ${remaining}</li>`;
+}
       });
     }
   });
+
   document.getElementById("detailedCertModal").classList.remove("hidden");
+}
+
+// تنسيق التاريخ
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-GB"); // e.g. 20/07/2025
+}
+
+// حساب الوقت المتبقي
+function getRemaining(dateStr) {
+  const now = new Date();
+  const expiry = new Date(dateStr);
+  const diff = expiry - now;
+
+  if (diff <= 0) return "Expired";
+
+  const totalDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const months = Math.floor(totalDays / 30);
+  const days = totalDays % 30;
+
+  return `${months} month(s) ${days} day(s)`;
 }
 
 function openCertRankingReport() {
@@ -571,3 +603,28 @@ function renderRankingList() {
 }
 
 
+
+function downloadDetailedCertExcel() {
+  const certType = document.getElementById("detailedCertTitle").textContent.replace("📄 ", "").replace(" Details", "");
+  const data = window.certSummaryData[certType];
+
+  const rows = [["Name", "Expiry Date", "Remaining", "Status"]];
+  ["active", "near", "expired", "missing"].forEach(key => {
+    data[key].forEach(item => {
+      const name = typeof item === "string" ? item : item.name || "-";
+      const expiry = item.expiryDate ? formatDate(item.expiryDate) : "N/A";
+      const remaining = item.expiryDate ? getRemaining(item.expiryDate) : "-";
+      const statusLabel = key === "active" ? "✅ Active" :
+                          key === "near" ? "⚠️ Near Expiry" :
+                          key === "expired" ? "❌ Expired" :
+                          "🚫 Missing";
+      rows.push([name, expiry, remaining, statusLabel]);
+    });
+  });
+
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, certType);
+
+  XLSX.writeFile(workbook, `${certType}_Details.xlsx`);
+}
