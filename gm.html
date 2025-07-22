@@ -1,0 +1,57 @@
+<!-- transfer.html -->
+<div class="p-4 max-w-md mx-auto bg-gray-800 rounded-xl shadow-lg space-y-4 text-white">
+  <h2 class="text-xl font-bold text-center mb-2">ER Patient Transfer Form</h2>
+
+  <div class="space-y-2">
+    <input type="text" id="patientName" placeholder="Patient Name" class="w-full p-2 rounded bg-gray-700">
+    <input type="text" id="mrn" placeholder="MRN" class="w-full p-2 rounded bg-gray-700">
+    <input type="datetime-local" id="admissionDateTime" class="w-full p-2 rounded bg-gray-700">
+    
+    <select id="payer" class="w-full p-2 rounded bg-gray-700">
+      <option value="">Select Contract/Payer</option>
+      <option>MOH</option>
+      <option>TCS</option>
+      <option>CASH</option>
+      <option>Other</option>
+    </select>
+    <input type="text" id="room" placeholder="Room/Bed" class="w-full p-2 rounded bg-gray-700">
+    <input type="text" id="mrp" placeholder="MRP (Doctor Name)" class="w-full p-2 rounded bg-gray-700">
+    <input type="text" id="transferredTo" placeholder="Transferred To (Hospital)" class="w-full p-2 rounded bg-gray-700">
+    <input type="text" id="diagnosis" placeholder="Principal Diagnosis" class="w-full p-2 rounded bg-gray-700">
+  </div>
+
+  <button onclick="generateWhatsApp()" class="w-full bg-green-600 hover:bg-green-700 p-2 rounded font-semibold">
+    Generate WhatsApp Message
+  </button>
+
+  <div id="result" class="mt-4 text-sm whitespace-pre-line bg-gray-700 p-2 rounded hidden"></div>
+
+  <a id="whatsappLink" href="#" target="_blank" class="mt-2 block text-center bg-green-500 p-2 rounded hidden">Send via WhatsApp</a>
+</div>
+
+<script>
+  function generateWhatsApp() {
+    const name = document.getElementById('patientName').value;
+    const mrn = document.getElementById('mrn').value;
+    const admission = document.getElementById('admissionDateTime').value.replace('T', '@');
+    const payer = document.getElementById('payer').value;
+    const room = document.getElementById('room').value;
+    const mrp = document.getElementById('mrp').value;
+    const to = document.getElementById('transferredTo').value;
+    const diagnosis = document.getElementById('diagnosis').value;
+
+    const msg = `**Transfer notification for ER Patient**\n\n1. Patient Name:- ${name}\n2. MRN:- ${mrn}\n3.⁠ Date &time of admission:- ${admission}\n4. Contract/ payer:- ${payer}\n5. Room/ Bed :- ${room}\n6. MRP :- ${mrp}\n7. Transferred to :- ${to}\n8. Principal Diagnosis :- ${diagnosis}`;
+
+    const encodedMsg = encodeURIComponent(msg);
+    const whatsappNumber = '9665xxxxxxxx'; // رقم واتساب GM أو الجهة المستلمة
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMsg}`;
+
+    document.getElementById('result').innerText = msg;
+    document.getElementById('result').classList.remove('hidden');
+
+    const link = document.getElementById('whatsappLink');
+    link.href = whatsappUrl;
+    link.classList.remove('hidden');
+  }
+</script>
+
