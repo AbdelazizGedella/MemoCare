@@ -38,7 +38,7 @@
         <option value="Night">Night</option>
       </select>
       <form id="shiftForm" class="mt-4 space-y-4"></form>
-      <button onclick="submitShiftLog()" class="btn btn-green mt-4">Submit</button>
+<button id="submitBtn" onclick="submitShiftLog()" class="btn btn-green mt-4">Submit</button>
     </div>
 
     <div id="view" class="tab hidden">
@@ -218,41 +218,48 @@ function toggleComment(commentId) {
 }
 
 async function submitShiftLog() {
+  const submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Submitting... ⏳";
+
   const date = document.getElementById("shiftDate").value;
   const shift = document.getElementById("shiftType").value;
   const qSnap = await db.collection("shiftQuestions").where("isActive", "==", true).get();
 
- const answers = [];
+  const answers = [];
+  qSnap.docs.forEach((doc) => {
+    const qText = doc.data().question;
+    const docId = doc.id;
+    const answer = document.getElementById(`q_${docId}`).value;
+    const comment = document.getElementById(`c_${docId}`).value || "";
+    answers.push({ id: docId, question: qText, answer, comment });
+  });
 
-qSnap.docs.forEach((doc) => {
-  const qText = doc.data().question;
-  const docId = doc.id;
-  const answer = document.getElementById(`q_${docId}`).value;
-  const comment = document.getElementById(`c_${docId}`).value || "";
-
-  answers.push({ id: docId, question: qText, answer, comment });
-});
-
-
-  // جلب اسم المستخدم
   let userName = "Unknown";
   const userDoc = await db.collection("users").doc(currentUID).get();
   if (userDoc.exists) {
     userName = userDoc.data().name || "Unknown";
   }
 
-await db.collection("shiftLogs").add({
-  date,
-  shift,
-  uid: currentUID,
-  userName,
-  answers, // ← now it's an array
-  timestamp: firebase.firestore.FieldValue.serverTimestamp()
-});
+  try {
+    await db.collection("shiftLogs").add({
+      date,
+      shift,
+      uid: currentUID,
+      userName,
+      answers,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
 
-
-  alert("Shift log submitted ✅");
+    alert("✅ Shift log submitted");
+    location.reload(); // 🔄 Refresh the entire page
+  } catch (error) {
+    alert("❌ Submission failed: " + error.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Submit";
+  }
 }
+
 
 
   async function loadLogs() {
