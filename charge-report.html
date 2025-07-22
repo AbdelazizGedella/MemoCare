@@ -28,6 +28,30 @@
       <div id="questionList"></div>
       <input id="newQuestion" class="input w-full mt-4" placeholder="Enter question text">
       <button onclick="addQuestion()" class="btn btn-blue mt-2">Add Question</button>
+    
+
+<button onclick="toggleInstructions()" class="btn-tab mt-4">✏️ Admin Instructions</button>
+
+<div id="instructionsBox" class="mt-4 hidden">
+  <h2 class="text-xl font-semibold mb-2">Admin Instructions</h2>
+  <input type="date" id="instrDate" class="input w-full mt-2">
+  <select id="instrShift" class="input w-full mt-2">
+    <option value="Day">Day</option>
+    <option value="Night">Night</option>
+  </select>
+  <select id="instrPriority" class="input w-full mt-2">
+  <option value="None">None</option>
+  <option value="Low">Low</option>
+  <option value="Medium">Medium</option>
+  <option value="High">High</option>
+</select>
+
+  <textarea id="instrText" class="input w-full mt-2" rows="5" placeholder="Enter instruction to charge nurse..."></textarea>
+  <button onclick="submitInstruction()" class="btn btn-blue mt-2">Save Instruction</button>
+</div>
+
+
+
     </div>
 
     <div id="log" class="tab hidden">
@@ -38,11 +62,25 @@
         <option value="Night">Night</option>
       </select>
       <form id="shiftForm" class="mt-4 space-y-4"></form>
-<button id="submitBtn" onclick="submitShiftLog()" class="btn btn-green mt-4">Submit</button>
+      <button onclick="submitShiftLog()" class="btn btn-green mt-4">Submit</button>
     </div>
 
     <div id="view" class="tab hidden">
   <h2 class="text-xl font-semibold mb-2">View Logs</h2>
+
+
+
+<div id="instructions" class="tab hidden">
+  <h2 class="text-xl font-semibold mb-2">Admin Instructions</h2>
+  <input type="date" id="instrDate" class="input w-full mt-2">
+  <select id="instrShift" class="input w-full mt-2">
+    <option value="Day">Day</option>
+    <option value="Night">Night</option>
+  </select>
+  <textarea id="instrText" class="input w-full mt-2" rows="5" placeholder="Enter instruction to charge nurse..."></textarea>
+  <button onclick="submitInstruction()" class="btn btn-blue mt-2">Save Instruction</button>
+</div>
+
 
   <!-- 🔍 Filters -->
   <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -167,6 +205,12 @@ async function loadQuestions() {
   }
 }
 
+function toggleInstructions() {
+  const box = document.getElementById("instructionsBox");
+  if (box) box.classList.toggle("hidden");
+}
+
+
 
 function renderForm(activeQuestions) {
   const form = document.getElementById("shiftForm");
@@ -218,53 +262,49 @@ function toggleComment(commentId) {
 }
 
 async function submitShiftLog() {
-  const submitBtn = document.getElementById("submitBtn");
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Submitting... ⏳";
-
   const date = document.getElementById("shiftDate").value;
   const shift = document.getElementById("shiftType").value;
   const qSnap = await db.collection("shiftQuestions").where("isActive", "==", true).get();
 
-  const answers = [];
-  qSnap.docs.forEach((doc) => {
-    const qText = doc.data().question;
-    const docId = doc.id;
-    const answer = document.getElementById(`q_${docId}`).value;
-    const comment = document.getElementById(`c_${docId}`).value || "";
-    answers.push({ id: docId, question: qText, answer, comment });
-  });
+ const answers = [];
 
+qSnap.docs.forEach((doc) => {
+  const qText = doc.data().question;
+  const docId = doc.id;
+  const answer = document.getElementById(`q_${docId}`).value;
+  const comment = document.getElementById(`c_${docId}`).value || "";
+
+  answers.push({ id: docId, question: qText, answer, comment });
+});
+
+
+  // جلب اسم المستخدم
   let userName = "Unknown";
   const userDoc = await db.collection("users").doc(currentUID).get();
   if (userDoc.exists) {
     userName = userDoc.data().name || "Unknown";
   }
 
-  try {
-    await db.collection("shiftLogs").add({
-      date,
-      shift,
-      uid: currentUID,
-      userName,
-      answers,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
+await db.collection("shiftLogs").add({
+  date,
+  shift,
+  uid: currentUID,
+  userName,
+  answers, // ← now it's an array
+  timestamp: firebase.firestore.FieldValue.serverTimestamp()
+});
 
-    alert("✅ Shift log submitted");
-    location.reload(); // 🔄 Refresh the entire page
-  } catch (error) {
-    alert("❌ Submission failed: " + error.message);
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Submit";
-  }
+
+  alert("Shift log submitted ✅");
 }
-
 
 
   async function loadLogs() {
   const logsList = document.getElementById("logsList");
   logsList.innerHTML = "";
+
+const instructionsSnap = await db.collection("shiftInstructions").orderBy("createdAt", "desc").get();
+const allInstructions = instructionsSnap.docs.map(doc => doc.data());
 
   const selectedDate = document.getElementById("filterDate").value;
   const selectedShift = document.getElementById("filterShift").value;
@@ -278,31 +318,71 @@ async function submitShiftLog() {
 
   const logs = await query.limit(100).get();
 
-  logs.forEach(doc => {
-    const data = doc.data();
+logs.forEach(doc => {
+  const data = doc.data();
 
-    // فلترة نوع الشيفت إذا لم يكن Both
-    if (selectedShift !== "Both" && data.shift !== selectedShift) return;
+  if (selectedShift !== "Both" && data.shift !== selectedShift) return;
 
-    const div = document.createElement("div");
-    div.className = "bg-gray-800 p-4 rounded";
-    div.innerHTML = `
-      <div class="font-bold">${data.date} (${data.shift})</div>
-      <div class="text-sm text-violet-400 mb-2">👤 By: ${data.userName || "Unknown"}</div>
-    `;
+  const div = document.createElement("div");
+  div.className = "bg-gray-800 p-4 rounded";
+
+const matchingInstructions = allInstructions.filter(i => i.date === data.date && i.shift === data.shift);
+
+if (matchingInstructions.length > 0) {
+matchingInstructions.forEach(instr => {
+  let colorClass = "bg-blue-950 text-blue-300 border-blue-500"; // Default: None
+  if (instr.priority === "Low") colorClass = "bg-green-900 text-green-300 border-green-500";
+  if (instr.priority === "Medium") colorClass = "bg-yellow-900 text-yellow-300 border-yellow-500";
+  if (instr.priority === "High") colorClass = "bg-red-900 text-red-300 border-red-500";
+
+  div.innerHTML += `
+    <div class="${colorClass} p-3 mt-3 rounded border">
+      <b>📘 Admin Instruction:</b><br>${instr.text}
+    </div>
+  `;
+});
+}
+
+  div.innerHTML += `
+    <div class="font-bold">${data.date} (${data.shift})</div>
+    <div class="text-sm text-violet-400 mb-2">👤 By: ${data.userName || "Unknown"}</div>
+  `;
 
   data.answers.forEach((entry) => {
-  const { question, answer, comment } = entry;
-const color = answer === "Yes" ? "text-green-400" : "text-red-400";
-div.innerHTML += `<div><span class="text-blue-300">*\`${question}\`*</span> → <strong class="${color}">${answer}</strong></div>`;
-  if (comment) {
-    div.innerHTML += `<div class="text-sm text-yellow-400 ml-4">📝 ${comment}</div>`;
+    const { question, answer, comment } = entry;
+    const color = answer === "Yes" ? "text-green-400" : "text-red-400";
+    div.innerHTML += `<div><span class="text-blue-300">*\`${question}\`*</span> → <strong class="${color}">${answer}</strong></div>`;
+    if (comment) {
+      div.innerHTML += `<div class="text-sm text-yellow-400 ml-4">📝 ${comment}</div>`;
+    }
+  });
+
+  logsList.appendChild(div);
+});
   }
+async function submitInstruction() {
+  const date = document.getElementById("instrDate").value;
+  const shift = document.getElementById("instrShift").value;
+  const text = document.getElementById("instrText").value;
+ const priority = document.getElementById("instrPriority").value;
+
+  if (!date || !shift || !text.trim()) return alert("Fill all fields");
+
+
+await db.collection("shiftInstructions").add({
+  date,
+  shift,
+  text,
+  priority, // ⬅️ أضف الأولوية
+  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  createdBy: currentUID
 });
 
-    logsList.appendChild(div);
-  });
+
+  alert("Instruction saved ✅");
+  document.getElementById("instrText").value = "";
 }
+
 
   </script>
 </body>
