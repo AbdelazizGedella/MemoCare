@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expiry & Check Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-4">🕵️‍♂️ Expiry & Check Tracker</h1>
+
+  <div class="mb-6 bg-gray-800 p-4 rounded-xl">
+    <h2 class="text-xl font-semibold mb-2">Add New Item (Admin Only)</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <input id="itemName" type="text" placeholder="Item Name" class="input input-bordered w-full">
+      <input id="initialSeal" type="text" placeholder="Initial Seal" class="input input-bordered w-full">
+      <input id="itemLocation" type="text" placeholder="Location" class="input input-bordered w-full">
+      <input id="itemDescription" type="text" placeholder="Description" class="input input-bordered w-full">
+      <select id="checkType" class="select select-bordered w-full">
+        <option disabled selected>Check Type</option>
+        <option value="monthly">Monthly</option>
+        <option value="whenOpened">When Opened</option>
+      </select>
+      <button onclick="addItem()" class="btn btn-primary">Add Item</button>
+    </div>
+  </div>
+
+  <div class="mb-6 bg-gray-800 p-4 rounded-xl">
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="text-xl font-semibold">Next Check</h2>
+      <div>
+        <input id="searchBox" type="text" placeholder="🔍 Search by Item or Seal..." onkeyup="searchItems()" class="input input-bordered w-64 mr-2">
+        <button onclick="exportToExcel()" class="btn btn-outline btn-accent">Export Excel</button>
+      </div>
+    </div>
+    <div id="itemList" class="overflow-x-auto"></div>
+  </div>
+</div>
+
+<!-- Modal -->
+<input type="checkbox" id="history-modal" class="modal-toggle" />
+<div class="modal">
+  <div class="modal-box w-11/12 max-w-3xl bg-gray-900 text-white">
+    <h3 class="font-bold text-lg mb-4">🕘 Check History</h3>
+    <div id="historyContent" class="space-y-3 max-h-[60vh] overflow-y-auto"></div>
+    <div class="modal-action">
+      <label for="history-modal" class="btn">Close</label>
+    </div>
+  </div>
+</div>
+
+<script>
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+  authDomain: "ctwo-eee79.firebaseapp.com",
+  projectId: "ctwo-eee79",
+  storageBucket: "ctwo-eee79.appspot.com",
+  messagingSenderId: "788657051205",
+  appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+  measurementId: "G-4VTCQR4ZVR"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let allDocs = [];
+
+auth.onAuthStateChanged((user) => {
+  if (!user) return alert("User not logged in");
+  window.currentUser = user;
+  loadItems();
+});
+
+function loadItems() {
+  db.collection("checklistItems").get().then(snapshot => {
+    allDocs = snapshot.docs;
+    renderTable(allDocs);
+  });
+}
+
+function addItem() {
+  const itemNameVal = document.getElementById("itemName").value;
+  const initialSealVal = document.getElementById("initialSeal").value;
+  const itemLocationVal = document.getElementById("itemLocation").value;
+  const itemDescriptionVal = document.getElementById("itemDescription").value;
+  const checkTypeVal = document.getElementById("checkType").value;
+
+  if (!itemNameVal || !initialSealVal || !itemLocationVal || !itemDescriptionVal || !checkTypeVal) {
+    alert("Please fill in all fields.");
+    return;
+  }
+
+  const data = {
+    name: itemNameVal,
+    seal: initialSealVal,
+    location: itemLocationVal,
+    description: itemDescriptionVal,
+    type: checkTypeVal,
+    lastCheck: null,
+    nextCheck: null,
+    history: [],
+    createdAt: new Date(),
+  };
+  db.collection("checklistItems").add(data).then(() => {
+    alert("✅ Item added successfully.");
+    document.getElementById("itemName").value = "";
+    document.getElementById("initialSeal").value = "";
+    document.getElementById("itemLocation").value = "";
+    document.getElementById("itemDescription").value = "";
+    document.getElementById("checkType").selectedIndex = 0;
+    loadItems();
+  });
+}
+function checkItem(id, name, type) {
+  if (!window.currentUser) {
+    alert("User not authenticated");
+    return;
+  }
+
+  // البحث عن المستند داخل allDocs حسب الـ id
+  const doc = allDocs.find(d => d.id === id);
+  const currentSeal = doc ? doc.data().seal : "";
+
+  document.getElementById("checkItemId").value = id;
+  document.getElementById("checkItemName").value = name;
+  document.getElementById("checkItemType").value = type;
+
+  // هنا نحط اخر Seal في حقل Old Seal
+  document.getElementById("oldSeal").value = currentSeal;
+
+  // فتح المودال
+  document.getElementById("check-modal").checked = true;
+}
+
+// ** لا تضع أي كود خارج الدوال هنا **
+// احذف كل الكود المتعلق بـ prompt والـ return الذي خارج أي دالة.
+
+// All prompt and check logic should be inside the checkItem function or handled via the modal form.
+// The code above is removed to fix the syntax error.
+
+
+
+function renderTable(docs) {
+  const table = document.createElement("table");
+  table.className = "table w-full table-zebra";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Seal</th>
+        <th>Location</th>
+        <th>Last Check</th>
+        <th>Next Check</th>
+        <th>Last Remark</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${docs.map(doc => renderRow(doc.id, doc.data())).join('')}
+    </tbody>
+  `;
+  itemList.innerHTML = "";
+  itemList.appendChild(table);
+}
+
+function renderRow(id, data) {
+  const now = new Date();
+  const last = data.lastCheck ? new Date(data.lastCheck.toDate()).toLocaleDateString() : "-";
+  let nextStr = "-";
+  if (data.nextCheck) {
+    const next = new Date(data.nextCheck.toDate());
+    const daysLeft = Math.floor((next - now) / (1000 * 60 * 60 * 24));
+    nextStr = `${next.toLocaleDateString()} (${daysLeft}d left)`;
+  }
+  const lastRecord = data.history?.[data.history.length - 1];
+  const lastRemark = lastRecord?.remarks || "-";
+
+ return `
+    <tr>
+      <td>${data.name}</td>
+      <td>${data.seal}</td>
+      <td>${data.location}</td>
+      <td>${last}</td>
+      <td>${nextStr}</td>
+      <td>${lastRemark}</td>
+      <td>
+        <button class="btn btn-xs btn-success mr-1" onclick="checkItem('${id}', '${data.name}', '${data.type}')">Check</button>
+        <label for="history-modal" class="btn btn-xs btn-info" onclick="viewHistory('${id}')">History</label>
+      </td>
+    </tr>
+  `;
+
+}
+
+function viewHistory(id) {
+  db.collection("checklistItems").doc(id).get().then(doc => {
+    if (!doc.exists) return;
+    const history = doc.data().history || [];
+    const content = history.map(h => `
+      <div class="border border-gray-700 p-3 rounded">
+        <p><b>Date:</b> ${new Date(h.timestamp?.toDate()).toLocaleDateString()}</p>
+        <p><b>By:</b> ${h.checkedBy}</p>
+        <p><b>Old → New Seal:</b> ${h.oldSeal} → ${h.newSeal}</p>
+        <p><b>Reason:</b> ${h.reason || '-'}</p>
+        <p><b>Remarks:</b> ${h.remarks || '-'}</p>
+        <p><b>Nurse:</b> ${h.nurse || '-'}, <b>Pharmacist:</b> ${h.pharmacist || '-'}, <b>RT:</b> ${h.rt || '-'}</p>
+      </div>
+    `).join('');
+    document.getElementById("historyContent").innerHTML = content || "<p>No history available.</p>";
+  });
+}
+
+function exportToExcel() {
+  const data = allDocs.map(doc => {
+    const d = doc.data();
+    const lastRecord = d.history?.[d.history.length - 1] || {};
+    return {
+      Name: d.name,
+      Seal: d.seal,
+      Location: d.location,
+      Description: d.description,
+      LastCheck: d.lastCheck ? d.lastCheck.toDate().toLocaleDateString() : "-",
+      NextCheck: d.nextCheck ? d.nextCheck.toDate().toLocaleDateString() : "-",
+      LastRemark: lastRecord.remarks || "-",
+      CheckedBy: lastRecord.checkedBy || "-",
+      Reason: lastRecord.reason || "-",
+      Nurse: lastRecord.nurse || "-",
+      Pharmacist: lastRecord.pharmacist || "-",
+      RT: lastRecord.rt || "-"
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Check Report");
+  XLSX.writeFile(workbook, "check_report.xlsx");
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  document.getElementById("checkForm").addEventListener("submit", function(e) {
+    e.preventDefault();  e.preventDefault();
+
+  const id = document.getElementById("checkItemId").value;
+  const name = document.getElementById("checkItemName").value;
+  const type = document.getElementById("checkItemType").value;
+
+const reason = document.getElementById("checkReason").value.trim();
+  const oldSeal = document.getElementById("oldSeal").value.trim();
+  const newSeal = document.getElementById("newSeal").value.trim();
+  const remarks = document.getElementById("remarks").value.trim();
+  const nurse = document.getElementById("nurse").value.trim() || "-";
+  const pharmacist = document.getElementById("pharmacist").value.trim() || "-";
+  const rt = document.getElementById("rt").value.trim() || "-";
+
+  if (!reason || !oldSeal || !newSeal) {
+    alert("Please fill all required fields.");
+    return;
+  }
+
+  const nowTimestamp = new Date();
+
+  // حساب nextCheck لو النوع شهري
+  let nextCheckDate = null;
+  if (type === "monthly") {
+    nextCheckDate = new Date(nowTimestamp.getFullYear(), nowTimestamp.getMonth() + 1, 1);
+  }
+
+  db.collection("checklistItems").doc(id).update({
+    seal: newSeal,
+    lastCheck: nowTimestamp,
+    nextCheck: nextCheckDate,
+    history: firebase.firestore.FieldValue.arrayUnion({
+      checkedBy: currentUser.displayName || currentUser.email,
+      uid: currentUser.uid,
+      oldSeal,
+      newSeal,
+      reason,
+      remarks,
+      timestamp: nowTimestamp,
+      nurse,
+      pharmacist,
+      rt
+    })
+  }).then(() => {
+    alert("✅ Checked and logged successfully.");
+    document.getElementById("checkForm").reset();
+    document.getElementById("check-modal").checked = false; // close modal
+    loadItems();
+  }).catch(err => {
+    alert("Error: " + err.message);
+  });
+  });
+});
+
+
+function searchItems() {
+  const query = document.getElementById('searchBox').value.toLowerCase();
+
+  const filteredDocs = allDocs.filter(doc => {
+    const data = doc.data();
+    return data.name.toLowerCase().includes(query) || data.seal.toLowerCase().includes(query);
+  });
+
+  renderTable(filteredDocs);
+}
+
+
+
+</script>
+<input type="checkbox" id="check-modal" class="modal-toggle" />
+<div class="modal">
+  <div class="modal-box bg-gray-900 text-white max-w-lg">
+    <h3 class="font-bold text-lg mb-4">✅ Perform Check</h3>
+    <form id="checkForm" class="space-y-4">
+      <input type="hidden" id="checkItemId" />
+      <input type="hidden" id="checkItemName" />
+      <input type="hidden" id="checkItemType" />
+
+     <div>
+  <label class="block mb-1">Reason for check:</label>
+  <select id="checkReason" class="select select-bordered w-full" required>
+    <option value="" disabled selected>Select reason</option>
+    <option value="monthly">Monthly</option>
+    <option value="codeBlue">Code Blue</option>
+    <option value="routine">Routine Check</option>
+    <option value="emergency">Emergency</option>
+    <option value="other">Other</option>
+  </select>
+</div>
+
+
+      <div>
+        <label class="block mb-1">Old Seal:</label>
+<input id="oldSeal" type="text" class="input input-bordered w-full" readonly />
+      </div>
+
+      <div>
+        <label class="block mb-1">New Seal:</label>
+        <input id="newSeal" type="text" class="input input-bordered w-full" required />
+      </div>
+
+      <div>
+        <label class="block mb-1">Remarks:</label>
+        <textarea id="remarks" class="textarea textarea-bordered w-full" rows="2"></textarea>
+      </div>
+
+      <div>
+        <label class="block mb-1">Nurse responsible:</label>
+        <input id="nurse" type="text" class="input input-bordered w-full" />
+      </div>
+
+      <div>
+        <label class="block mb-1">Pharmacist responsible:</label>
+        <input id="pharmacist" type="text" class="input input-bordered w-full" />
+      </div>
+
+      <div>
+        <label class="block mb-1">RT responsible:</label>
+        <input id="rt" type="text" class="input input-bordered w-full" />
+      </div>
+
+      <div class="modal-action justify-between">
+        <label for="check-modal" class="btn btn-outline">Cancel</label>
+        <button type="submit" class="btn btn-primary">Submit Check</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>
