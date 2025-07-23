@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main] # غيرها حسب الفرع اللي بتستخدمه
+    branches: [main]
 
 jobs:
   deploy:
@@ -27,4 +27,4 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./ # لو عندك build folder زي dist أو public غيرها هنا
+          publish_dir: ./
