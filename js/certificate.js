@@ -1,21 +1,21 @@
 // Firebase Configuration
-import { firebaseConfig } from '../firebaseConfig.js';
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+const firebaseConfig = {
+  apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+  authDomain: "ctwo-eee79.firebaseapp.com",
+  projectId: "ctwo-eee79",
+  storageBucket: "ctwo-eee79.appspot.com",
+  messagingSenderId: "788657051205",
+  appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+  measurementId: "G-4VTCQR4ZVR"
+};
 
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+const storage = firebase.storage();
 
-// Initialize services
-const db = getFirestore(app);
-const auth = getAuth(app);
-const storage = getStorage(app);
-
-// Track user
 let currentUID = null;
-onAuthStateChanged(auth, async (user) => {
+auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUID = user.uid;
     const userDoc = await db.collection("users").doc(currentUID).get();
@@ -39,84 +39,82 @@ onAuthStateChanged(auth, async (user) => {
 
 
 
-import { collection, query, limit, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-async function loadRecentUploads() {
+function loadRecentUploads() {
   console.log("🚀 loadRecentUploads بدأت تشتغل");
 
   const ul = document.getElementById("recentUploads");
   ul.innerHTML = "<li class='italic text-gray-400'>Now Loading...</li>";
 
-  // جهز الاستعلام
-  const q = query(collection(db, "Database"), limit(50));
-  const snapshot = await getDocs(q);
+  db.collection("Database").limit(50).get().then(async (snapshot) => {
+    const items = [];
 
-  const items = [];
-  console.log("📦 عدد المستندات:", snapshot.size);
+    console.log("📦 عدد المستندات:", snapshot.size);
 
-  snapshot.forEach(docSnap => {
-    const uid = docSnap.id;
-    const data = docSnap.data();
+    snapshot.forEach(doc => {
+      const uid = doc.id;
+      const data = doc.data();
 
-    console.log("🧾 مستند:", uid, data);
+      console.log("🧾 مستند:", uid, data);
 
-    Object.entries(data).forEach(([certType, certData]) => {
-      if (
-        typeof certData === "object" &&
-        certData?.uploadedAt &&
-        certData?.fileURL &&
-        certData.status === "approved"
-      ) {
-        items.push({
-          uid,
-          certType,
-          expiry: certData.expiryDate || "N/A",
-          uploadedAt: certData.uploadedAt.toDate()
-        });
-      }
+      Object.entries(data).forEach(([certType, certData]) => {
+        console.log(`📂 شهادة: ${certType}`, certData);
+
+        if (
+  typeof certData === "object" &&
+  certData?.uploadedAt &&
+  certData?.fileURL &&
+  certData.status === "approved"
+)
+ {
+          console.log("✅ تمت الإضافة:", certType, certData);
+          items.push({
+            uid,
+            certType,
+            expiry: certData.expiryDate || "N/A",
+            uploadedAt: certData.uploadedAt.toDate()
+          });
+        }
+      });
     });
+
+    console.log("📌 عدد العناصر النهائية:", items.length);
+
+    items.sort((a, b) => b.uploadedAt - a.uploadedAt);
+    const sliced = items.slice(0, 5);
+
+    const htmlItems = await Promise.all(
+      sliced.map(async (item) => {
+        const userDoc = await db.collection("users").doc(item.uid).get();
+        const name = userDoc.exists ? userDoc.data().name : item.uid;
+
+        // Calculate days left until expiry
+        const today = new Date();
+        const expiryDate = new Date(item.expiry);
+        const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+
+        let colorClass = "text-green-400";
+        if (daysLeft < 0) {
+          colorClass = "text-red-400";
+        } else if (daysLeft < 60) {
+          colorClass = "text-yellow-400";
+        } else if (daysLeft > 90) {
+          colorClass = "text-green-400";
+        } else {
+          colorClass = "text-gray-300";
+        }
+
+        return `<li class="bg-gray-700 p-3 rounded shadow border-l-4 border-blue-500">
+          <span class="text-sm font-semibold text-blue-300">${name}</span>
+          <span class="text-xs">Upload <strong>${item.certType}</strong> - 
+            <span class="${colorClass}">Expire in ( ${item.expiry} )</span>
+          </span>
+        </li>`;
+      })
+    );
+
+    ul.innerHTML = htmlItems.join("") || "<li class='text-gray-400 italic'>لا توجد مشاركات حديثة.</li>";
   });
-
-  console.log("📌 عدد العناصر النهائية:", items.length);
-
-  items.sort((a, b) => b.uploadedAt - a.uploadedAt);
-  const sliced = items.slice(0, 5);
-
-  // للحصول على اسم المستخدم لكل uid
-  const htmlItems = await Promise.all(
-    sliced.map(async (item) => {
-      const userDocSnap = await getDoc(doc(db, "users", item.uid));
-      const name = userDocSnap.exists() ? userDocSnap.data().name : item.uid;
-
-      // حساب أيام انتهاء الشهادة
-      const today = new Date();
-      const expiryDate = new Date(item.expiry);
-      const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-
-      let colorClass = "text-green-400";
-      if (daysLeft < 0) {
-        colorClass = "text-red-400";
-      } else if (daysLeft < 60) {
-        colorClass = "text-yellow-400";
-      } else if (daysLeft > 90) {
-        colorClass = "text-green-400";
-      } else {
-        colorClass = "text-gray-300";
-      }
-
-      return `<li class="bg-gray-700 p-3 rounded shadow border-l-4 border-blue-500">
-        <span class="text-sm font-semibold text-blue-300">${name}</span>
-        <span class="text-xs">Upload <strong>${item.certType}</strong> - 
-          <span class="${colorClass}">Expire in ( ${item.expiry} )</span>
-        </span>
-      </li>`;
-    })
-  );
-
-  ul.innerHTML = htmlItems.join("") || "<li class='text-gray-400 italic'>لا توجد مشاركات حديثة.</li>";
 }
-
-
 async function loadUserCertificates() {
   const container = document.getElementById("userCertTableBody");
   container.innerHTML = "";
