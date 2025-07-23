@@ -1,20 +1,21 @@
 // Firebase Configuration
 import { firebaseConfig } from './firebaseConfig.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
+// Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-
-const app = initializeApp(firebaseConfig);
+// Initialize services
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
+// Track user
 let currentUID = null;
-auth.onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUID = user.uid;
     const userDoc = await db.collection("users").doc(currentUID).get();
