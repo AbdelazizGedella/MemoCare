@@ -22,7 +22,7 @@ jobs:
             messagingSenderId: '${{ secrets.FB_MESSAGING_SENDER_ID }}',
             appId: '${{ secrets.FB_APP_ID }}',
             measurementId: '${{ secrets.FB_MEASUREMENT_ID }}'
-          };" > public/firebaseConfig.js
+          };" > firebaseConfig.js
 
       - name: Commit firebaseConfig.js
         run: |
