@@ -152,16 +152,19 @@ function renderTable(docs) {
   table.className = "table w-full table-zebra";
   table.innerHTML = `
     <thead>
-      <tr>
-        <th>Item</th>
-        <th>Seal</th>
-        <th>Location</th>
-        <th>Last Check</th>
-        <th>Next Check</th>
-        <th>Last Remark</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
+  <tr>
+    <th>Item</th>
+    <th>Seal</th>
+    <th>Exp. Date</th>
+    <th>Location</th>
+    <th>Last Check</th>
+    <th>Days Since Last</th>
+    <th>Next Month</th>
+    <th>Last Remark</th>
+    <th>Actions</th>
+  </tr>
+</thead>
+
     <tbody>
       ${docs.map(doc => renderRow(doc.id, doc.data())).join('')}
     </tbody>
@@ -172,32 +175,61 @@ function renderTable(docs) {
 
 function renderRow(id, data) {
   const now = new Date();
-  const last = data.lastCheck ? new Date(data.lastCheck.toDate()).toLocaleDateString() : "-";
+  const lastCheckDate = data.lastCheck ? new Date(data.lastCheck.toDate()) : null;
+  const last = lastCheckDate ? lastCheckDate.toLocaleDateString() : "-";
+
+  // حساب تاريخ انتهاء التشييك (30 يوم بعد آخر تشييك)
+  let expiryDateStr = "-";
+  if (lastCheckDate) {
+    const expiryDate = new Date(lastCheckDate);
+    expiryDate.setDate(expiryDate.getDate() + 30);
+    expiryDateStr = expiryDate.toLocaleDateString();
+  }
+
+  // حساب عدد الأيام من آخر تشييك
+  let daysSinceLast = "-";
+  let daysColor = "";
+  if (lastCheckDate) {
+    const diffDays = Math.floor((now - lastCheckDate) / (1000 * 60 * 60 * 24));
+    daysSinceLast = `${diffDays} days ago`;
+
+    if (diffDays <= 20) {
+      daysColor = "bg-green-800 text-green-200 px-2 py-1 rounded";
+    } else if (diffDays <= 25) {
+      daysColor = "bg-yellow-700 text-yellow-200 px-2 py-1 rounded";
+    } else {
+      daysColor = "bg-red-800 text-red-200 px-2 py-1 rounded";
+    }
+  }
+
   let nextStr = "-";
   if (data.nextCheck) {
     const next = new Date(data.nextCheck.toDate());
     const daysLeft = Math.floor((next - now) / (1000 * 60 * 60 * 24));
-    nextStr = `${next.toLocaleDateString()} (${daysLeft}d left)`;
+    nextStr = `<span class="text-yellow-400 text-xs flex justify-center">${daysLeft}d left</span>`;
   }
+
   const lastRecord = data.history?.[data.history.length - 1];
   const lastRemark = lastRecord?.remarks || "-";
 
- return `
+  return `
     <tr>
       <td>${data.name}</td>
       <td>${data.seal}</td>
+      <td>${expiryDateStr}</td>
       <td>${data.location}</td>
       <td>${last}</td>
+      <td><span class="${daysColor}">${daysSinceLast}</span></td>
       <td>${nextStr}</td>
-      <td>${lastRemark}</td>
+      <td><span class="text-[#e0e0e0] text-[11px]">${lastRemark}</span></td>
       <td>
         <button class="btn btn-xs btn-success mr-1" onclick="checkItem('${id}', '${data.name}', '${data.type}')">Check</button>
         <label for="history-modal" class="btn btn-xs btn-info" onclick="viewHistory('${id}')">History</label>
       </td>
     </tr>
   `;
-
 }
+
 
 function viewHistory(id) {
   db.collection("checklistItems").doc(id).get().then(doc => {
