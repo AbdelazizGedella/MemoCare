@@ -19,7 +19,10 @@
       <button onclick="showTab('questions')" class="btn-tab">Manage Questions</button>
       <button onclick="showTab('log')" class="btn-tab">Fill Shift Log</button>
       <button onclick="showTab('view')" class="btn-tab">View Logs</button>
-    <button onclick="loadLogs()" class="btn-tab">🔄 Refresh</button>
+    <button onclick="showTab('blood')" class="btn-tab">🩸 Blood Stock</button>
+
+      <button onclick="loadLogs()" class="btn-tab">🔄 Refresh</button>
+
     </div>
 
     <!-- Tabs Content -->
@@ -53,6 +56,45 @@
 
 
     </div>
+
+
+    <div id="blood" class="tab hidden">
+  <h2 class="text-xl font-semibold mb-2">🩸 Blood Stock Management</h2>
+
+  <!-- Admin section -->
+  <div id="adminBloodForm" class="mb-6 hidden">
+    <input id="bloodUnitNumber" class="input w-full mt-2" placeholder="Unit Number">
+    <input id="bloodExpiry" type="date" class="input w-full mt-2">
+    <select id="bloodType" class="input w-full mt-2">
+      <option value="A+">A+</option><option value="A-">A-</option>
+      <option value="B+">B+</option><option value="B-">B-</option>
+      <option value="AB+">AB+</option><option value="AB-">AB-</option>
+      <option value="O+">O+</option><option value="O-">O-</option>
+    </select>
+    <select id="bloodProductType" class="input w-full mt-2">
+      <option value="Blood">Blood</option>
+      <option value="Plasma">Plasma</option>
+    </select>
+    <button onclick="addBloodUnit()" class="btn btn-green mt-2">➕ Add Unit</button>
+  </div>
+
+  <!-- Staff section -->
+  <div id="bloodStockList" class="space-y-4"></div>
+  <!-- Blood Stock Check UI with Status and Action Logging -->
+<div class="p-4">
+  <h2 class="text-xl font-bold text-blue-300 mb-4">🧪 Blood Unit Check (Shift Log)</h2>
+
+  <button onclick="toggleCheckSection()" class="btn btn-blue mb-4">📝 Start Blood Check Log</button>
+  <div id="bloodCheckContainer" class="hidden">
+    <div id="bloodCheckList" class="space-y-4"></div>
+    <button onclick="submitCheckLog()" class="btn btn-green mt-4">✅ Confirm Check</button>
+  </div>
+</div>
+
+</div>
+
+
+
 
     <div id="log" class="tab hidden">
       <h2 class="text-xl font-semibold mb-2">Fill Shift Log</h2>
@@ -128,6 +170,8 @@
     currentUID = user.uid;
     isAdmin = currentUID === 'VEPPHo0YHvcIGA0hsqxBmAAkDRK2';
 
+    await loadBloodStock();
+
     // 🔥 أضف هذا الجزء لحفظ الاسم في متغير
     if (!user.displayName) {
       const userDoc = await db.collection('users').doc(user.uid).get();
@@ -135,6 +179,10 @@
         user.displayName = userDoc.data().name; // ← لو عندك اسم محفوظ في Collection users
       }
     }
+
+    if (isAdmin) {
+  document.getElementById("adminBloodForm").classList.remove("hidden");
+}
 
     if (!isAdmin) document.getElementById('questions').remove();
     loadQuestions();
@@ -162,7 +210,6 @@ async function loadQuestions() {
   if (isAdmin) {
     const list = document.getElementById("questionList");
     if (list) {
-      list.innerHTML = "";
       qSnap.forEach(doc => {
         const q = doc.data();
         const div = document.createElement("div");
@@ -383,6 +430,581 @@ await db.collection("shiftInstructions").add({
   document.getElementById("instrText").value = "";
 }
 
+
+async function addBloodUnit() {
+  let unitNumber = document.getElementById("bloodUnitNumber").value;
+  let expiryDate = document.getElementById("bloodExpiry").value;
+  let bloodType = document.getElementById("bloodType").value;
+  const type = document.getElementById("bloodProductType").value;
+
+  if (!unitNumber || !expiryDate || !bloodType) {
+    return alert("All fields are required.");
+  }
+
+  // 🟡 شيل + و - لو بلازما
+  if (type === "Plasma") {
+    bloodType = bloodType.replace("+", "").replace("-", "");
+  }
+
+  await db.collection("bloodStock").add({
+    unitNumber,
+    expiryDate,
+    bloodType,
+    type,
+    status: "Available",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    createdBy: currentUID
+  });
+
+  alert("Blood unit added ✅");
+  loadBloodStock();
+}
+
+
+async function loadBloodStock() {
+
+
+  
+const list = document.getElementById("bloodStockList");
+list.innerHTML = ""; 
+list.innerHTML += `<div id="summaryTable" class="mb-6"></div>`; 
+
+
+  function getBloodSummary(units) {
+  const bloodGroups = [
+    "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"
+  ];
+  const summary = {};
+
+  bloodGroups.forEach(g => summary[g] = { count: 0, nearExpiry: 0 });
+
+  units.forEach(u => {
+    if (summary[u.bloodType]) {
+      summary[u.bloodType].count += 1;
+
+      const days = daysUntilExpiry(u.expiryDate);
+      if (days <= 3) summary[u.bloodType].nearExpiry += 1;
+    }
+  });
+
+  return summary;
+}
+
+function getPlasmaSummary(units) {
+  const plasmaGroups = ["A", "B", "AB", "O"];
+  const summary = {};
+
+  plasmaGroups.forEach(g => summary[g] = { count: 0, nearExpiry: 0 });
+
+  units.forEach(u => {
+    const cleanType = u.bloodType.replace("+", "").replace("-", "");
+    if (summary[cleanType]) {
+      summary[cleanType].count += 1;
+
+      const days = daysUntilExpiry(u.expiryDate);
+      if (days <= 3) summary[cleanType].nearExpiry += 1;
+    }
+  });
+
+  return summary;
+}
+
+function renderSummaryTable(bloodUnits, plasmaUnits) {
+  const blood = getBloodDetailsWithExpiry(bloodUnits);
+  const plasma = getBloodDetailsWithExpiry(plasmaUnits);
+
+  const bloodRow1 = ["A+", "B+", "AB+", "O+"];
+  const bloodRow2 = ["A-", "B-", "AB-", "O-"];
+  const plasmaRow = ["A", "B", "AB", "O"];
+
+function daysUntilExpiry(expiryDate) {
+  const today = new Date();
+  const exp = new Date(expiryDate);
+  const diffTime = exp - today;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+function renderCell(type, data) {
+  if (!data || data.units.length === 0) {
+    return `<td class="p-1 border bg-red-700 text-white text-sm font-bold text-center align-top">No Available Qty.</td>`;
+  } else {
+    let unitLines = data.units.map(unit => {
+      const daysLeft = daysUntilExpiry(unit.expiryDate);
+
+      const expiryText = daysLeft <= 0
+        ? `<span class="text-red-500 font-bold">Expire</span>`
+        : `<span class="text-yellow-300">(${daysLeft} days)</span>`;
+
+      return `- ${unit.unitNumber} - ${expiryText}`;
+    }).join("<br>");
+
+    return `<td class="p-1 border text-sm text-center align-top">
+      <div><strong>Qty: ${data.units.length}</strong></div>
+      <div class="mt-1" style="line-height: 1.3;">${unitLines}</div>
+    </td>`;
+  }
+}
+
+
+  let html = `
+    <h3 class="text-lg font-bold text-blue-300 mb-2">🔢 Blood Stock Summary</h3>
+    <div class="overflow-x-auto mb-4">
+      <table class="table-auto w-full border border-gray-700 text-center text-sm">
+        <thead>
+          <tr class="bg-gray-800 text-white">
+            ${bloodRow1.map(type => `<th class="p-1 border">${type}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            ${bloodRow1.map(type => renderCell(type, blood[type])).join("")}
+          </tr>
+        </tbody>
+        <thead>
+          <tr class="bg-gray-800 text-white">
+            ${bloodRow2.map(type => `<th class="p-1 border">${type}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            ${bloodRow2.map(type => renderCell(type, blood[type])).join("")}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="text-lg font-bold text-blue-300 mb-2">🧊 Fresh Frozen Plasma Stock Summary</h3>
+    <div class="overflow-x-auto">
+      <table class="table-auto w-full border border-gray-700 text-center text-sm">
+        <thead>
+          <tr class="bg-gray-800 text-white">
+            ${plasmaRow.map(type => `<th class="p-1 border">${type}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            ${plasmaRow.map(type => renderCell(type, plasma[type])).join("")}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById("summaryTable").innerHTML = html;
+}
+
+// دالة تجمع تفاصيل الوحدات لكل فصيلة مع ترتيبهم حسب أقرب انتهاء
+function getBloodDetailsWithExpiry(units) {
+  const summary = {};
+
+  units.forEach(u => {
+    if (!summary[u.bloodType]) {
+      summary[u.bloodType] = { units: [] };
+    }
+
+    summary[u.bloodType].units.push({
+      unitNumber: u.unitNumber,
+      expiryDate: u.expiryDate
+    });
+  });
+
+  // نرتب كل قائمة وحدات حسب تاريخ الانتهاء (الأقرب أولاً)
+  Object.keys(summary).forEach(type => {
+    summary[type].units.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+  });
+
+  return summary;
+}
+
+// لازم نحدث الدالة اللي تجمع البيانات لتحسب العدد وأقرب تاريخ انتهاء لكل فصيلة
+function getBloodSummaryWithExpiry(units) {
+  const summary = {};
+
+  units.forEach(u => {
+    if (!summary[u.bloodType]) {
+      summary[u.bloodType] = { count: 0, nearestExpiry: null };
+    }
+
+    summary[u.bloodType].count++;
+
+    const expiryDate = new Date(u.expiryDate);
+    if (!summary[u.bloodType].nearestExpiry || expiryDate < new Date(summary[u.bloodType].nearestExpiry)) {
+      summary[u.bloodType].nearestExpiry = u.expiryDate;
+    }
+  });
+
+  return summary;
+}
+
+
+  const query = await db.collection("bloodStock")
+    .orderBy("createdAt", "desc")
+    .get();
+
+  const bloodUnits = [];
+  const plasmaUnits = [];
+
+  query.forEach(doc => {
+    const data = doc.data();
+    if (data.status !== "Available") return;
+
+    const row = {
+      id: doc.id,
+      unitNumber: data.unitNumber,
+      type: data.type,
+      bloodType: data.bloodType,
+      expiryDate: data.expiryDate
+    };
+
+    if (data.type === "Blood") bloodUnits.push(row);
+    else if (data.type === "Plasma") plasmaUnits.push(row);
+  });
+
+function daysUntilExpiry(expiryDate) {
+  const today = new Date();
+  const exp = new Date(expiryDate);
+  const diffTime = exp - today;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// دالة generateTable بتستقبل عنوان وقائمة الوحدات، وترجع HTML كامل
+async function generateTable(title, units) {
+  let html = `<h3 class="text-lg font-semibold text-blue-400 mt-6">${title}</h3>`;
+  html += `
+    <div class="overflow-x-auto">
+    <table class="table-auto w-full mt-2 border border-gray-700">
+      <thead>
+        <tr class="bg-gray-700 text-white">
+          <th class="p-2 border">#</th>
+          <th class="p-2 border">Unit</th>
+          <th class="p-2 border">Batch</th>
+          <th class="p-2 border">ABO Group</th>
+          <th class="p-2 border">Expire Date</th>
+          <th class="p-2 border">Last Checked</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  // نجمع كل checkedBy (UIDs) بدون تكرار
+  const checkedByUIDsSet = new Set();
+
+  // أولاً نجيب آخر check لكل وحدة بشكل متوازي (لتحسين الأداء)
+  const lastChecksPromises = units.map(async (unit) => {
+    const snapshot = await db.collection("bloodStock").doc(unit.id).collection("checkLogs")
+      .orderBy("timestamp", "desc")
+      .limit(1)
+      .get();
+    if (!snapshot.empty) {
+      const data = snapshot.docs[0].data();
+      if (data.checkedBy && data.checkedBy !== "Never") {
+        checkedByUIDsSet.add(data.checkedBy);
+      }
+      return { unit, lastCheck: data };
+    } else {
+      return { unit, lastCheck: { checkedBy: "Never", timestamp: null } };
+    }
+  });
+
+  const lastChecks = await Promise.all(lastChecksPromises);
+
+  // نجيب بيانات كل المستخدمين مرة واحدة
+  const checkedByUIDs = Array.from(checkedByUIDsSet);
+  let usersMap = new Map();
+
+  if (checkedByUIDs.length > 0) {
+    const usersPromises = checkedByUIDs.map(uid => db.collection("users").doc(uid).get());
+    const usersDocs = await Promise.all(usersPromises);
+    usersDocs.forEach(doc => {
+      if (doc.exists) {
+        usersMap.set(doc.id, doc.data().name || "Unknown");
+      }
+    });
+  }
+
+  // نكمل بناء الجدول
+for (let i = 0; i < lastChecks.length; i++) {
+  const { unit, lastCheck } = lastChecks[i];
+
+  // اسم الموظف بناءً على الخريطة
+  let checkerName = "Unknown";
+  if (lastCheck.checkedBy === "Never") {
+    checkerName = "Never";
+  } else if (usersMap.has(lastCheck.checkedBy)) {
+    checkerName = usersMap.get(lastCheck.checkedBy);
+  }
+
+  let extraInfo = "";
+  if (lastCheck.timestamp) {
+    const lastCheckTime = lastCheck.timestamp.toDate ? lastCheck.timestamp.toDate() : new Date(lastCheck.timestamp);
+    const now = new Date();
+    const diffMs = now - lastCheckTime;
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    const expireHours = 12;
+    const remainingMs = expireHours * 3600000 - diffMs;
+
+    if (diffHours > expireHours) {
+      extraInfo = ` <span class='text-red-600 font-bold'>(Expired)</span>`;
+    } else {
+      // حساب الساعات والدقائق المتبقية
+      const remHours = Math.floor(remainingMs / (1000 * 60 * 60));
+      const remMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+      extraInfo = ` <span class='text-green-600'>(Expires in ${remHours}h ${remMinutes}m)</span>`;
+    }
+  }
+
+  const lastCheckedTimeStr = lastCheck.timestamp ? (lastCheck.timestamp.toDate ? lastCheck.timestamp.toDate() : new Date(lastCheck.timestamp)).toLocaleString() : "Never";
+
+  html += `
+    <tr class="text-center border-t border-gray-600">
+      <td class="p-2 border">${i + 1}</td>
+      <td class="p-2 border">${unit.type}</td>
+      <td class="p-2 border">${unit.unitNumber}</td>
+      <td class="p-2 border">${unit.bloodType}</td>
+      <td class="p-2 border">${unit.expiryDate}</td>
+      <td class="p-2 border">${checkerName} - ${lastCheckedTimeStr}${extraInfo}</td>
+    </tr>
+  `;
+}
+
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+// تعديل في دالة loadBloodStock بحيث تنتظر النتائج قبل التحديث
+async function loadBloodStock() {
+  const list = document.getElementById("bloodStockList");
+  list.innerHTML = "";
+
+  // جلب بيانات الوحدات من الفايرستور (كودك الحالي)
+  const query = await db.collection("bloodStock")
+    .orderBy("createdAt", "desc")
+    .get();
+
+  const bloodUnits = [];
+  const plasmaUnits = [];
+
+  query.forEach(doc => {
+    const data = doc.data();
+    if (data.status !== "Available") return;
+
+    const row = {
+      id: doc.id,
+      unitNumber: data.unitNumber,
+      type: data.type,
+      bloodType: data.bloodType,
+      expiryDate: data.expiryDate
+    };
+
+    if (data.type === "Blood") bloodUnits.push(row);
+    else if (data.type === "Plasma") plasmaUnits.push(row);
+  });
+
+  // استدعاء generateTable باستخدام await عشان يرجع HTML كامل جاهز
+  const bloodTableHTML = await generateTable("Blood Units", bloodUnits);
+  const plasmaTableHTML = await generateTable("Plasma Units", plasmaUnits);
+
+  list.innerHTML = bloodTableHTML + plasmaTableHTML;
+}
+
+  renderSummaryTable(bloodUnits, plasmaUnits);
+
+  list.innerHTML += await generateTable("Blood Units", bloodUnits);
+list.innerHTML += await generateTable("Plasma Units", plasmaUnits);
+
+}
+
+async function confirmBloodMatch(id) {
+  await db.collection("bloodStock").doc(id).update({
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUID
+  });
+  alert("Stock confirmed ✅");
+  loadBloodStock();
+}
+
+async function changeStatus(id) {
+  const selected = document.getElementById(`status_${id}`).value;
+  if (!selected) return alert("Please choose a status");
+
+  if (selected === "Replaced") {
+    document.getElementById(`replace_${id}`).classList.remove("hidden");
+    return;
+  }
+
+  await db.collection("bloodStock").doc(id).update({
+    status: selected,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUID
+  });
+
+  alert("Status updated ✅");
+  loadBloodStock();
+}
+
+async function replaceUnit(id) {
+  const newUnit = document.getElementById(`newUnit_${id}`).value;
+  const newExpiry = document.getElementById(`newExpiry_${id}`).value;
+  const newType = document.getElementById(`newType_${id}`).value;
+
+  if (!newUnit || !newExpiry) return alert("Replacement info required");
+
+  // نحصل على فصيلة الدم من الوحدة الأصلية
+  const oldDoc = await db.collection("bloodStock").doc(id).get();
+  let bloodType = oldDoc.data().bloodType;
+
+  // لو النوع بلازما نشيل + و -
+  if (newType === "Plasma") {
+    bloodType = bloodType.replace("+", "").replace("-", "");
+  }
+
+  // تحديث الوحدة الأصلية إلى "Replaced"
+  await db.collection("bloodStock").doc(id).update({
+    status: "Replaced",
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUID,
+    replacementDetails: {
+      unitNumber: newUnit,
+      expiryDate: newExpiry,
+      bloodType: bloodType
+    }
+  });
+
+  // إضافة الوحدة الجديدة
+  await db.collection("bloodStock").add({
+    unitNumber: newUnit,
+    expiryDate: newExpiry,
+    bloodType: bloodType,
+    type: newType,
+    status: "Available",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    createdBy: currentUID
+  });
+
+  alert("Replacement done ✅");
+  loadBloodStock();
+}
+
+
+
+function toggleCheckSection() {
+  const container = document.getElementById("bloodCheckContainer");
+  if (container.classList.contains("hidden")) {
+    container.classList.remove("hidden");
+    loadBloodCheckUI();
+  } else {
+    container.classList.add("hidden");
+  }
+}
+
+async function loadBloodCheckUI() {
+  const checkList = document.getElementById("bloodCheckList");
+  checkList.innerHTML = "<div class='text-gray-400'>Loading units...</div>";
+
+  const query = await db.collection("bloodStock")
+    .where("status", "==", "Available")
+    .orderBy("createdAt", "desc")
+    .get();
+
+  let html = "";
+  let index = 0;
+  query.forEach((doc) => {
+    const data = doc.data();
+    const id = doc.id;
+
+    index++; // تصاعد يدوي
+
+    html += `
+      <div class="border border-gray-700 p-4 rounded">
+        <div class="text-sm text-yellow-300 font-bold">
+          🔖 ${data.type} Unit ${index}: ${data.unitNumber} | ${data.bloodType} | Exp: ${data.expiryDate}
+        </div>
+        <select id="status_${id}" onchange="handleStatusChange('${id}')" class="input mt-2">
+          <option value="">-- Select Status --</option>
+          <option value="Present">✅ Present</option>
+          <option value="Used">❌ Used</option>
+          <option value="Replaced">🔁 Replaced</option>
+          <option value="Missing">⚠️ Missing</option>
+        </select>
+
+        <div id="extra_${id}" class="mt-2 hidden"></div>
+      </div>
+    `;
+  });
+
+  checkList.innerHTML = html;
+}
+
+function handleStatusChange(id) {
+  const status = document.getElementById(`status_${id}`).value;
+  const extra = document.getElementById(`extra_${id}`);
+  extra.innerHTML = "";
+  extra.classList.add("hidden");
+
+  if (status === "Used") {
+    extra.classList.remove("hidden");
+    extra.innerHTML = `
+      <input id="mrn_${id}" class="input mt-1 w-full" placeholder="Patient MRN">
+      <input id="name_${id}" class="input mt-1 w-full" placeholder="Patient Name">
+    `;
+  } else if (status === "Replaced") {
+    extra.classList.remove("hidden");
+    extra.innerHTML = `
+      <input id="newBatch_${id}" class="input mt-1 w-full" placeholder="New Batch Number">
+      <input id="newExpiry_${id}" type="date" class="input mt-1 w-full">
+    `;
+  }
+}
+
+async function submitCheckLog() {
+  const query = await db.collection("bloodStock")
+    .where("status", "==", "Available")
+    .get();
+
+  for (const doc of query.docs) {
+    const id = doc.id;
+    const status = document.getElementById(`status_${id}`).value;
+    if (!status) continue;
+
+    const unitRef = db.collection("bloodStock").doc(id);
+    const logRef = unitRef.collection("checkLogs");
+
+    const baseLog = {
+      status,
+      checkedBy: firebase.auth().currentUser.displayName || currentUID,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (status === "Used") {
+      baseLog.patientMRN = document.getElementById(`mrn_${id}`).value;
+      baseLog.patientName = document.getElementById(`name_${id}`).value;
+      await unitRef.update({ status: "Used" });
+    } else if (status === "Missing") {
+      await unitRef.update({ status: "Missing" });
+    } else if (status === "Replaced") {
+      baseLog.newUnitNumber = document.getElementById(`newBatch_${id}`).value;
+      baseLog.newExpiryDate = document.getElementById(`newExpiry_${id}`).value;
+
+      const originalData = doc.data();
+      await unitRef.update({ status: "Replaced" });
+      await db.collection("bloodStock").add({
+        unitNumber: baseLog.newUnitNumber,
+        expiryDate: baseLog.newExpiryDate,
+        bloodType: originalData.bloodType,
+        type: originalData.type,
+        status: "Available",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy: currentUID
+      });
+    }
+
+    await logRef.add(baseLog);
+  }
+
+  alert("✅ Check logs saved");
+  loadBloodStock();
+}
 
   </script>
 </body>
