@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shift Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-[#0b1d3a] text-white min-h-screen">
+
+<div class="max-w-6xl mx-auto p-4">
+  <h2 class="text-2xl font-bold text-blue-400 mb-4">🗂️ Shift Management</h2>
+
+  <div role="tablist" class="tabs tabs-bordered mb-6">
+    <a role="tab" class="tab tab-active" onclick="showTab('kanban')">📋 Board</a>
+    <a role="tab" class="tab" onclick="showTab('add')">➕ Add Staff on Shift</a>
+    <a role="tab" class="tab" onclick="showTab('view')">👀 Staff on Shift</a>
+  </div>
+
+  <!-- Shift Selector for Active Cases -->
+  <div class="mb-4 flex flex-col md:flex-row gap-2 items-start md:items-end">
+    <div class="flex-1">
+      <label class="block text-sm text-gray-300 mb-1">Select Shift Date</label>
+      <input type="date" id="kanbanShiftDate" class="input input-bordered w-full" />
+    </div>
+    <div class="flex-1">
+      <label class="block text-sm text-gray-300 mb-1">Select Shift Type</label>
+      <select id="kanbanShiftType" class="input input-bordered w-full">
+        <option value="Day">Day</option>
+        <option value="Night">Night</option>
+      </select>
+    </div>
+    <button onclick="loadKanbanShiftTeam()" class="btn btn-info">👀 View Shift Team</button>
+  </div>
+
+  <!-- Staff Info Display (Table Format) -->
+  <div id="kanbanShiftInfo" class="mb-4 text-white hidden">
+    <table class="table-auto w-full text-sm border border-gray-700">
+      <thead class="bg-gray-800">
+        <tr>
+          <th class="border p-2 text-left">📅 Date</th>
+          <th class="border p-2 text-left">🕒 Shift</th>
+          <th class="border p-2 text-left">👩‍⚕️ Nurse Team</th>
+          <th class="border p-2 text-left">🧑‍⚕️ Physicians</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="kanbanShiftDateText" class="border p-2"></td>
+          <td id="kanbanShiftTypeText" class="border p-2"></td>
+          <td id="kanbanNursesList" class="border p-2"></td>
+          <td id="kanbanDoctorsList" class="border p-2"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Arrival Method Draggable Buttons -->
+  <div class="mt-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-2">🚪 Arrival Method</h3>
+    <div id="arrivalBox" class="bg-gray-800 p-3 rounded shadow flex gap-2">
+      <div class="btn btn-sm bg-info text-white cursor-move" draggable="true" ondragstart="drag(event)" id="rcaBtn">RCA</div>
+      <div class="btn btn-sm bg-success text-white cursor-move" draggable="true" ondragstart="drag(event)" id="selfBtn">Self</div>
+    </div>
+  </div>
+
+  <!-- Payer Draggable Buttons -->
+  <div class="mt-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-2">🚪 Payer Method</h3>
+    <div id="payerBox" class="bg-gray-800 p-3 rounded shadow flex gap-2">
+      <div class="btn btn-sm bg-info text-white cursor-move" draggable="true" ondragstart="drag(event)" id="Patient Cash">Patient Cash</div>
+      <div class="btn btn-sm bg-success text-white cursor-move" draggable="true" ondragstart="drag(event)" id="Emergency Under Approval">Emergency Under Approval</div>
+      <div class="btn btn-sm bg-warning text-black cursor-move" draggable="true" ondragstart="drag(event)" id="Insurance">Insurance</div>
+    </div>
+  </div>
+
+  <br />
+  <!-- Patient Form Toggle Button -->
+  <div class="flex justify-end mb-4">
+    <button onclick="togglePatientForm()" class="btn btn-circle btn-primary">
+      <span class="text-xl">➕</span>
+    </button>
+  </div>
+
+  <div id="patientForm" class="bg-gray-800 p-4 rounded shadow mb-6 hidden">
+    <h3 class="text-lg font-bold text-white mb-2">🧍‍♂️ Create New Patient</h3>
+
+    <input type="text" id="mrn" placeholder="Patient MRN" class="input input-bordered w-full mb-2" />
+    <input type="text" id="name" placeholder="Patient Name" class="input input-bordered w-full mb-2" />
+    <input type="number" id="age" placeholder="Age in Years" class="input input-bordered w-full mb-2" />
+
+    <select id="gender" class="input input-bordered w-full mb-2">
+      <option value="">Select Gender</option>
+      <option value="Male">👨‍🦱 Male</option>
+      <option value="Female">👩‍🦰 Female</option>
+    </select>
+
+    <input type="text" id="payment" placeholder="Payment Method (Cash / Insurance)" class="input input-bordered w-full mb-2" />
+
+    <button onclick="createPatient()" class="btn btn-success w-full">✅ Create Patient</button>
+  </div>
+
+  <!-- مكان عرض المرضى بشكل draggable فوق الأقسام -->
+  <div id="patientsList" class="flex flex-wrap gap-2 mt-6">
+    <!-- هنا هنعرض مربعات MRN draggable -->
+  </div>
+
+  <div id="patientsDraggableContainer" class="flex flex-wrap gap-2 mt-6">
+    <!-- سيتم تعبئة المرضى هنا بشكل draggable -->
+  </div>
+
+  <!-- CTAS Sections: كل قسم عنده div فيه قائمة المرضى -->
+  <div id="kanbanTab">
+    <h3 class="text-xl font-bold text-white mb-4">📌 Active Cases</h3>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div id="ctas1" class="bg-red-700 p-3 rounded shadow">
+        <h3 class="text-lg font-bold text-white">CTAS 1</h3>
+        <div class="ctas-patients-list mt-2 text-sm text-white">🧍‍♂️ No cases yet</div>
+        <div
+          ondragover="allowDrop(event)"
+          ondrop="dropPatient(event, 1)"
+          class="drop-zone mt-2 p-2 border border-dashed border-white rounded"
+        ></div>
+      </div>
+
+      <div id="ctas2" class="bg-blue-700 p-3 rounded shadow">
+        <h3 class="text-lg font-bold text-white">CTAS 2</h3>
+        <div class="ctas-patients-list mt-2 text-sm text-white">🧍‍♂️ No cases yet</div>
+        <div
+          ondragover="allowDrop(event)"
+          ondrop="dropPatient(event, 2)"
+          class="drop-zone mt-2 p-2 border border-dashed border-white rounded"
+        ></div>
+      </div>
+
+      <div id="ctas3" class="bg-yellow-500 p-3 rounded shadow text-black">
+        <h3 class="text-lg font-bold">CTAS 3</h3>
+        <div class="ctas-patients-list mt-2 text-sm">🧍‍♂️ No cases yet</div>
+        <div
+          ondragover="allowDrop(event)"
+          ondrop="dropPatient(event, 3)"
+          class="drop-zone mt-2 p-2 border border-dashed border-black rounded"
+        ></div>
+      </div>
+
+      <div id="ctas4" class="bg-green-600 p-3 rounded shadow">
+        <h3 class="text-lg font-bold text-white">CTAS 4</h3>
+        <div class="ctas-patients-list mt-2 text-sm text-white">🧍‍♂️ No cases yet</div>
+        <div
+          ondragover="allowDrop(event)"
+          ondrop="dropPatient(event, 4)"
+          class="drop-zone mt-2 p-2 border border-dashed border-white rounded"
+        ></div>
+      </div>
+
+      <div id="ctas5" class="bg-white text-black p-3 rounded shadow">
+        <h3 class="text-lg font-bold">CTAS 5</h3>
+        <div class="ctas-patients-list mt-2 text-sm">🧍‍♂️ No cases yet</div>
+        <div
+          ondragover="allowDrop(event)"
+          ondrop="dropPatient(event, 5)"
+          class="drop-zone mt-2 p-2 border border-dashed border-black rounded"
+        ></div>
+      </div>
+    </div>
+  </div>
+
+  <br />
+  <!-- Kanban CTAS Overview -->
+  <div id="kanbanTab">
+    <div class="mb-4">
+      <h3 class="text-xl font-bold text-white">📌 Discharged Cases</h3>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div class="bg-red-700 p-3 rounded shadow">
+        <h3 class="text-lg font-bold text-white">CTAS 1</h3>
+        <div class="mt-2 text-sm">🧍‍♂️ No cases yet</div>
+      </div>
+      <div class="bg-blue-700 p-3 rounded shadow">
+        <h3 class="text-lg font-bold text-white">CTAS 2</h3>
+        <div class="mt-2 text-sm">🧍‍♂️ No cases yet</div>
+      </div>
+      <div class="bg-yellow-500 p-3 rounded shadow text-black">
+        <h3 class="text-lg font-bold">CTAS 3</h3>
+        <div class="mt-2 text-sm">🧍‍♂️ No cases yet</div>
+      </div>
+      <div class="bg-green-600 p-3 rounded shadow">
+        <h3 class="text-lg font-bold text-white">CTAS 4</h3>
+        <div class="mt-2 text-sm">🧍‍♂️ No cases yet</div>
+      </div>
+      <div class="bg-white text-black p-3 rounded shadow">
+        <h3 class="text-lg font-bold">CTAS 5</h3>
+        <div class="mt-2 text-sm">🧍‍♂️ No cases yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Shift Tab -->
+  <div id="addTab" class="hidden">
+    <input type="date" id="shiftDate" class="input input-bordered w-full mt-2" />
+    <select id="shiftType" class="input input-bordered w-full mt-2">
+      <option value="Day">Day</option>
+      <option value="Night">Night</option>
+    </select>
+
+    <div class="mt-4">
+      <h3 class="text-lg text-green-300 font-semibold">👩‍⚕️ Nurses</h3>
+      <div class="flex gap-2 mt-2">
+        <input
+          type="text"
+          id="nurseName"
+          class="input input-bordered w-full"
+          placeholder="Enter nurse name"
+        />
+        <button onclick="addNurse()" class="btn btn-success">➕</button>
+      </div>
+      <ul id="nursesList" class="list-disc pl-6 mt-2 text-white"></ul>
+    </div>
+
+    <div class="mt-4">
+      <h3 class="text-lg text-yellow-300 font-semibold">🧑‍⚕️ Doctors</h3>
+      <div class="flex gap-2 mt-2">
+        <input
+          type="text"
+          id="doctorName"
+          class="input input-bordered w-full"
+          placeholder="Enter doctor name"
+        />
+        <button onclick="addDoctor()" class="btn btn-info">➕</button>
+      </div>
+      <ul id="doctorsList" class="list-disc pl-6 mt-2 text-white"></ul>
+    </div>
+
+    <button onclick="submitShiftTeam()" class="btn btn-primary mt-6 w-full">✅ Save Shift Team</button>
+  </div>
+
+  <!-- View Shift Tab -->
+  <div id="viewTab" class="hidden">
+    <input type="date" id="viewDate" class="input input-bordered w-full mt-2" />
+    <select id="viewType" class="input input-bordered w-full mt-2">
+      <option value="Day">Day</option>
+      <option value="Night">Night</option>
+    </select>
+    <button onclick="loadShiftTeam()" class="btn btn-outline btn-info mt-4 w-full">🔍 View Shift</button>
+
+    <div id="shiftDetails" class="mt-4 hidden">
+      <p class="text-blue-200 font-semibold">
+        📅 <span id="shiftInfoDate"></span> - <span id="shiftInfoType"></span>
+      </p>
+      <p class="mt-2 text-green-300 font-semibold">👩‍⚕️ Nurses:</p>
+      <ul id="viewNursesList" class="list-disc pl-6"></ul>
+      <p class="mt-2 text-yellow-300 font-semibold">🧑‍⚕️ Physicians:</p>
+      <ul id="viewDoctorsList" class="list-disc pl-6"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+    authDomain: "ctwo-eee79.firebaseapp.com",
+    projectId: "ctwo-eee79",
+    storageBucket: "ctwo-eee79.appspot.com",
+    messagingSenderId: "788657051205",
+    appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+    measurementId: "G-4VTCQR4ZVR",
+  };
+  firebase.initializeApp(firebaseConfig);
+
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      console.log("User is signed in:", user.email);
+      await refreshCTASBoards();
+      await loadPatientsDraggable();
+    } else {
+      console.log("No user is signed in.");
+      // Redirect to login page or show login modal
+      window.location.href = "login.html"; // Change to your login page
+    }
+  });
+
+  const nurses = [];
+  const doctors = [];
+
+  function showTab(tab) {
+    document.getElementById("kanbanTab").classList.toggle("hidden", tab !== "kanban");
+    document.getElementById("addTab").classList.toggle("hidden", tab !== "add");
+    document.getElementById("viewTab").classList.toggle("hidden", tab !== "view");
+    document.querySelectorAll(".tab").forEach((el) => el.classList.remove("tab-active"));
+    document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add("tab-active");
+  }
+
+  function addNurse() {
+    const name = document.getElementById("nurseName").value.trim();
+    if (name) {
+      nurses.push(name);
+      document.getElementById("nursesList").innerHTML += `<li>${name}</li>`;
+      document.getElementById("nurseName").value = "";
+    }
+  }
+
+  function addDoctor() {
+    const name = document.getElementById("doctorName").value.trim();
+    if (name) {
+      doctors.push(name);
+      document.getElementById("doctorsList").innerHTML += `<li>${name}</li>`;
+      document.getElementById("doctorName").value = "";
+    }
+  }
+
+  async function submitShiftTeam() {
+    const date = document.getElementById("shiftDate").value;
+    const shift = document.getElementById("shiftType").value;
+    if (!date || !shift) return alert("Please select date and shift.");
+
+    const docId = `${date}_${shift}`;
+    const currentUser = firebase.auth().currentUser;
+
+    await db.collection("shiftTeams").doc(docId).set({
+      date,
+      shift,
+      nurses,
+      doctors,
+      createdBy: currentUser ? currentUser.uid : "Unknown",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    alert("✅ Shift team saved successfully");
+    nurses.length = 0;
+    doctors.length = 0;
+    document.getElementById("nursesList").innerHTML = "";
+    document.getElementById("doctorsList").innerHTML = "";
+  }
+
+  async function loadShiftTeam() {
+    const date = document.getElementById("viewDate").value;
+    const shift = document.getElementById("viewType").value;
+    if (!date || !shift) return alert("Select date and shift.");
+
+    const docId = `${date}_${shift}`;
+    const docSnap = await db.collection("shiftTeams").doc(docId).get();
+
+    if (!docSnap.exists) {
+      alert("No shift team found for selected date and shift.");
+      document.getElementById("shiftDetails").classList.add("hidden");
+      return;
+    }
+
+    const data = docSnap.data();
+    document.getElementById("shiftInfoDate").textContent = data.date;
+    document.getElementById("shiftInfoType").textContent = data.shift;
+    document.getElementById("viewNursesList").innerHTML = data.nurses.map(n => `<li>${n}</li>`).join("");
+    document.getElementById("viewDoctorsList").innerHTML = data.doctors.map(d => `<li>${d}</li>`).join("");
+    document.getElementById("shiftDetails").classList.remove("hidden");
+  }
+
+  // Toggle patient form
+  function togglePatientForm() {
+    const form = document.getElementById("patientForm");
+    form.classList.toggle("hidden");
+  }
+
+  // Create new patient document
+  async function createPatient() {
+    const mrn = document.getElementById("mrn").value.trim();
+    const name = document.getElementById("name").value.trim();
+    const age = Number(document.getElementById("age").value);
+    const gender = document.getElementById("gender").value;
+    const payment = document.getElementById("payment").value.trim();
+
+    if (!mrn || !name || !age || !gender || !payment) {
+      return alert("Please fill all patient fields");
+    }
+
+    try {
+      await db.collection("patients").doc(mrn).set({
+        mrn,
+        name,
+        age,
+        gender,
+        payment,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        ctasActive: null,
+        status: "New",
+      });
+      alert("✅ Patient created successfully");
+      togglePatientForm();
+      await refreshCTASBoards();
+      await loadPatientsDraggable();
+    } catch (error) {
+      console.error("Error creating patient:", error);
+      alert("❌ Failed to create patient.");
+    }
+  }
+
+  // Allow drop
+  function allowDrop(event) {
+    event.preventDefault();
+  }
+
+  // Drag handler for buttons
+  function drag(event) {
+    event.dataTransfer.setData("text/plain", event.target.id);
+  }
+
+  // Drag handler for patient boxes
+  function dragPatient(event) {
+    const mrn = event.target.dataset.mrn;
+    event.dataTransfer.setData("text/plain", mrn);
+  }
+
+  // Drop patient into CTAS area
+  async function dropPatient(event, targetCTAS) {
+    event.preventDefault();
+
+    let mrn = event.dataTransfer.getData("text/plain");
+
+    if (!mrn || typeof mrn !== "string") {
+      alert("Invalid MRN data");
+      return;
+    }
+
+    // If accidentally comes with prefix patient-, remove it
+    if (mrn.startsWith("patient-")) {
+      mrn = mrn.slice(8);
+    }
+
+    try {
+      const docRef = db.collection("patients").doc(mrn);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists) {
+        alert(`Patient with MRN ${mrn} does not exist.`);
+        return;
+      }
+
+      await docRef.update({
+        ctasActive: targetCTAS,
+        status: "Active",
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await refreshCTASBoards();
+
+      alert(`✅ Patient ${mrn} moved to CTAS ${targetCTAS}`);
+    } catch (error) {
+      console.error("Error updating patient CTAS:", error);
+      alert("❌ Failed to update CTAS");
+    }
+  }
+
+  // Refresh patients list by CTAS
+  async function refreshCTASBoards() {
+    const patientsSnapshot = await db.collection("patients").get();
+    const patients = patientsSnapshot.docs.map(doc => doc.data());
+
+    // Group patients by CTAS
+    const patientsByCTAS = [[], [], [], [], []];
+    for (const p of patients) {
+      const ctas = p.ctasActive;
+      if (ctas >= 1 && ctas <= 5) {
+        patientsByCTAS[ctas - 1].push(p);
+      }
+    }
+
+    for (let i = 1; i <= 5; i++) {
+      const div = document.getElementById(`ctas${i}`);
+      const patientsListDiv = div.querySelector(".ctas-patients-list");
+      const patientsHTML = patientsByCTAS[i - 1]
+        .map(
+          p =>
+            `<div draggable="true" ondragstart="dragPatient(event)" data-mrn="${p.mrn}" id="patient-${p.mrn}" class="cursor-move bg-gray-700 p-1 rounded mb-1 text-white">
+              MRN: ${p.mrn} - ${p.name}
+            </div>`
+        )
+        .join("");
+
+      patientsListDiv.innerHTML = patientsHTML || "🧍‍♂️ No cases yet";
+    }
+  }
+
+  // Load all patients draggable outside CTAS (optional usage)
+  async function loadPatientsDraggable() {
+    const patientsSnapshot = await db.collection("patients").get();
+    const container = document.getElementById("patientsDraggableContainer");
+
+    container.innerHTML = patientsSnapshot.docs
+      .map(doc => {
+        const p = doc.data();
+        return `<div draggable="true" ondragstart="dragPatient(event)" data-mrn="${p.mrn}" id="patient-${p.mrn}" class="cursor-move bg-gray-700 p-1 rounded mb-1 text-white">
+          MRN: ${p.mrn} - ${p.name}
+        </div>`;
+      })
+      .join("");
+  }
+
+  // Load Kanban shift team (example for shift view)
+  async function loadKanbanShiftTeam() {
+    const date = document.getElementById("kanbanShiftDate").value;
+    const shift = document.getElementById("kanbanShiftType").value;
+
+    if (!date || !shift) {
+      alert("Select date and shift.");
+      return;
+    }
+
+    const docId = `${date}_${shift}`;
+    const docSnap = await db.collection("shiftTeams").doc(docId).get();
+
+    if (!docSnap.exists) {
+      alert("No shift team found.");
+      return;
+    }
+
+    const data = docSnap.data();
+
+    document.getElementById("kanbanShiftInfo").classList.remove("hidden");
+    document.getElementById("kanbanShiftDateText").textContent = data.date;
+    document.getElementById("kanbanShiftTypeText").textContent = data.shift;
+    document.getElementById("kanbanNursesList").textContent = data.nurses.join(", ");
+    document.getElementById("kanbanDoctorsList").textContent = data.doctors.join(", ");
+  }
+</script>
+
+</body>
+</html>
