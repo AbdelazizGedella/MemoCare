@@ -60,24 +60,8 @@
     </table>
   </div>
 
-  <!-- Arrival Method Draggable Buttons -->
-  <div class="mt-4">
-    <h3 class="text-sm font-semibold text-gray-300 mb-2">🚪 Arrival Method</h3>
-    <div id="arrivalBox" class="bg-gray-800 p-3 rounded shadow flex gap-2">
-      <div class="btn btn-sm bg-info text-white cursor-move" draggable="true" ondragstart="drag(event)" id="rcaBtn">RCA</div>
-      <div class="btn btn-sm bg-success text-white cursor-move" draggable="true" ondragstart="drag(event)" id="selfBtn">Self</div>
-    </div>
-  </div>
 
-  <!-- Payer Draggable Buttons -->
-  <div class="mt-4">
-    <h3 class="text-sm font-semibold text-gray-300 mb-2">🚪 Payer Method</h3>
-    <div id="payerBox" class="bg-gray-800 p-3 rounded shadow flex gap-2">
-      <div class="btn btn-sm bg-info text-white cursor-move" draggable="true" ondragstart="drag(event)" id="Patient Cash">Patient Cash</div>
-      <div class="btn btn-sm bg-success text-white cursor-move" draggable="true" ondragstart="drag(event)" id="Emergency Under Approval">Emergency Under Approval</div>
-      <div class="btn btn-sm bg-warning text-black cursor-move" draggable="true" ondragstart="drag(event)" id="Insurance">Insurance</div>
-    </div>
-  </div>
+
 
   <br />
   <!-- Patient Form Toggle Button -->
@@ -102,17 +86,52 @@
 
     <input type="text" id="payment" placeholder="Payment Method (Cash / Insurance)" class="input input-bordered w-full mb-2" />
 
+
+      <!-- Payer Draggable Buttons -->
+  <div class="mt-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-2">🚪 Payer Method</h3>
+    <div id="payerBox" class="bg-gray-800 p-3 rounded shadow flex gap-2">
+      <div class="btn btn-sm bg-info text-white cursor-move" draggable="true" ondragstart="drag(event)" id="Patient Cash">Patient Cash</div>
+      <div class="btn btn-sm bg-success text-white cursor-move" draggable="true" ondragstart="drag(event)" id="Emergency Under Approval">Emergency Under Approval</div>
+      <div class="btn btn-sm bg-warning text-black cursor-move" draggable="true" ondragstart="drag(event)" id="Insurance">Insurance</div>
+    </div>
+  </div>
+
+
     <button onclick="createPatient()" class="btn btn-success w-full">✅ Create Patient</button>
   </div>
 
-  <!-- مكان عرض المرضى بشكل draggable فوق الأقسام -->
-  <div id="patientsList" class="flex flex-wrap gap-2 mt-6">
-    <!-- هنا هنعرض مربعات MRN draggable -->
-  </div>
+
+    <div class="mt-4">
+   <h3 class="text-sm font-semibold text-gray-300 mb-2">🚪 Patient Names</h3>
 
   <div id="patientsDraggableContainer" class="flex flex-wrap gap-2 mt-6">
     <!-- سيتم تعبئة المرضى هنا بشكل draggable -->
-  </div>
+  </div></div>
+
+  <!-- Arrival Method Draggable Buttons -->
+  <div class="mt-4">
+   <h3 class="text-sm font-semibold text-gray-300 mb-2">🚪 DRAG & DROP</h3>
+<div class="flex gap-2 mb-4">
+  <div class="btn btn-sm bg-info text-white cursor-move" draggable="true" ondragstart="drag(event)" id="RCA">RCA</div>
+  <div class="btn btn-sm bg-success text-white cursor-move" draggable="true" ondragstart="drag(event)" id="Self">Self</div>
+  <div class="btn btn-sm bg-red-500 text-white cursor-move" draggable="true" ondragstart="drag(event)" id="DAMA">DAMA</div>
+</div>
+
+
+  <h3 class="text-sm font-semibold text-gray-300 mb-2">👩‍⚕️ Nurses</h3>
+<div class="flex gap-2 mb-4">
+  <div class="btn btn-xs bg-purple-500 text-white" draggable="true" ondragstart="dragStaff(event)" data-type="NUR" data-name="Fatima">Fatima</div>
+  <div class="btn btn-xs bg-purple-500 text-white" draggable="true" ondragstart="dragStaff(event)" data-type="NUR" data-name="Huda">Huda</div>
+</div>
+
+<h3 class="text-sm font-semibold text-gray-300 mb-2">👨‍⚕️ Physicians</h3>
+<div class="flex gap-2 mb-4">
+  <div class="btn btn-xs bg-yellow-500 text-black" draggable="true" ondragstart="dragStaff(event)" data-type="PHY" data-name="Dr. Ahmed">Dr. Ahmed</div>
+  <div class="btn btn-xs bg-yellow-500 text-black" draggable="true" ondragstart="dragStaff(event)" data-type="PHY" data-name="Dr. Tarek">Dr. Tarek</div>
+</div>
+
+
 
   <!-- CTAS Sections: كل قسم عنده div فيه قائمة المرضى -->
   <div id="kanbanTab">
@@ -382,15 +401,21 @@
 
     try {
       await db.collection("patients").doc(mrn).set({
-        mrn,
-        name,
-        age,
-        gender,
-        payment,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        ctasActive: null,
-        status: "New",
-      });
+  mrn,
+  name,
+  age,
+  gender,
+  payment,
+  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  ctasActive: null,
+  status: "New",
+  chiefComplaint: "",
+  arrivalMethod: "",
+  signedDama: "No",
+  assignedNurse: "",
+  assignedPhysician: "",
+});
+
       alert("✅ Patient created successfully");
       togglePatientForm();
       await refreshCTASBoards();
@@ -474,14 +499,36 @@
     for (let i = 1; i <= 5; i++) {
       const div = document.getElementById(`ctas${i}`);
       const patientsListDiv = div.querySelector(".ctas-patients-list");
-      const patientsHTML = patientsByCTAS[i - 1]
-        .map(
-          p =>
-            `<div draggable="true" ondragstart="dragPatient(event)" data-mrn="${p.mrn}" id="patient-${p.mrn}" class="cursor-move bg-gray-700 p-1 rounded mb-1 text-white">
-              MRN: ${p.mrn} - ${p.name}
-            </div>`
-        )
-        .join("");
+const patientsHTML = patientsByCTAS[i - 1]
+  .map(p => {
+    return `
+      <div class="bg-gray-800 rounded p-2 mb-2">
+        <div
+          draggable="true"
+          ondragstart="dragPatient(event)"
+          data-mrn="${p.mrn}"
+          id="patient-${p.mrn}"
+          class="cursor-move font-semibold text-white"
+          onclick="toggleDetails('${p.mrn}')"
+        >
+          🧍 ${p.mrn} - ${p.name}
+        </div>
+        <div id="details-${p.mrn}" class="hidden mt-2 bg-gray-900 p-2 rounded text-sm text-gray-300 space-y-1"
+             ondragover="allowDrop(event)" ondrop="dropIntoPatient(event, '${p.mrn}')">
+          
+          <label class="block mb-1 text-xs">Dx</label>
+          <input type="text" value="${p.chiefComplaint || ''}" onchange="updatePatientField('${p.mrn}', 'chiefComplaint', this.value)" class="input input-sm input-bordered w-full mb-2" />
+          
+          <p>🚪 <strong>Arrival:</strong> <span id="arrival-${p.mrn}">${p.arrivalMethod || 'None'}</span></p>
+          <p>🛑 <strong>DAMA:</strong> <span id="dama-${p.mrn}">${p.signedDama || 'No'}</span></p>
+          <p>🧑‍⚕️ <strong>Nur:</strong> <span id="nurse-${p.mrn}">${p.assignedNurse || '-'}</span></p>
+          <p>👨‍⚕️ <strong>Phy:</strong> <span id="physician-${p.mrn}">${p.assignedPhysician || '-'}</span></p>
+        </div>
+      </div>
+    `;
+  })
+  .join("");
+
 
       patientsListDiv.innerHTML = patientsHTML || "🧍‍♂️ No cases yet";
     }
@@ -496,7 +543,7 @@
       .map(doc => {
         const p = doc.data();
         return `<div draggable="true" ondragstart="dragPatient(event)" data-mrn="${p.mrn}" id="patient-${p.mrn}" class="cursor-move bg-gray-700 p-1 rounded mb-1 text-white">
-          MRN: ${p.mrn} - ${p.name}
+           ${p.mrn} - ${p.name}
         </div>`;
       })
       .join("");
@@ -528,6 +575,62 @@
     document.getElementById("kanbanNursesList").textContent = data.nurses.join(", ");
     document.getElementById("kanbanDoctorsList").textContent = data.doctors.join(", ");
   }
+
+  function toggleDetails(mrn) {
+  const el = document.getElementById(`details-${mrn}`);
+  el.classList.toggle("hidden");
+}
+// Handle dropping arrival method / staff into patient card
+async function dropIntoPatient(event, mrn) {
+  event.preventDefault();
+  const droppedValue = event.dataTransfer.getData("text/plain");
+
+  const patientRef = db.collection("patients").doc(mrn);
+  const patientSnap = await patientRef.get();
+  if (!patientSnap.exists) return;
+
+  const data = patientSnap.data();
+
+  // handle types
+  let updateData = {};
+  if (droppedValue === "RCA" || droppedValue === "Self") {
+    updateData.arrivalMethod = droppedValue;
+    document.getElementById(`arrival-${mrn}`).textContent = droppedValue;
+  } else if (droppedValue === "DAMA") {
+    updateData.signedDama = "Yes";
+    document.getElementById(`dama-${mrn}`).textContent = "Yes";
+  } else if (droppedValue.startsWith("NUR:")) {
+    const name = droppedValue.replace("NUR:", "");
+    updateData.assignedNurse = name;
+    document.getElementById(`nurse-${mrn}`).textContent = name;
+  } else if (droppedValue.startsWith("PHY:")) {
+    const name = droppedValue.replace("PHY:", "");
+    updateData.assignedPhysician = name;
+    document.getElementById(`physician-${mrn}`).textContent = name;
+  }
+
+  await patientRef.update(updateData);
+}
+
+
+async function updatePatientField(mrn, field, value) {
+  try {
+    const ref = db.collection("patients").doc(mrn);
+    await ref.update({ [field]: value });
+    console.log(`Updated ${field} for ${mrn}`);
+  } catch (e) {
+    console.error("Update error:", e);
+  }
+}
+
+
+function dragStaff(event) {
+  const type = event.target.dataset.type;
+  const name = event.target.dataset.name;
+  event.dataTransfer.setData("text/plain", `${type}:${name}`);
+}
+
+
 </script>
 
 </body>
