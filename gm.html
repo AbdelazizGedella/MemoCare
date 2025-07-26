@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CMH Nursing On-Duty</title>
+<title>ER ON-DUTY REPORT</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -11,15 +11,17 @@
 <body class="bg-[#07102F] text-white pt-20">
 
   <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md z-50">
-    <h1 class="text-xl sm:text-2xl font-bold text-center">CMH Nursing On-Duty</h1>
+<h1 class="text-xl sm:text-2xl font-bold text-center">ER ON-DUTY REPORT</h1>
   </div>
 
   <div class="flex flex-wrap justify-center gap-4 mt-6 px-2">
-    <button onclick="showForm('admission')" class="btn bg-gradient-to-br from-blue-500 to-blue-800 text-white">Admission / Transfer</button>
-    <button onclick="showForm('death')" class="btn bg-gradient-to-br from-red-600 to-red-900 text-white">Death Notification</button>
-    <button onclick="showForm('code')" class="btn bg-gradient-to-br from-purple-600 to-purple-900 text-white">Code Activation</button>
-    <button onclick="showForm('power')" class="btn bg-gradient-to-br from-yellow-500 to-yellow-700 text-black">Power / Fire Alarm</button>
-    <button onclick="showForm('issue')" class="btn bg-gradient-to-br from-pink-500 to-pink-800 text-white">Significant Issue</button>
+  <button onclick="showForm('transfer')" class="btn bg-gradient-to-br from-cyan-600 to-cyan-900 text-white">Transfer Notification</button>
+  
+  <button onclick="showForm('death')" class="btn bg-gradient-to-br from-red-600 to-red-900 text-white">Death Notification</button>
+  <button onclick="showForm('code')" class="btn bg-gradient-to-br from-purple-600 to-purple-900 text-white">Code Activation</button>
+  <button onclick="showForm('power')" class="btn bg-gradient-to-br from-yellow-600 to-yellow-900 text-white">Power / Fire Alarm</button>
+  <button onclick="showForm('issue')" class="btn bg-gradient-to-br from-pink-600 to-pink-900 text-white">Significant Issue</button>
+
   </div>
 
   <div class="mt-6 max-w-2xl mx-auto space-y-6">
@@ -105,11 +107,33 @@
       <button onclick="copyToWhatsapp('output_issue')" class="btn w-full mt-2 bg-green-600 text-white"><i class="fab fa-whatsapp mr-2"></i>Copy & Open WhatsApp</button>
     </div>
 
+    <div id="form_transfer" class="hidden bg-[#151F42] p-6 rounded-lg shadow-md">
+  <h2 class="text-xl font-bold text-cyan-300 mb-4">Transfer Notification</h2>
+  <div class="space-y-2">
+    <input id="t_name" type="text" placeholder="Patient Name" class="input input-bordered w-full bg-[#0f172a] text-white">
+    <input id="t_mrn" type="text" placeholder="MRN" class="input input-bordered w-full bg-[#0f172a] text-white">
+    <input id="t_datetime" type="datetime-local" class="input input-bordered w-full bg-[#0f172a] text-white">
+ <select id="t_payer" class="select select-bordered w-full bg-[#0f172a] text-white">
+          <option value="">Select Payer</option>
+          <option>MOH</option><option>TCS</option><option>CASH</option><option>Other</option>
+        </select>    <input id="t_room" type="text" placeholder="Room" class="input input-bordered w-full bg-[#0f172a] text-white">
+    <input id="t_doc" type="text" placeholder="MRP Physician" class="input input-bordered w-full bg-[#0f172a] text-white">
+    <input id="t_nurse" type="text" placeholder="MRP Nurse" class="input input-bordered w-full bg-[#0f172a] text-white">
+    <input id="t_to" type="text" placeholder="Transferred To" class="input input-bordered w-full bg-[#0f172a] text-white">
+    <input id="t_dx" type="text" placeholder="Diagnosis" class="input input-bordered w-full bg-[#0f172a] text-white">
+  </div>
+  <button onclick="generateTransfer()" class="btn bg-cyan-600 w-full mt-4">Generate Message</button>
+  <pre id="output_transfer" class="hidden mt-2 bg-[#1e293b] p-4 text-sm rounded"></pre>
+  <button onclick="copyToWhatsapp('output_transfer')" class="btn w-full mt-2 bg-green-600 text-white"><i class="fab fa-whatsapp mr-2"></i>Copy & Open WhatsApp</button>
+</div>
+
+
+
   </div>
 
   <script>
     function showForm(type) {
-      const forms = ['admission', 'death', 'code', 'power', 'issue'];
+const forms = ['admission', 'death', 'code', 'power', 'issue', 'transfer'];
       forms.forEach(id => document.getElementById('form_' + id)?.classList.add('hidden'));
       document.getElementById('form_' + type)?.classList.remove('hidden');
     }
@@ -119,7 +143,7 @@
       if (!text) return alert("⛔ No message generated.");
       navigator.clipboard.writeText(text).then(() => {
         alert("✅ Message copied to clipboard!");
-        
+        window.open("https://wa.me/", "_blank");
       });
     }
 
@@ -151,14 +175,16 @@
       output_death.classList.remove('hidden');
     }
 
-    function generateCode() {
-      const msg = `**Code Activation Report**\n\n` +
-        "`Code Type` : *" + c_type.value + "*\n" +
-        "`Location` : *" + c_location.value + "*\n" +
-        "`Date & Time` : *" + c_datetime.value + "*";
-      output_code.innerText = msg;
-      output_code.classList.remove('hidden');
-    }
+   function generateCode() {
+  const msg = `**Code Activation Report**\n\n` +
+    "`Code Type` : **" + c_type.value + "**\n" +
+    "`Location` : **" + c_location.value + "**\n" +
+    "`Date & Time` : **" + c_datetime.value + "**";
+
+  output_code.innerText = msg;
+  output_code.classList.remove('hidden');
+}
+
 
     function generatePower() {
       const msg = `**Power Outage / Fire Alarm**\n\n` +
@@ -176,7 +202,27 @@
         "`Issue` : *" + i_issue.value + "*";
       output_issue.innerText = msg;
       output_issue.classList.remove('hidden');
+    
+    
     }
+
+
+    function generateTransfer() {
+  const msg = `**Transfer Notification**\n\n` +
+    "`Patient Name` : **" + t_name.value + "**\n" +
+    "`MRN` : **" + t_mrn.value + "**\n" +
+    "`Date & Time` : **" + t_datetime.value + "**\n" +
+    "`Payer` : **" + t_payer.value + "**\n" +
+    "`Room` : **" + t_room.value + "**\n" +
+    "`MRP Physician` : **" + t_doc.value + "**\n" +
+    "`MRP Nurse` : **" + t_nurse.value + "**\n" +
+    "`Transferred To` : **" + t_to.value + "**\n" +
+    "`Diagnosis` : **" + t_dx.value + "**";
+    
+  output_transfer.innerText = msg;
+  output_transfer.classList.remove('hidden');
+}
+
   </script>
 
 </body>
