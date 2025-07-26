@@ -149,13 +149,13 @@ async function submitLeaveRequest() {
             return "";
             }
         }
-        const restrictedMonths = ["Ramadan", "Dhu al-Hijjah", "Zulhijjah"];
-        const islamicMonth = getIslamicMonthName(fromDate);
-        if (restrictedMonths.some(m => islamicMonth.toLowerCase().includes(m.toLowerCase()))) {
-            alert("Leave request denied: Restricted month.");
-            return;
-        }
-
+// [OPTIONAL] Restriction removed on Hijri months (Ramadan, Dhu al-Hijjah)
+// const restrictedMonths = ["Ramadan", "Dhu al-Hijjah", "Zulhijjah"];
+// const islamicMonth = getIslamicMonthName(fromDate);
+// if (restrictedMonths.some(m => islamicMonth.toLowerCase().includes(m.toLowerCase()))) {
+//     alert("Leave request denied: Restricted month.");
+//     return;
+// }
         // Store Leave Request in Firestore, including space_id and comment (if any)
         const comment = document.getElementById("leave-comment") ? document.getElementById("leave-comment").value : "";
         await db.collection("leave_requests").add({
