@@ -311,64 +311,69 @@ document.getElementById("close-modal").addEventListener("click", () => {
 // Handle memo acknowledgment
 // Handle memo acknowledgment
 document.getElementById("acknowledge-btn").addEventListener("click", () => {
-    const memoId = document.getElementById("acknowledge-btn").dataset.memoId;  // ✅ FIX: Get Memo ID Properly
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        alert("Please log in to acknowledge this memo.");
-        return;
+  const acknowledgeBtn = document.getElementById("acknowledge-btn");
+  const memoId = acknowledgeBtn.dataset.memoId;
+  const user = firebase.auth().currentUser;
+
+  if (!user) {
+    alert("Please log in to acknowledge this memo.");
+    return;
+  }
+
+  // ✅ Disable the button immediately
+  acknowledgeBtn.disabled = true;
+  acknowledgeBtn.innerHTML = `<span class="loader"></span> Sending...`; // Spinner or loading text
+  acknowledgeBtn.classList.add("opacity-50", "cursor-not-allowed");
+
+  const userRef = db.collection("users").doc(user.uid);
+  const memoRef = db.collection("memos").doc(memoId);
+  const timestamp = firebase.firestore.Timestamp.now();
+
+  const newAck = {
+    uid: user.uid,
+    timestamp: timestamp
+  };
+
+  userRef.get().then(async (userDoc) => {
+    if (!userDoc.exists) {
+      await userRef.set({
+        email: user.email,
+        points: 0,
+        acknowledgedMemos: []
+      });
     }
 
-    const userRef = db.collection("users").doc(user.uid);
-    const memoRef = db.collection("memos").doc(memoId);
-    const timestamp = firebase.firestore.Timestamp.now();
-
-    const newAck = {
-        uid: user.uid,
-        timestamp: timestamp
-    };
-
-    // Ensure user profile exists
-    userRef.get().then(async (userDoc) => {
-        if (!userDoc.exists) {
-            await userRef.set({
-                email: user.email,
-                points: 0,
-                acknowledgedMemos: []
-            });
-        }
-
-        // Update memo and user docs
-        const batch = db.batch();
-
-        batch.update(memoRef, {
-            acknowledgedDetails: firebase.firestore.FieldValue.arrayUnion(newAck)
-        });
-
-        batch.update(userRef, {
-            acknowledgedMemos: firebase.firestore.FieldValue.arrayUnion(memoId)
-        });
-
-        batch.commit().then(() => {
-            // Show UI update
-            alert("Memo acknowledged successfully!");
-
-            // Hide acknowledge button and show timestamp
-            document.getElementById("acknowledge-btn").style.display = "none";
-            const ackInfo = document.getElementById("acknowledgment-info");
-            ackInfo.classList.remove("hidden");
-            document.getElementById("acknowledgment-timestamp").innerText = new Date().toLocaleString();
-
-            // Optionally: Close modal if desired
-            // document.getElementById("memo-modal").classList.add("hidden");
-        }).catch((error) => {
-            console.error("Error during acknowledgment:", error);
-            alert("Failed to acknowledge memo. " + error.message);
-        });
-    }).catch(error => {
-        console.error("Error fetching user doc:", error);
-        alert("Failed to load user profile. " + error.message);
+    const batch = db.batch();
+    batch.update(memoRef, {
+      acknowledgedDetails: firebase.firestore.FieldValue.arrayUnion(newAck)
     });
+    batch.update(userRef, {
+      acknowledgedMemos: firebase.firestore.FieldValue.arrayUnion(memoId)
+    });
+
+    batch.commit().then(() => {
+      alert("Memo acknowledged successfully!");
+
+      // ✅ Full page reload to reflect all changes
+      location.reload();
+
+    }).catch((error) => {
+      console.error("Error during acknowledgment:", error);
+      alert("Failed to acknowledge memo. " + error.message);
+      acknowledgeBtn.disabled = false;
+      acknowledgeBtn.innerHTML = "Acknowledge";
+      acknowledgeBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    });
+
+  }).catch(error => {
+    console.error("Error fetching user doc:", error);
+    alert("Failed to load user profile. " + error.message);
+    acknowledgeBtn.disabled = false;
+    acknowledgeBtn.innerHTML = "Acknowledge";
+    acknowledgeBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  });
 });
+
   //Logout
   document.addEventListener("DOMContentLoaded", () => {
     const logoutBtn = document.getElementById("logout-btn");
