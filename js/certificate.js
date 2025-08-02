@@ -212,7 +212,10 @@ async function checkIfAdminAndLoadSpaceCertificates() {
         <button onclick="openCertSummaryReport()" class="bg-gradient-to-br from-indigo-600 via-indigo-800 to-indigo-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
           <i class="fas fa-chart-bar text-2xl mb-1"></i>
           <span class="text-white text-sm font-medium text-center">Certificate Report</span>
-        </button>
+    <button onclick="generateExpiryAndMissingReport()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-xl mt-2 shadow-lg flex items-center justify-center transition duration-300 hover:scale-105">
+    ⬇️ Generate Report (Excel)
+  </button>
+
         <button onclick="openCertRankingReport()" class="bg-gradient-to-br from-pink-600 via-pink-800 to-pink-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
           <i class="fas fa-trophy text-2xl mb-1"></i>
           <span class="text-white text-sm font-medium text-center">Staff Ranking</span>
