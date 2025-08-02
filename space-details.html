@@ -217,7 +217,7 @@
           </div>
           <div><label>Contract Type</label>
             <select id="edit-contractType" class="select select-bordered w-full">
-              ${["INTERNATIONAL","LOCAL","ALMAWARID","MAHARA"].map(c => `<option ${d.contractType===c?'selected':''}>${c}</option>`).join('')}
+              ${["INTERNATIONAL","LOCAL","ALMAWARID","MAHARA","ABDAL"].map(c => `<option ${d.contractType===c?'selected':''}>${c}</option>`).join('')}
             </select>
           </div>
           <div><label>Birth Date</label><input type="date" id="edit-birthDate" value="${d.birthDate || ''}" class="input input-bordered w-full" /></div>
@@ -461,3 +461,4 @@
   </script>
 </body>
 </html>
+
