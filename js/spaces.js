@@ -203,7 +203,8 @@ document.getElementById("space-modal").classList.remove("hidden");
 const joinBtn = document.getElementById("join-space-btn");
 
 // ✅ لو المستخدم هو صاحب الـ space → أظهر زر إدارة المشاركين
-if (currentUserUID === createdByUID) {
+if (currentUserUID === createdByUID || (spaceData.admins && spaceData.admins.includes(currentUserUID))) {
+
     const manageBtn = document.createElement("button");
     manageBtn.textContent = "🛠 Manage Participants";
     manageBtn.className = "bg-yellow-500 px-4 py-2 mt-4 rounded w-full";
@@ -354,3 +355,4 @@ requestSpaceBtn.addEventListener("click", () => {
 });
 
 });
+
