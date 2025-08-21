@@ -33,7 +33,14 @@
         return;
       }
 
-      loadParticipants(participantsUIDs);
+      // 🟩 UIDs اللي عايز تخفيها من العرض
+const hiddenUIDs = ["lTyqUeqTkXaZyt749jVPEnZtOhU2"];
+
+// فلترة المشاركين قبل تحميل بياناتهم
+const visibleUIDs = participantsUIDs.filter(uid => !hiddenUIDs.includes(uid));
+
+loadParticipants(visibleUIDs);
+
     });
 
     async function loadParticipants(uids) {
