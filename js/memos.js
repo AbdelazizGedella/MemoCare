@@ -9,6 +9,38 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+
+
+
+// 🔹 Helper: Fetch user details for given uids (Global function)
+async function fetchUsersInfo(uids) {
+  if (!uids || uids.length === 0) return [];
+
+  const chunks = [];
+  for (let i = 0; i < uids.length; i += 30) {
+    chunks.push(uids.slice(i, i + 30));
+  }
+
+  let users = [];
+  for (const chunk of chunks) {
+    const snap = await db.collection("users")
+      .where(firebase.firestore.FieldPath.documentId(), "in", chunk)
+      .get();
+
+    users = users.concat(
+      snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+    );
+  }
+
+  return users;
+}
+
+
+
+
 const memoTable = document.getElementById("memo-table");
 const loader = document.getElementById("loading-indicator");
 const storage = firebase.storage(); // FIXED: Initialize Storage
@@ -195,10 +227,11 @@ if (reportBtn) {
 // Get arrays of UIDs who acknowledged
 const acknowledgedUIDs = (memo.acknowledgedDetails || []).map(entry => entry.uid);
 
-// Helper: Fetch user details for given uids
+// 🔹 Helper: Fetch user details for given uids (Global function)
 async function fetchUsersInfo(uids) {
-  if (!uids.length) return [];
+  if (!uids || uids.length === 0) return [];
 
+  // Firestore 'in' يقبل max 30 UID في الاستعلام
   const chunks = [];
   for (let i = 0; i < uids.length; i += 30) {
     chunks.push(uids.slice(i, i + 30));
@@ -209,11 +242,21 @@ async function fetchUsersInfo(uids) {
     const snap = await db.collection("users")
       .where(firebase.firestore.FieldPath.documentId(), "in", chunk)
       .get();
-    users = users.concat(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+
+    users = users.concat(
+      snap.docs.map(doc => ({
+        id: doc.id,     // عشان تستعمله كـ userDoc.id
+        ...doc.data()   // باقي بيانات اليوزر (name, email, profilePic...)
+      }))
+    );
   }
 
   return users;
 }
+
+
+
+
 // Fetch user info
 const acknowledgedUsers = await fetchUsersInfo(acknowledgedUIDs);
 const pendingUIDs = joinedParticipants.filter(uid => !acknowledgedUIDs.includes(uid));
@@ -481,7 +524,7 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         });
 
-        const userDocs = await db.collection("users").where(firebase.firestore.FieldPath.documentId(), "in", participants).get();
+const users = await fetchUsersInfo(participants);
 
         let table = `
           <div class="mb-6">
@@ -498,9 +541,10 @@ document.addEventListener("DOMContentLoaded", () => {
               <tbody>
         `;
 
-       userDocs.forEach(userDoc => {
+users.forEach(userDoc => {
   const uid = userDoc.id;
-  const user = userDoc.data();
+  const user = userDoc; // data جاهزة من helper
+
   const name = user.name || user.email || "Unknown";
   const acknowledged = ackCount[uid];
   const percentage = totalMemos > 0 ? ((acknowledged / totalMemos) * 100).toFixed(1) : 0;
@@ -544,66 +588,67 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    // ✅ Firebase Auth Listener + Latest Acknowledge Fetch
-  firebase.auth().onAuthStateChanged(async (user) => {
-    if (!user) return;
+   // ✅ Firebase Auth Listener + Latest Acknowledge Fetch
+firebase.auth().onAuthStateChanged(async (user) => {
+  if (!user) return;
 
-    try {
-      const memosSnapshot = await db.collection("memos").get();
-      const latestAcknowledges = [];
+  try {
+    const memosSnapshot = await db.collection("memos").get();
+    const latestAcknowledges = [];
 
-      memosSnapshot.forEach(doc => {
-        const memo = doc.data();
-        const title = memo.title || "Untitled Memo";
+    memosSnapshot.forEach(doc => {
+      const memo = doc.data();
+      const title = memo.title || "Untitled Memo";
 
-        (memo.acknowledgedDetails || []).forEach(entry => {
-          if (entry.timestamp && entry.uid) {
-            latestAcknowledges.push({
-              memoTitle: title,
-              uid: entry.uid,
-              timestamp: entry.timestamp.toDate()
-            });
-          }
-        });
+      (memo.acknowledgedDetails || []).forEach(entry => {
+        if (entry.timestamp && entry.uid) {
+          latestAcknowledges.push({
+            memoTitle: title,
+            uid: entry.uid,
+            timestamp: entry.timestamp.toDate()
+          });
+        }
       });
+    });
 
-      // Sort by timestamp descending
-      latestAcknowledges.sort((a, b) => b.timestamp - a.timestamp);
-      const top3 = latestAcknowledges.slice(0, 3);
+    // Sort by timestamp descending
+    latestAcknowledges.sort((a, b) => b.timestamp - a.timestamp);
 
-      // Fetch usernames
-      const uids = [...new Set(top3.map(x => x.uid))];
-      const userSnapshots = await db.collection("users")
-        .where(firebase.firestore.FieldPath.documentId(), "in", uids).get();
+    // 🟢 خد آخر 3
+    const top3 = latestAcknowledges.slice(0, 3);
 
-      const uidToName = {};
-      userSnapshots.forEach(doc => {
-        const data = doc.data();
-        uidToName[doc.id] = data.name || data.email || "Unknown";
-      });
+    // 🟢 هات بيانات اليوزرز
+    const uids = [...new Set(top3.map(x => x.uid))];
+    const users = await fetchUsersInfo(uids);
 
-      // Render Notification List
-      const notificationList = document.getElementById("notification-list");
-      notificationList.innerHTML = "";
+    const uidToName = {};
+    users.forEach(user => {
+      uidToName[user.id] = user.name || user.email || "Unknown";
+    });
 
-      top3.forEach(entry => {
-        const name = uidToName[entry.uid] || "Unknown";
-        const memoTitle = entry.memoTitle;
-        const timeString = entry.timestamp.toLocaleString();
+    // Render Notification List
+    const notificationList = document.getElementById("notification-list");
+    notificationList.innerHTML = "";
 
-        const item = document.createElement("li");
-        item.innerHTML = `
-          <span class="text-yellow-400 font-semibold">${name}</span>
-          acknowledged
-          <span class="text-green-400 font-semibold">"${memoTitle}"</span>
-          <span class="text-gray-400 text-xs">at ${timeString}</span>
-        `;
-        notificationList.appendChild(item);
-      });
-    } catch (err) {
-      console.error("Error loading latest acknowledgments", err);
-    }
-  });
+    top3.forEach(entry => {
+      const name = uidToName[entry.uid] || "Unknown";
+      const memoTitle = entry.memoTitle;
+      const timeString = entry.timestamp.toLocaleString();
+
+      const item = document.createElement("li");
+      item.innerHTML = `
+        <span class="text-yellow-400 font-semibold">${name}</span>
+        acknowledged
+        <span class="text-green-400 font-semibold">"${memoTitle}"</span>
+        <span class="text-gray-400 text-xs">at ${timeString}</span>
+      `;
+      notificationList.appendChild(item);
+    });
+  } catch (err) {
+    console.error("Error loading latest acknowledgments", err);
+  }
+});
+
 
   // 🔄 Show All Notifications Button
   document.getElementById("show-all-notifications").addEventListener("click", async () => {
@@ -628,15 +673,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       allAcknowledges.sort((a, b) => b.timestamp - a.timestamp);
 
-      const uids = [...new Set(allAcknowledges.map(x => x.uid))];
-      const userSnapshots = await db.collection("users")
-        .where(firebase.firestore.FieldPath.documentId(), "in", uids).get();
+const uids = [...new Set(allAcknowledges.map(x => x.uid))];
+const users = await fetchUsersInfo(uids);
 
-      const uidToName = {};
-      userSnapshots.forEach(doc => {
-        const data = doc.data();
-        uidToName[doc.id] = data.name || data.email || "Unknown";
-      });
+const uidToName = {};
+users.forEach(user => {
+  uidToName[user.id] = user.name || user.email || "Unknown";
+});
+
 
       const notificationList = document.getElementById("notification-list");
       notificationList.innerHTML = "";
@@ -738,4 +782,3 @@ function showUserComplianceChart(uid, name, acknowledged, totalMemos) {
     `;
   }
 }
-
