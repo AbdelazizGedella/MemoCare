@@ -197,11 +197,23 @@ const acknowledgedUIDs = (memo.acknowledgedDetails || []).map(entry => entry.uid
 
 // Helper: Fetch user details for given uids
 async function fetchUsersInfo(uids) {
-  if (uids.length === 0) return [];
-  const usersSnapshots = await db.collection("users").where(firebase.firestore.FieldPath.documentId(), "in", uids).get();
-  return usersSnapshots.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
-}
+  if (!uids.length) return [];
 
+  const chunks = [];
+  for (let i = 0; i < uids.length; i += 30) {
+    chunks.push(uids.slice(i, i + 30));
+  }
+
+  let users = [];
+  for (const chunk of chunks) {
+    const snap = await db.collection("users")
+      .where(firebase.firestore.FieldPath.documentId(), "in", chunk)
+      .get();
+    users = users.concat(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+  }
+
+  return users;
+}
 // Fetch user info
 const acknowledgedUsers = await fetchUsersInfo(acknowledgedUIDs);
 const pendingUIDs = joinedParticipants.filter(uid => !acknowledgedUIDs.includes(uid));
@@ -726,3 +738,4 @@ function showUserComplianceChart(uid, name, acknowledged, totalMemos) {
     `;
   }
 }
+
