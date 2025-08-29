@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Codes Maker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body{
+      font-family: Arial, sans-serif;
+      margin:20px;
+      background: radial-gradient(1000px 600px at 20% 10%, rgba(32,58,107,.35), transparent),
+                  radial-gradient(800px 500px at 80% 30%, rgba(19,41,89,.45), transparent),
+                  linear-gradient(135deg, #0a1a3f, #14274e);
+      color:#fff;
+    }
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    select,input[type="date"],input[type="file"]{
+      background:#1e2a4a;color:#fff;border:1px solid #395083;border-radius:8px;padding:8px 10px;
+    }
+    .btn{
+      padding:9px 14px;border:none;border-radius:10px;background:#0a84ff;color:#fff;cursor:pointer;
+      box-shadow:0 6px 20px rgba(10,132,255,.25);
+    }
+    .btn:hover{background:#0669ca}
+    h2,h3{color:#f0f0f0;margin:10px 0}
+    #outputTable{
+      border-collapse:collapse;margin-top:15px;width:100%;background:#121c33;color:#fff;
+      border-radius:14px;overflow:hidden;
+    }
+    #outputTable th,#outputTable td{border:1px solid #2b3a63;padding:8px;text-align:left}
+    #columns{margin-top:12px;max-height:240px;overflow:auto;padding-right:8px}
+    label.col{display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0}
+    .card{background:#162447;border:1px solid #2c3c6e;border-radius:16px;padding:14px;margin-top:14px}
+  </style>
+</head>
+<body>
+  <h2>Codes Maker</h2>
+
+  <div class="row">
+    <input type="file" id="inputFile" accept=".xls,.xlsx" />
+    <div class="row">
+      <label>Expiry Column:</label>
+      <select id="expiryColSelect"></select>
+      <button id="applyExpiryCol" class="btn">Set</button>
+    </div>
+  </div>
+
+  <div id="columns" class="card"></div>
+
+  <div class="row">
+    <button id="exportBtn" class="btn" style="display:none;">Export Selected Columns</button>
+  </div>
+
+  <div class="card">
+    <h3>Expiry Date Filter</h3>
+    <div class="row">
+      <input type="date" id="expiryDateInput" />
+      <button id="filterExpiryBtn" class="btn">Filter Near Expiry</button>
+      <button id="exportExpiryBtn" class="btn" style="display:none;">Export Expiry Items</button>
+    </div>
+    
+  </div>
+
+<div class="card">
+  <h3>Low Stock Filter</h3>
+  <div class="row">
+    <label>PackQty Column:</label>
+    <select id="packQtyColSelect"></select>
+    <input type="number" id="packQtyThreshold" placeholder="Enter threshold" />
+    <button id="filterLowStockBtn" class="btn">Filter Low Stock</button>
+    <button id="exportLowStockBtn" class="btn" style="display:none;">Export Low Stock</button>
+  </div>
+</div>
+
+
+  <table id="outputTable"></table>
+
+  <script>
+
+    let workbook, jsonData, headers;
+    let expiryColIndex = -1;     // index in the ORIGINAL data
+    let uses1904 = false;        // Excel 1904 date system flag
+    
+
+// === Build dropdown for PackQty column (independent of expiry) ===
+function buildPackQtyDropdown(){
+  const sel = document.getElementById('packQtyColSelect');
+  sel.innerHTML = '';
+  if(!headers) return;  // safety
+  headers.forEach((h, idx) => {
+    const opt = document.createElement('option');
+    opt.value = idx;
+    opt.textContent = h ?? `Column ${idx+1}`;
+    sel.appendChild(opt);
+  });
+}
+
+// داخل reader.onload بعد buildExpiryDropdown و renderColumnSelector:
+buildPackQtyDropdown();
+
+
+
+
+    // === Helpers ===
+    const toDDMMYYYY = (y, m, d) =>
+      `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${String(y)}`;
+
+    function detect1904(wb){
+      try{
+        return !!(wb.Workbook && wb.Workbook.WBProps && wb.Workbook.WBProps.date1904);
+      }catch{ return false; }
+    }
+
+    function looksNumericString(s){
+      return typeof s === 'string' && /^-?\d+(\.\d+)?$/.test(s.trim());
+    }
+
+    function isExcelSerial(v){
+      if (typeof v === 'number') return true;
+      if (looksNumericString(v)) return true;
+      return false;
+    }
+
+    // Convert Excel serial to {y,m,d} respecting 1900/1904 systems
+    function serialToYMD(serial){
+      if (typeof serial !== 'number') serial = Number(serial);
+      if (uses1904) serial += 1462; // adjust for 1904 system
+      const d = XLSX.SSF.parse_date_code(serial);
+      return d ? {y:d.y, m:d.m, d:d.d} : null;
+    }
+
+    // Parse strings like 1/1/26, 01-01-2026, 2026/1/1 safely with custom pivot
+    function parseAnyDateString(s){
+      if (typeof s !== 'string') return null;
+      const t = s.trim();
+      // Common separators
+      const m = t.match(/^(\d{1,4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,4})$/);
+      if (!m) return null;
+
+      let a = parseInt(m[1],10), b = parseInt(m[2],10), c = parseInt(m[3],10);
+      let day, month, year;
+
+      // Try to guess format:
+      // If first part has 4 digits -> YYYY-MM-DD
+      if (m[1].length === 4){
+        year = a; month = b; day = c;
+      } else if (m[3].length === 4){
+        // DD/MM/YYYY or MM/DD/YYYY -> assume DD/MM/YYYY (pharmacy/expiry usually day-first)
+        day = a; month = b; year = c;
+      } else {
+        // two-digit year -> assume day-first and pivot 50 -> 00..49 => 2000..2049 else 1900..1999
+        day = a; month = b; const yy = c;
+        year = (yy <= 49) ? (2000 + yy) : (1900 + yy);
+      }
+
+      // Basic sanity check
+      if (!(month >=1 && month <=12 && day >=1 && day <=31)) return null;
+      return {y:year, m:month, d:day};
+    }
+
+    // Unified formatter for Expiry column ONLY: returns string "DD/MM/YYYY"
+    function formatExpiryCell(value){
+      if (value == null || value === "") return "";
+
+      // Excel serial (number or numeric string)
+      if (isExcelSerial(value)){
+        const ymd = serialToYMD(value);
+        if (ymd) return toDDMMYYYY(ymd.y, ymd.m, ymd.d);
+      }
+
+      // Text like 1/1/26 or 01-01-2026
+      const ymd2 = parseAnyDateString(String(value));
+      if (ymd2) return toDDMMYYYY(ymd2.y, ymd2.m, ymd2.d);
+
+      // Fallback: try native Date (last resort)
+      const d = new Date(value);
+      if (!isNaN(d)){
+        return toDDMMYYYY(d.getFullYear(), d.getMonth()+1, d.getDate());
+      }
+
+      // If all fails, return original
+      return String(value);
+    }
+
+    // Build Expiry dropdown
+    function buildExpiryDropdown(){
+      const sel = document.getElementById('expiryColSelect');
+      sel.innerHTML = '';
+      headers.forEach((h, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = h ?? `Column ${idx+1}`;
+        sel.appendChild(opt);
+      });
+      // default to column that contains 'expiry'
+const auto = headers.findIndex(h => h && h.toString().toLowerCase().includes('expiry'));
+expiryColIndex = (auto >= 0 ? auto : 0);
+document.getElementById('expiryColSelect').value = expiryColIndex;
+
+    }
+
+    // Render table (formats ONLY the expiry column)
+    function renderTable(data){
+      const table = document.getElementById('outputTable');
+      table.innerHTML = '';
+      data.forEach((row, r) => {
+        const tr = document.createElement('tr');
+        row.forEach((cell, c) => {
+          const el = document.createElement(r === 0 ? 'th' : 'td');
+          if (r === 0){
+            el.textContent = (cell ?? '');
+          } else if (c === expiryColIndex){
+            el.textContent = formatExpiryCell(cell); // always DD/MM/YYYY for Expiry
+          } else {
+            el.textContent = (cell ?? '');
+          }
+          tr.appendChild(el);
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    // Column selector checkboxes
+    function renderColumnSelector(headers){
+      const container = document.getElementById('columns');
+      container.innerHTML = '<h3>Select Columns to Export:</h3>';
+      headers.forEach((col, idx) => {
+        const lbl = document.createElement('label');
+        lbl.className = 'col';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = idx;
+        cb.checked = true;
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(' ' + (col ?? `Column ${idx+1}`)));
+        container.appendChild(lbl);
+      });
+      document.getElementById('exportBtn').style.display = 'inline-block';
+    }
+
+    function getSelectedColumnIndexes(){
+      const cbs = document.querySelectorAll('#columns input[type=checkbox]:checked');
+      return Array.from(cbs).map(cb => parseInt(cb.value));
+    }
+
+    // Export to Excel with proper date formatting + large-number-as-text
+    function exportExcel(data, filename, expiryIndexInData){
+      const ws = XLSX.utils.aoa_to_sheet(data);
+
+      Object.keys(ws).forEach((addr) => {
+        if (addr[0] === '!') return; // skip metadata
+        const ref = XLSX.utils.decode_cell(addr);
+        const r = ref.r, c = ref.c;
+
+        // Skip header row
+        if (r === 0) return;
+
+        // Big numbers => string
+        if (ws[addr] && typeof ws[addr].v === 'number' && ws[addr].v.toString().length > 11){
+          ws[addr].t = 's';
+          ws[addr].v = ws[addr].v.toString();
+        }
+
+        // Expiry column in the CURRENT data being exported
+        if (expiryIndexInData != null && c === expiryIndexInData){
+          const raw = ws[addr].v;
+          const text = formatExpiryCell(raw);          // ensure DD/MM/YYYY text
+          // Convert that text into a real Date object for Excel with forced format:
+          const ymd = parseAnyDateString(text);
+          if (ymd){
+            const jsDate = new Date(ymd.y, ymd.m-1, ymd.d);
+            ws[addr].t = 'd';
+            ws[addr].v = jsDate;
+            ws[addr].z = 'dd/mm/yyyy';
+          } else if (isExcelSerial(raw)){
+            // serial fallback
+            const ymd2 = serialToYMD(raw);
+            if (ymd2){
+              const jsDate2 = new Date(ymd2.y, ymd2.m-1, ymd2.d);
+              ws[addr].t = 'd';
+              ws[addr].v = jsDate2;
+              ws[addr].z = 'dd/mm/yyyy';
+            }
+          } else {
+            // keep as text if unparseable
+            ws[addr].t = 's';
+            ws[addr].v = text;
+          }
+        }
+      });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      XLSX.writeFile(wb, filename);
+    }
+
+    // === File upload ===
+    document.getElementById('inputFile').addEventListener('change', (ev) => {
+      const file = ev.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: true });
+        uses1904 = detect1904(workbook);
+
+        const firstSheet = workbook.SheetNames[0];
+        const ws = workbook.Sheets[firstSheet];
+
+        // Get 2D array (raw values)
+        jsonData = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
+
+        // Remove incomplete rows (must have all columns non-empty)
+        const headerRow = jsonData[0] || [];
+jsonData = jsonData.filter((row, idx) => {
+  if (idx === 0) return true; // keep header
+  if (!row) return false;
+  // keep row إذا كان على الأقل هناك عمود واحد به قيمة
+  return row.some(cell => cell !== null && cell !== undefined && cell !== '');
+});
+
+
+        headers = jsonData[0] || [];
+        buildExpiryDropdown();
+renderColumnSelector(headers);
+buildPackQtyDropdown(); // <<< call here
+        renderTable(jsonData);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    // Apply expiry column selection
+    document.getElementById('applyExpiryCol').addEventListener('click', () => {
+      const sel = document.getElementById('expiryColSelect');
+      expiryColIndex = parseInt(sel.value);
+      renderTable(jsonData);
+    });
+
+    // Export selected columns
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const selected = getSelectedColumnIndexes();
+      const filtered = jsonData.map(row => selected.map(i => row[i]));
+      // expiry index in the exported (filtered) data:
+      const expiryIndexInData = selected.indexOf(expiryColIndex);
+      exportExcel(filtered, 'filtered_columns.xlsx', expiryIndexInData >= 0 ? expiryIndexInData : null);
+    });
+
+    // Filter near expiry
+    document.getElementById('filterExpiryBtn').addEventListener('click', () => {
+      const limit = document.getElementById('expiryDateInput').value;
+      if (!limit){ alert('Select a date first!'); return; }
+      if (expiryColIndex < 0){ alert('Select the Expiry column.'); return; }
+
+      const limDate = new Date(limit); limDate.setHours(0,0,0,0);
+      const filtered = [headers];
+      jsonData.slice(1).forEach(row => {
+        const expText = formatExpiryCell(row[expiryColIndex]); // normalized DD/MM/YYYY
+        const ymd = parseAnyDateString(expText);
+        if (ymd){
+          const d = new Date(ymd.y, ymd.m-1, ymd.d); d.setHours(0,0,0,0);
+          if (d <= limDate) filtered.push(row);
+        }
+      });
+
+      renderTable(filtered);
+      document.getElementById('exportExpiryBtn').style.display = 'inline-block';
+      document.getElementById('exportExpiryBtn').onclick = () => {
+        // When exporting the filtered table, expiry column index is the same (unfiltered columns)
+        exportExcel(filtered, 'near_expiry.xlsx', expiryColIndex);
+      };
+    });
+
+
+
+
+// === Filter Low Stock ===
+document.getElementById('filterLowStockBtn').addEventListener('click', () => {
+  const colIdx = parseInt(document.getElementById('packQtyColSelect').value);
+  const threshold = parseFloat(document.getElementById('packQtyThreshold').value);
+  if (isNaN(threshold)) { alert("Enter a valid threshold"); return; }
+
+  const filtered = [headers]; // include header
+  jsonData.slice(1).forEach(row => {
+    let val = row[colIdx];
+    if (val !== null && val !== undefined && val !== ''){
+      const num = parseFloat(val);
+      if (!isNaN(num) && num < threshold){
+        filtered.push(row);
+      }
+    }
+  });
+
+  renderTable(filtered);
+  const expBtn = document.getElementById('exportLowStockBtn');
+  expBtn.style.display = 'inline-block';
+  expBtn.onclick = () => {
+    exportExcel(filtered, 'low_stock.xlsx', expiryColIndex);
+  };
+});
+
+// === Call this after file load to populate PackQty dropdown ===
+buildPackQtyDropdown();
+
+  </script>
+</body>
+</html>
