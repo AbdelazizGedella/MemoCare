@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>تحويل Excel إلى CSV مع فلتر ذكي</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+body { font-family:'Segoe UI',sans-serif; background:#0b1e3b; color:#fff; display:flex; flex-direction:column; align-items:center; min-height:100vh; margin:0; padding:20px;}
+h1 {margin-bottom:20px; text-shadow:2px 2px 5px #000;}
+input[type="file"] {padding:10px 20px; border-radius:8px; border:none; cursor:pointer; background:linear-gradient(145deg,#1e3a5f,#0f172a); color:#fff; box-shadow:2px 2px 10px rgba(0,0,0,0.5); transition:all 0.3s;}
+input[type="file"]:hover {transform:scale(1.05); box-shadow:0 0 15px #0ff,0 0 30px #0ff;}
+#log,#spinner {margin-top:20px; padding:15px; width:90%; max-width:500px; text-align:center; border-radius:10px; background:rgba(255,255,255,0.1); box-shadow: inset 2px 2px 8px rgba(0,0,0,0.5); word-break:break-word; transition:all 0.3s;}
+#log.success {background:rgba(0,255,0,0.2); color:#0f0; animation:glow 1s ease-in-out infinite alternate;}
+@keyframes glow {from{box-shadow:0 0 10px #0f0;} to{box-shadow:0 0 20px #0f0;}}
+#spinner {display:none; font-weight:bold; color:#0ff;}
+select,button {margin:5px; padding:5px; border-radius:5px; border:none; cursor:pointer;}
+button {background-color:#1e3a5f; color:#fff; transition:0.3s;}
+button:hover {background-color:#0ff; color:#000;}
+table {width:100%; border-collapse:collapse; background:#1e2a44; color:#fff;}
+table th,table td{padding:8px; border:1px solid #3a4a6a;}
+table tr:nth-child(even){background:#1a2338;}
+table tr:nth-child(odd){background:#1e2a44;}
+table tr:first-child{background:#0b1e3b; color:#0ff; font-weight:bold; text-align:center;}
+</style>
+</head>
+<body>
+
+<h1>📄 Upload the Disposables File </h1>
+<h4>To display the destination of disposable items running for proper store or no </h4>
+<h6>It has to be saved in xlsx</h6>
+<input type="file" id="fileInput" accept=".xls,.xlsx">
+<div id="spinner">⏳ جاري قراءة الملف... انتظر لحظة</div>
+<div id="log">لم يتم رفع أي ملف بعد.</div>
+
+<div id="filtersContainer" style="margin-top:20px; display:none; color:#fff;"></div>
+<div><button id="exportBtn" style="display:none;">تصدير Excel</button></div>
+<div id="tableContainer" style="margin-top:30px; max-width:90%; overflow-x:auto;"></div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const log = document.getElementById('log');
+const spinner = document.getElementById('spinner');
+let parsedRows = null;
+
+const columnsToShow = [
+    "Patient Code","PatientEname","Service Date","Status","PatientType","SectionName",
+    "ItemCode","ItemName","UnitCode","IssuedQty","UnchargedQty",
+    "StoreCode","StoreName","InvVoucher No","Inv YearCode","StaffCode","EmpName"
+];
+
+// تعريف Worker نظيف
+const workerCode = `
+self.importScripts('https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js');
+self.onmessage = function(e){
+    try {
+        const data = new Uint8Array(e.data);
+        const workbook = XLSX.read(data,{type:'array'});
+        const ws = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws,{header:1, raw:true, defval:""});
+        const headers = rows[0];
+        const itemIdx = headers.indexOf('ItemCode');
+        const storeIdx = headers.indexOf('StoreCode');
+        for(let r=1;r<rows.length;r++){
+            if(itemIdx!==-1 && rows[r][itemIdx]!=null) rows[r][itemIdx] = rows[r][itemIdx].toLocaleString('fullwide',{useGrouping:false});
+            if(storeIdx!==-1 && rows[r][storeIdx]!=null) rows[r][storeIdx] = rows[r][storeIdx].toString();
+        }
+        self.postMessage({headers, rows});
+    } catch(err){
+        self.postMessage({error:err.toString()});
+    }
+};
+`;
+const blob = new Blob([workerCode], {type:'application/javascript'});
+const worker = new Worker(URL.createObjectURL(blob));
+
+worker.onmessage = function(e){
+    spinner.style.display='none';
+    const {headers, rows, error} = e.data;
+    if(error){ log.innerHTML = '❌ حدث خطأ أثناء قراءة الملف:<br><strong>'+error+'</strong>'; log.classList.remove('success'); return; }
+    if(headers && headers.length>0){
+        parsedRows = rows;
+        const selectedIndexes = columnsToShow.map(h=>parsedRows[0].indexOf(h)).filter(i=>i!==-1);
+        renderTable(parsedRows, selectedIndexes);
+        createDropdownFilters(parsedRows, parsedRows[0]);
+        log.innerHTML='✅ تم رفع الملف بنجاح';
+        log.classList.add('success');
+        document.getElementById('exportBtn').style.display='inline-block';
+    }
+};
+
+fileInput.addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    if(!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx')){
+        log.innerHTML = '⚠️ الملف "'+file.name+'" ليس بصيغة Excel حقيقية.';
+        spinner.style.display='none';
+        return;
+    }
+    log.textContent="⏳ جاري قراءة الملف...";
+    log.classList.remove('success');
+    spinner.style.display='block';
+    const reader = new FileReader();
+    reader.onload = e=> worker.postMessage(e.target.result);
+    reader.readAsArrayBuffer(file);
+});
+
+function renderTable(dataRows, selectedIndexes){
+    const filteredRows = dataRows.map(row=>selectedIndexes.map(i=>{
+        let val = row[i]||'';
+        const header = dataRows[0][i];
+        if(header==="ItemCode"||header==="StoreCode"){ val=val.toString(); if(val.includes('.')) val=val.replace(/\.0+$/,''); }
+        return val;
+    }));
+    let tableHTML='<table>';
+    filteredRows.forEach(row=>{ tableHTML+=`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`; });
+    tableHTML+='</table>';
+    document.getElementById('tableContainer').innerHTML = tableHTML;
+}
+
+function createDropdownFilters(rows, headers){
+    const storeIdx = headers.indexOf('StoreCode');
+    const sectionIdx = headers.indexOf('SectionName');
+    if(storeIdx===-1 && sectionIdx===-1) return;
+    let html='';
+    const uniqueStore = storeIdx!==-1?[...new Set(rows.slice(1).map(r=>r[storeIdx]))]:[];
+    const uniqueSection = sectionIdx!==-1?[...new Set(rows.slice(1).map(r=>r[sectionIdx]))]:[];
+    if(storeIdx!==-1){ html+='StoreCode: <select id="storeFilter"><option value="">الكل</option>'; uniqueStore.forEach(v=> html+=`<option value="${v}">${v}</option>`); html+='</select>'; }
+    if(sectionIdx!==-1){ html+=' SectionName: <select id="sectionFilter"><option value="">الكل</option>'; uniqueSection.forEach(v=> html+=`<option value="${v}">${v}</option>`); html+='</select>'; }
+    const container=document.getElementById('filtersContainer');
+    container.innerHTML=html; container.style.display='block';
+    const storeSel=document.getElementById('storeFilter');
+    const sectionSel=document.getElementById('sectionFilter');
+    if(storeSel) storeSel.addEventListener('change', applyDropdownFilter);
+    if(sectionSel) sectionSel.addEventListener('change', applyDropdownFilter);
+}
+
+function applyDropdownFilter(){
+    if(!parsedRows) return;
+    const headers=parsedRows[0];
+    const storeIdx=headers.indexOf('StoreCode');
+    const sectionIdx=headers.indexOf('SectionName');
+    const storeVal=document.getElementById('storeFilter')?.value;
+    const sectionVal=document.getElementById('sectionFilter')?.value;
+    const filtered = parsedRows.slice(1).filter(row=>{
+        return (storeIdx===-1 || !storeVal || row[storeIdx]===storeVal) && (sectionIdx===-1 || !sectionVal || row[sectionIdx]===sectionVal);
+    });
+    filtered.unshift(parsedRows[0]);
+    const selectedIndexes=columnsToShow.map(h=>parsedRows[0].indexOf(h)).filter(i=>i!==-1);
+    renderTable(filtered, selectedIndexes);
+}
+
+document.getElementById('exportBtn').onclick = ()=>{
+    const table=document.getElementById('tableContainer').querySelector('table');
+    if(!table) return alert('لا يوجد جدول لتصديره');
+    const wb=XLSX.utils.table_to_book(table,{sheet:"Sheet1"});
+    XLSX.writeFile(wb,"FilteredData.xlsx");
+};
+</script>
+
+</body>
+</html>
