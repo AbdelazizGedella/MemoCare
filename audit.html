@@ -1,198 +1,292 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Patient Records</title>
+  <meta charset="UTF-8" />
+  <title>Patient Records (Main + Free Disposables)</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <style>
-    body { background:#0b1e3b; color:#fff; font-family:Arial,sans-serif; padding:20px; }
-    h1 { text-align:center; color:#22d3ee; }
-    .upload-box { text-align:center; margin-bottom:20px; }
-    input[type=file],button {
-      background:#1e3a8a; padding:10px 15px; border-radius:8px; color:#fff;
-      cursor:pointer; border:none; margin:5px;
-    }
-    .date-block { background:#1e293b; margin:15px 0; padding:10px; border-radius:12px; }
-    .date-title { font-size:18px; font-weight:bold; margin-bottom:5px; color:#0ea5e9; cursor:pointer; }
+    body { background:#0b1e3b; color:#fff; font-family:Arial, sans-serif; padding:20px; }
+    h1 { text-align:center; color:#22d3ee; margin-bottom:16px; }
+    .upload-box { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:16px; }
+    input[type=file], button { background:#1e3a8a; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
+    .hint { text-align:center; color:#93c5fd; margin-bottom:18px; }
+    .date-block { background:#1e293b; margin:15px 0; padding:12px; border-radius:12px; }
+    .date-title { font-weight:bold; color:#0ea5e9; cursor:pointer; }
     .patient-list { display:none; margin-top:10px; }
-    .patient-card { background:#334155; padding:10px; margin:5px 0; border-radius:8px; cursor:pointer; }
+    .patient-card { background:#334155; border-radius:10px; padding:10px; margin:8px 0; cursor:pointer; }
     .patient-card:hover { background:#475569; }
+    .header-line { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .left { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .badges { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:bold; }
+    .b-pat { background:#facc15; color:#000; }      /* 👤 */
+    .b-comp { background:#34d399; color:#000; }     /* 🏥 */
+    .b-med { background:#ec4899; color:#fff; }      /* 💊 */
+    .b-sup { background:#38bdf8; color:#000; }      /* 📦 */
+    .b-serv { background:#86efac; color:#064e3b; }  /* 🛠 */
+    .b-free { background:#f472b6; color:#fff; }     /* 🆓 */
     .details { display:none; margin-top:10px; }
     h3 { margin:10px 0; color:#22d3ee; }
-    table { width:100%; border-collapse:collapse; background:#1e293b; margin-bottom:10px; }
-    th,td { border:1px solid #334155; padding:6px; font-size:13px; }
+    table { width:100%; border-collapse:collapse; background:#1e293b; border-radius:8px; overflow:hidden; margin-bottom:12px; }
+    th, td { border:1px solid #334155; padding:8px; font-size:13px; text-align:left; }
     th { background:#0ea5e9; color:#fff; }
-    .badge { display:inline-block; padding:2px 6px; border-radius:6px; margin-left:5px; font-size:12px; font-weight:bold; }
-    .badge-yellow { background:#facc15; color:#000; }
-    .badge-green { background:#22c55e; color:#000; }
-    .badge-pink { background:#ec4899; color:#fff; }
-    .badge-blue { background:#38bdf8; color:#000; }
+    .export-btn { background:#0ea5e9; }
   </style>
 </head>
 <body>
   <h1>Patient Records</h1>
+
   <div class="upload-box">
-    <input type="file" id="fileInput" accept=".xls,.xlsx" />
+    <label><input type="file" id="fileMain" accept=".xls,.xlsx" /></label>
+    <label><input type="file" id="fileFree" accept=".xls,.xlsx" /></label>
+    <button id="btnRender">Render</button>
   </div>
+
+  <div class="hint">ارفع ملف الخدمات/الكاش أولاً، ثم ملف <strong>Free Disposables</strong> (اختياري) → اضغط Render</div>
 
   <div id="records"></div>
 
   <script>
-    document.getElementById("fileInput").addEventListener("change", handleFile, false);
-
-    function handleFile(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-
-        displayByDate(rows);
-      };
-      reader.readAsArrayBuffer(file);
+    // ---------- Helpers ----------
+    const normKey = k => (k||"").toString().toLowerCase().replace(/\s+/g,"").replace(/[_-]/g,"");
+    const get = (obj, keyVariants, def="") => {
+      for (const k of keyVariants) {
+        const kk = normKey(k);
+        if (kk in obj) return obj[kk];
+      }
+      return def;
+    };
+    const asNumber = v => {
+      if (v===null || v===undefined || v==="") return 0;
+      const n = parseFloat(String(v).replace(/,/g,""));
+      return isNaN(n) ? 0 : n;
+    };
+    function excelSerialToDDMMYYYY(val){
+      if (!val && val!==0) return "";
+      if (typeof val === "string") return val;
+      if (typeof val === "number") {
+        if (val > 40000) {
+          const utc_days = Math.floor(val - 25569);
+          const utc_value = utc_days * 86400;
+          const date_info = new Date(utc_value * 1000);
+          const dd = String(date_info.getUTCDate()).padStart(2,"0");
+          const mm = String(date_info.getUTCMonth()+1).padStart(2,"0");
+          const yy = date_info.getUTCFullYear();
+          return `${dd}/${mm}/${yy}`;
+        } else {
+          return String(val);
+        }
+      }
+      return String(val||"");
     }
 
-    // Excel date → DD/MM/YYYY
-    function excelDateToJSDate(serial) {
-      if (!serial) return "";
-      if (typeof serial === "string") return serial;
-      const utc_days = Math.floor(serial - 25569);
-      const utc_value = utc_days * 86400;
-      const date_info = new Date(utc_value * 1000);
-      const day = String(date_info.getUTCDate()).padStart(2,"0");
-      const month = String(date_info.getUTCMonth()+1).padStart(2,"0");
-      const year = date_info.getUTCFullYear();
-      return `${day}/${month}/${year}`;
+    function sheetToRowsNormalized(ws){
+      const raw = XLSX.utils.sheet_to_json(ws);
+      return raw.map(r=>{
+        const out = {};
+        Object.keys(r).forEach(k=> out[normKey(k)] = r[k]);
+        return out;
+      });
     }
 
-    function normalizeKey(key){ return key.toLowerCase().replace(/\s+/g,""); }
+    // ---------- State ----------
+    let mainRows = [];  // normalized keys
+    let freeRows = [];  // normalized keys
 
-    function displayByDate(data) {
+    // ---------- File Inputs ----------
+    const fileMain = document.getElementById("fileMain");
+    const fileFree = document.getElementById("fileFree");
+    const btnRender = document.getElementById("btnRender");
+
+    async function readFileAsRowsNormalized(file){
+      if (!file) return [];
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(new Uint8Array(buf), {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      return sheetToRowsNormalized(ws);
+    }
+
+    fileMain.addEventListener("change", async (e)=>{ mainRows = await readFileAsRowsNormalized(e.target.files[0]); });
+    fileFree.addEventListener("change", async (e)=>{ freeRows = await readFileAsRowsNormalized(e.target.files[0]); });
+    btnRender.addEventListener("click", ()=> renderAll(mainRows, freeRows));
+
+    // ---------- Classification ----------
+    function classify(rec){
+      const sec = (rec.sectiondesc||"").toString().toLowerCase();
+      const code = (rec.proc||"").toString();
+      if (sec.includes("pharm")) return "med";
+      if (sec.includes("supply")) return "sup";
+      if (code.startsWith("12")) return "med";
+      if (code.startsWith("02") || code.startsWith("2")) return "sup";
+      return "serv";
+    }
+
+    // ---------- Rendering ----------
+    function renderAll(main, free){
       const container = document.getElementById("records");
       container.innerHTML = "";
 
-      const grouped = {};
-      data.forEach(row => {
-        const keys = Object.keys(row);
-        const map = {};
-        keys.forEach(k => map[normalizeKey(k)] = row[k]);
+      if (!main || main.length===0) {
+        container.innerHTML = "<div style='text-align:center;color:#fca5a5'>من فضلك ارفع ملف الخدمات/الكاش أولاً.</div>";
+        return;
+      }
 
-        const rawDate = map["service"];
-        const date = (typeof rawDate === "number" && rawDate>40000) ? excelDateToJSDate(rawDate) : rawDate;
-
-        const medno = map["medno"] || "Unknown";
-        if (!grouped[date]) grouped[date] = {};
-        if (!grouped[date][medno]) grouped[date][medno] = { info: map, records: [] };
-        grouped[date][medno].records.push(map);
+      // Build an index for FREE by (Patient Code, Service Date)
+      const freeIndex = {};
+      free.forEach(r=>{
+        const patientCode = get(r, ["Patient Code","patientcode","medno"], "").toString();
+        const dateRaw = get(r, ["Service Date","servicedate","service"], "");
+        const date = excelSerialToDDMMYYYY(dateRaw);
+        const key = patientCode + "||" + date;
+        (freeIndex[key] ||= []).push(r);
       });
 
-      Object.keys(grouped).sort().forEach(date => {
+      // Group main by date → patient(Medno)
+      const grouped = {}; // {date: {mrn: {info, records:[], free:[]}}}
+      main.forEach(r=>{
+        const date = excelSerialToDDMMYYYY( get(r, ["Service","service","Service Date","servicedate"]) );
+        const mrn = get(r, ["Medno","medno","Patient Code","patientcode"], "Unknown").toString();
+        const name = get(r, ["Patname","patname","Pat Name","PatientEname","patientename"], "Unknown");
+        const key = date || "No Date";
+        (grouped[key] ||= {});
+        if (!grouped[key][mrn]) grouped[key][mrn] = { info: {medno: mrn, patname: name, date: key}, records: [], free: [] };
+        grouped[key][mrn].records.push(r);
+      });
+
+      // Attach FREE disposables by (MRN/Patient Code, date)
+      Object.keys(grouped).forEach(date=>{
+        Object.keys(grouped[date]).forEach(mrn=>{
+          const fr = freeIndex[mrn + "||" + date] || [];
+          grouped[date][mrn].free = fr;
+        });
+      });
+
+      // Render by date
+      Object.keys(grouped).sort().forEach(date=>{
         const patients = Object.values(grouped[date]);
+
         const dateBlock = document.createElement("div");
         dateBlock.className = "date-block";
 
-        const title = document.createElement("div");
-        title.className = "date-title";
-        title.innerText = `📅 ${date} — ${patients.length} Cases`;
-        const patientList = document.createElement("div");
-        patientList.className = "patient-list";
+        const dateTitle = document.createElement("div");
+        dateTitle.className = "date-title";
+        dateTitle.textContent = `📅 ${date} — ${patients.length} Cases`;
 
-        title.onclick = () => {
-          patientList.style.display = patientList.style.display === "none" ? "block" : "none";
-        };
+        const list = document.createElement("div");
+        list.className = "patient-list";
+        dateTitle.onclick = ()=> { list.style.display = list.style.display === "none" ? "block" : "none"; };
 
-        patients.forEach(patient => {
+        patients.forEach(p=>{
           const card = document.createElement("div");
           card.className = "patient-card";
 
-          // حساب الإجماليات
-          let totalPat=0, totalComp=0, medsPat=0, medsComp=0, supPat=0, supComp=0, servPat=0, servComp=0;
-          patient.records.forEach(rec=>{
-            const pat = parseFloat(rec["patpart"]||0);
-            const comp = parseFloat(rec["comppart"]||0);
-            const code = (rec["proc"]||"").toString();
-
-            totalPat+=pat; totalComp+=comp;
-            if(code.startsWith("12")){ medsPat+=pat; medsComp+=comp; }
-            else if(code.startsWith("02")||code.startsWith("2")){ supPat+=pat; supComp+=comp; }
-            else { servPat+=pat; servComp+=comp; }
+          // Split into categories
+          const meds = [], sups = [], servs = [];
+          p.records.forEach(rec=>{
+            const c = classify(rec);
+            if (c==="med") meds.push(rec);
+            else if (c==="sup") sups.push(rec);
+            else servs.push(rec);
           });
 
-          card.innerHTML = `
-            <div>
-              <span class="badge badge-yellow">👤 ${totalPat.toFixed(2)}</span>
-              <span class="badge badge-green">🏥 ${totalComp.toFixed(2)}</span>
-              <strong>${patient.info["patname"]||"Unknown"}</strong> (MRN: ${patient.info["medno"]||""})
-              ${medsPat+medsComp>0 ? `<span class="badge badge-pink">💊 ${(medsPat+medsComp).toFixed(2)}</span>`:""}
-              ${supPat+supComp>0 ? `<span class="badge badge-blue">📦 ${(supPat+supComp).toFixed(2)}</span>`:""}
-              ${servPat+servComp>0 ? `<span class="badge badge-green">🛠 ${(servPat+servComp).toFixed(2)}</span>`:""}
-              <button onclick="exportPatient(${JSON.stringify(patient.records).replace(/"/g,'&quot;')})">⬇ Export</button>
-            </div>
+          // Totals (Pat Part / Comp Part)
+          const sumPat = arr => arr.reduce((s,r)=> s + asNumber( get(r, ["Pat Part","pat part","patpart"]) ), 0);
+          const sumComp = arr => arr.reduce((s,r)=> s + asNumber( get(r, ["Comp Part","comp part","comppart"]) ), 0);
+
+          const patAll = sumPat(p.records);
+          const compAll = sumComp(p.records);
+          const medPat = sumPat(meds), supPat = sumPat(sups), serPat = sumPat(servs);
+
+          const medCount = meds.length, supCount = sups.length, serCount = servs.length;
+          const hasFree = (p.free && p.free.length>0);
+
+          // Get display name & MRN from MAIN file (first record of this patient)
+          const dispName = get(p.records[0],["Patname","Pat Name","PatientEname","patientename"],"Unknown");
+          const dispMrn  = get(p.records[0],["Medno","Patient Code","patientcode"],"Unknown");
+
+          // Header line: NAME + MRN first, then icons, then Export (and totals badges ظاهرة)
+          const header = document.createElement("div");
+          header.className = "header-line";
+
+          const left = document.createElement("div");
+          left.className = "left";
+          left.innerHTML = `
+            <strong>${dispName}</strong> (MRN: ${dispMrn})
+            <span class="badge b-pat">👤 ${patAll.toFixed(2)}</span>
+            <span class="badge b-comp">🏥 ${compAll.toFixed(2)}</span>
           `;
+
+          const badges = document.createElement("div");
+          badges.className = "badges";
+          if (medCount) badges.innerHTML += `<span class="badge b-med">💊 ${medPat.toFixed(2)} (${medCount})</span>`;
+          if (supCount) badges.innerHTML += `<span class="badge b-sup">📦 ${supPat.toFixed(2)} (${supCount})</span>`;
+          if (serCount) badges.innerHTML += `<span class="badge b-serv">🛠 ${serPat.toFixed(2)} (${serCount})</span>`;
+          if (hasFree)  badges.innerHTML += `<span class="badge b-free">🆓 ${p.free.length}</span>`;
+
+          const exportBtn = document.createElement("button");
+          exportBtn.textContent = "⬇ Export";
+          exportBtn.className = "export-btn";
+          exportBtn.addEventListener("click", (ev)=>{
+            ev.stopPropagation();
+            exportPatientWorkbook(dispName, dispMrn, meds, sups, servs, p.free);
+          });
+
+          // ⬅️ كنا ناسين السطر ده قبل كده
+          header.appendChild(left);
+          header.appendChild(badges);
+          header.appendChild(exportBtn);
 
           const details = document.createElement("div");
           details.className = "details";
+          if (meds.length) details.innerHTML += renderTable("💊 Medications", meds);
+          if (sups.length) details.innerHTML += renderTable("📦 Supplies", sups);
+          if (servs.length) details.innerHTML += renderTable("🛠 Services", servs);
+          if (hasFree)   details.innerHTML += renderTable("🆓 Free Disposables (لا تُحتسب في الإجماليات)", p.free);
 
-          const meds = patient.records.filter(r=> (r["proc"]||"").toString().startsWith("12"));
-          const sups = patient.records.filter(r=> (r["proc"]||"").toString().startsWith("02") || (r["proc"]||"").toString().startsWith("2"));
-          const servs = patient.records.filter(r=> !((r["proc"]||"").toString().startsWith("12")||(r["proc"]||"").toString().startsWith("02")||(r["proc"]||"").toString().startsWith("2")));
-
-          if(meds.length) details.innerHTML += renderTable("💊 Medications", meds);
-          if(sups.length) details.innerHTML += renderTable("📦 Supplies", sups);
-          if(servs.length) details.innerHTML += renderTable("🛠 Services", servs);
-
-          card.onclick = (ev) => {
-            if(ev.target.tagName==="BUTTON") return; // avoid toggle when clicking export
-            details.style.display = details.style.display === "none" ? "block" : "none";
-          };
-
+          card.appendChild(header);
           card.appendChild(details);
-          patientList.appendChild(card);
+
+          card.addEventListener("click", (ev)=>{
+            if (ev.target.closest("button")) return;
+            details.style.display = (details.style.display==="none" || details.style.display==="") ? "block" : "none";
+          });
+
+          list.appendChild(card);
         });
 
-        dateBlock.appendChild(title);
-        dateBlock.appendChild(patientList);
+        dateBlock.appendChild(dateTitle);
+        dateBlock.appendChild(list);
         container.appendChild(dateBlock);
       });
     }
 
-    function renderTable(title,records){
+    function renderTable(title, rows){
+      if (!rows || rows.length===0) return "";
+      const cols = Object.keys(rows[0]);
       let html = `<h3>${title}</h3><table><tr>`;
-      Object.keys(records[0]).forEach(k=> html+=`<th>${k}</th>`);
-      html+="</tr>";
-      records.forEach(rec=>{
-        html+="<tr>";
-        Object.values(rec).forEach(v=> html+=`<td>${v}</td>`);
-        html+="</tr>";
+      cols.forEach(c=> html += `<th>${c}</th>`);
+      html += `</tr>`;
+      rows.forEach(r=>{
+        html += `<tr>`;
+        cols.forEach(c=> html += `<td>${r[c]??""}</td>`);
+        html += `</tr>`;
       });
-      html+="</table>";
+      html += `</table>`;
       return html;
     }
 
-function exportPatient(records){
-  if (!records.length) return;
-  const wb = XLSX.utils.book_new();
+    // ---------- Export ----------
+    function exportPatientWorkbook(patName, mrn, meds, sups, servs, free){
+      const wb = XLSX.utils.book_new();
+      if (meds && meds.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meds), "Medications");
+      if (sups && sups.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sups), "Supplies");
+      if (servs && servs.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(servs), "Services");
+      if (free && free.length)  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(free),  "Free Disposables");
 
-  const meds = records.filter(r=> (r["proc"]||"").toString().startsWith("12"));
-  const sups = records.filter(r=> (r["proc"]||"").toString().startsWith("02")||(r["proc"]||"").toString().startsWith("2"));
-  const servs = records.filter(r=> !((r["proc"]||"").toString().startsWith("12")||(r["proc"]||"").toString().startsWith("02")||(r["proc"]||"").toString().startsWith("2")));
-
-  if(meds.length){ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(meds),"Medications"); }
-  if(sups.length){ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sups),"Supplies"); }
-  if(servs.length){ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(servs),"Services"); }
-
-  // 🟡 استخراج اسم المريض و MRN
-  const patName = records[0]["patname"] || "Patient";
-  const mrn = records[0]["medno"] || "Unknown";
-  const safeName = patName.replace(/[^a-zA-Z0-9\u0600-\u06FF]+/g,"_"); // يمنع رموز غريبة في الاسم
-
-  XLSX.writeFile(wb, `${safeName}_MRN_${mrn}.xlsx`);
-}
-
+      const safeName = String(patName||"Patient").replace(/[^a-zA-Z0-9\u0600-\u06FF]+/g,"_");
+      const safeMrn  = String(mrn||"Unknown").replace(/[^a-zA-Z0-9]+/g,"");
+      XLSX.writeFile(wb, `${safeName}_MRN_${safeMrn}.xlsx`);
+    }
   </script>
 </body>
 </html>
