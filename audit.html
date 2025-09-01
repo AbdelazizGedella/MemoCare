@@ -30,6 +30,10 @@
     .b-sup { background:#38bdf8; color:#000; }      /* 📦 */
     .b-serv { background:#86efac; color:#064e3b; }  /* 🛠 */
     .b-free { background:#f472b6; color:#fff; }     /* 🆓 */
+
+    /* ✅ بادجات المكان */
+    .b-er  { background:#f59e0b; color:#0b1e3b; }   /* ER */
+    .b-icu { background:#ef4444; color:#fff; }      /* ICU */
     .details { display:none; margin-top:10px; }
     h3 { margin:10px 0; color:#22d3ee; }
     table { width:100%; border-collapse:collapse; background:#1e293b; border-radius:8px; overflow:hidden; margin-bottom:12px; }
@@ -126,6 +130,18 @@
       return "serv";
     }
 
+    // ✅ يحدد مكان السجل (ER/ICU) من sectiondesc
+    function detectUnits(records){
+      let hasER = false, hasICU = false;
+      for (const r of records) {
+        const s = (r.sectiondesc || r.section || "").toString().toLowerCase();
+        if (/emerg|emergency\s*department|\ber\b/.test(s)) hasER = true;
+        if (/\bicu\b|cmh-icu|intensive/.test(s)) hasICU = true;
+        if (hasER && hasICU) break;
+      }
+      return { hasER, hasICU };
+    }
+
     // ---------- Rendering ----------
     function renderAll(main, free){
       const container = document.getElementById("records");
@@ -209,7 +225,14 @@
           const dispName = get(p.records[0],["Patname","Pat Name","PatientEname","patientename"],"Unknown");
           const dispMrn  = get(p.records[0],["Medno","Patient Code","patientcode"],"Unknown");
 
-          // Header line: NAME + MRN first, then icons, then Export (and totals badges ظاهرة)
+          // ✅ تحديد ER/ICU من سجلات هذا المريض
+          const { hasER, hasICU } = detectUnits(p.records);
+          const unitBadgesHTML = `
+            ${hasER  ? '<span class="badge b-er">ER</span>'  : ''}
+            ${hasICU ? '<span class="badge b-icu">ICU</span>': ''}
+          `;
+
+          // Header line: NAME + MRN first, then icons, then Export
           const header = document.createElement("div");
           header.className = "header-line";
 
@@ -219,6 +242,7 @@
             <strong>${dispName}</strong> (MRN: ${dispMrn})
             <span class="badge b-pat">👤 ${patAll.toFixed(2)}</span>
             <span class="badge b-comp">🏥 ${compAll.toFixed(2)}</span>
+            ${unitBadgesHTML}
           `;
 
           const badges = document.createElement("div");
@@ -236,7 +260,6 @@
             exportPatientWorkbook(dispName, dispMrn, meds, sups, servs, p.free);
           });
 
-          // ⬅️ كنا ناسين السطر ده قبل كده
           header.appendChild(left);
           header.appendChild(badges);
           header.appendChild(exportBtn);
