@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Productivity Matrix — MemoCare</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <!-- Firebase (compat for consistency with your codebase) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+  <style>
+    :root{ color-scheme: dark }
+    body{ background:#07102F }
+    .glass{ background:rgba(255,255,255,0.06); backdrop-filter: blur(10px) }
+
+    /* Top-centered slider */
+    #daysRangeWrap {
+      position: sticky; top: 64px; z-index: 30;
+      display:flex; align-items:center; justify-content:center;
+    }
+  </style>
+</head>
+<body class="text-white">
+  <!-- Top bar -->
+  <div class="w-full bg-[#0059F7] p-3 sm:p-4 shadow-md flex flex-col sm:flex-row justify-between items-center">
+    <h1 class="text-lg sm:text-2xl font-bold">Productivity Matrix</h1>
+    <div id="user-greeting" class="text-sm sm:text-base mt-2 sm:mt-0"></div>
+  </div>
+
+  <!-- Top-centered slider (dashboard time window) -->
+  <div id="daysRangeWrap" class="glass mx-auto mt-3 px-4 py-2 rounded-xl w-full max-w-2xl">
+    <div class="flex items-center gap-3 justify-center">
+      <span class="text-xs text-gray-300">Time window (days):</span>
+      <input id="daysRange" type="range" min="7" max="180" step="1" class="range range-xs w-2/3" />
+      <span id="daysRangeVal" class="text-sm font-semibold">90</span>
+    </div>
+  </div>
+
+  <div class="flex flex-col md:flex-row">
+    <!-- Sidebar -->
+    <nav class="md:fixed md:top-[112px] md:left-4 md:w-52 w-full bg-[#151F42] p-4 md:p-6 shadow-lg rounded-lg flex md:flex-col gap-3">
+      <button id="btn-tab-task" class="btn btn-sm md:btn-md btn-primary"><i class="fa-solid fa-list-check mr-2"></i>My Tasks</button>
+      <button id="btn-tab-admin" class="btn btn-sm md:btn-md btn-accent"><i class="fa-solid fa-clipboard-check mr-2"></i>Review + Problems</button>
+      <button id="btn-tab-dash" class="btn btn-sm md:btn-md"><i class="fa-solid fa-chart-line mr-2"></i>Dashboard</button>
+      <div class="divider my-2"></div>
+      <button id="btn-logout" class="btn btn-sm md:btn-md btn-ghost"><i class="fa-solid fa-right-from-bracket mr-2"></i>Logout</button>
+    </nav>
+
+    <!-- Main -->
+    <main class="flex-1 px-4 py-6 md:px-20 md:ml-60 space-y-6">
+      <div id="loading" class="text-center text-gray-300">⏳ Checking user…</div>
+
+      <!-- Filters (Dashboard/Admin) -->
+      <section id="filters" class="hidden glass rounded-2xl p-4">
+        <div class="grid md:grid-cols-4 gap-3 items-end">
+          <div>
+            <label class="text-sm text-gray-300">From date</label>
+            <input type="date" id="fromDate" class="input input-sm w-full glass"/>
+          </div>
+          <div>
+            <label class="text-sm text-gray-300">To date</label>
+            <input type="date" id="toDate" class="input input-sm w-full glass"/>
+          </div>
+          <div id="nurseFilterWrap" class="hidden">
+            <label class="text-sm text-gray-300">Nurse</label>
+            <select id="nurseFilter" class="select select-sm w-full glass">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <button id="applyFilters" class="btn btn-sm btn-primary flex-1">Apply</button>
+            <button id="clearFilters" class="btn btn-sm btn-ghost flex-1">Clear</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: My Tasks -->
+      <section id="tab-task" class="hidden space-y-6">
+        <!-- Task Form -->
+        <div class="glass rounded-2xl p-5">
+          <h2 class="text-xl font-bold text-cyan-300 mb-3">Add Extra Task</h2>
+          <form id="taskForm" class="grid md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Title</label>
+              <input id="taskTitle" class="input w-full glass" placeholder="e.g., Full crash cart check" required/>
+            </div>
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Description / Impact</label>
+              <textarea id="taskDesc" rows="4" class="textarea w-full glass" placeholder="≥ 30 chars on what/impact…" required></textarea>
+            </div>
+<div>
+  <label class="text-sm text-blue-400">Importance</label>
+  <select id="taskImportance" class="select w-full glass text-blue-400">
+    <option>High</option><option>Medium</option><option>Low</option>
+  </select>
+</div>
+
+<div>
+  <label class="text-sm text-blue-400">Urgency</label>
+  <select id="taskUrgency" class="select w-full glass text-blue-400">
+    <option>High</option><option>Medium</option><option>Low</option>
+  </select>
+</div>
+
+<div>
+  <label class="text-sm text-blue-400">Time (minutes)</label>
+  <input id="taskMinutes" type="number" min="1"
+         class="input w-full glass text-blue-400 placeholder-blue-400 focus:border-blue-500 focus:outline-none"
+         placeholder="e.g., 45" required/>
+</div>
+
+<div>
+  <label class="text-sm text-blue-400">Category</label>
+  <select id="taskCategory" class="select w-full glass text-blue-400">
+    <option>Safety</option>
+    <option>Quality Improvement</option>
+    <option>Training & Education</option>
+    <option>Process Optimization</option>
+    <option>Patient Experience</option>
+    <option>Other</option>
+  </select>
+</div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Outcome (optional)</label>
+              <input id="taskOutcome" class="input w-full glass" placeholder="e.g., 5 min faster readiness"/>
+            </div>
+
+            <!-- Real file upload -->
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Evidence files</label>
+              <input id="taskFiles" type="file" multiple class="file-input file-input-sm w-full" />
+              <div id="taskFilesStatus" class="text-xs text-gray-400 mt-1"></div>
+            </div>
+
+            <div class="md:col-span-2 flex gap-2">
+              <button class="btn btn-primary"><i class="fa-solid fa-paper-plane mr-2"></i>Submit for review</button>
+              <button type="reset" class="btn btn-ghost">Reset</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Portfolio -->
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-bold text-cyan-300">My Portfolio</h3>
+            <div class="flex gap-2">
+              <button id="exportMyCSV" class="btn btn-ghost btn-sm"><i class="fa-solid fa-file-export mr-2"></i>CSV</button>
+              <button id="printMyReport" class="btn btn-success btn-sm"><i class="fa-solid fa-print mr-2"></i>Print</button>
+            </div>
+          </div>
+          <div id="myPortfolio" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+        </div>
+      </section>
+
+      <!-- Tab: Admin (Review + Problems) -->
+      <section id="tab-admin" class="hidden space-y-6">
+        <!-- Review Queue -->
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-bold text-cyan-300">Review Queue</h2>
+            <div class="flex gap-2">
+              <button id="seedDemo" class="btn btn-ghost btn-sm"><i class="fa-solid fa-flask mr-2"></i>Seed demo</button>
+              <button id="exportAllCSV" class="btn btn-ghost btn-sm"><i class="fa-solid fa-file-csv mr-2"></i>CSV</button>
+            </div>
+          </div>
+          <div id="reviewQueue" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+        </div>
+
+        <!-- Problem Form + List -->
+        <div class="glass rounded-2xl p-5">
+          <h2 class="text-lg font-bold text-cyan-300 mb-3">Log Problem / Incident</h2>
+          <form id="problemForm" class="grid md:grid-cols-2 gap-4">
+            <!-- Pick single or multiple nurses -->
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Nurses (select one or more)</label>
+              <select id="probNurseMulti" multiple class="select select-bordered w-full glass h-28"></select>
+              <small class="text-xs text-gray-400">Use Ctrl/Cmd to select multiple.</small>
+            </div>
+
+            <div>
+              <label class="text-sm text-gray-300">Severity</label>
+              <select id="probSeverity" class="select glass w-full">
+                <option>Low</option><option>Moderate</option><option>High</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-sm text-gray-300">Linked Task ID (optional)</label>
+              <input id="probTaskId" class="input glass w-full" placeholder="Task ID"/>
+            </div>
+
+            <div>
+              <label class="text-sm text-gray-300">Problem Date</label>
+              <input id="probDate" type="date" class="input glass w-full" required/>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Description</label>
+              <textarea id="probDesc" rows="3" class="textarea glass w-full" placeholder="Short description" required></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Action Plan (optional)</label>
+              <input id="probAction" class="input glass w-full" placeholder="e.g., training + weekly follow-up"/>
+            </div>
+
+            <!-- Problem attachments -->
+            <div class="md:col-span-2">
+              <label class="text-sm text-gray-300">Attachments (optional)</label>
+              <input id="probFiles" type="file" multiple class="file-input file-input-sm w-full" />
+              <div id="probFilesStatus" class="text-xs text-gray-400 mt-1"></div>
+            </div>
+
+            <div class="md:col-span-2 flex gap-2">
+              <button class="btn btn-error">Save Problem(s)</button>
+              <button type="reset" class="btn btn-ghost">Reset</button>
+            </div>
+          </form>
+
+          <div class="mt-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-bold text-cyan-300">Problems</h3>
+              <button id="exportProblemsCSV" class="btn btn-ghost btn-sm"><i class="fa-solid fa-file-export mr-2"></i>CSV</button>
+            </div>
+            <div id="problemsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab: Dashboard -->
+      <section id="tab-dash" class="hidden space-y-6">
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-cyan-300">Dashboard</h2>
+            <button id="printDash" class="btn btn-ghost btn-sm"><i class="fa-solid fa-print mr-2"></i>Print</button>
+          </div>
+
+          <!-- KPI cards -->
+          <div id="dashCards" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4"></div>
+
+          <!-- Problems by date summary (trend-ready) -->
+          <div class="mt-6 glass p-4 rounded-2xl">
+            <h3 class="font-semibold mb-2">Problems by Date (count)</h3>
+            <div id="problemsByDate" class="text-sm"></div>
+          </div>
+
+          <!-- All records -->
+          <div class="mt-6">
+            <h3 class="font-semibold mb-2">Records</h3>
+            <div id="allRecords" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Review Modal -->
+  <dialog id="reviewModal" class="glass rounded-2xl p-0 w-[min(680px,95vw)] border border-slate-700">
+    <form method="dialog">
+      <div class="p-4 border-b border-slate-700 flex items-center justify-between">
+        <h3 class="font-bold text-cyan-300">Review Task</h3>
+        <button class="btn btn-xs btn-ghost">×</button>
+      </div>
+      <div id="reviewBody" class="p-4 space-y-3"></div>
+      <div class="p-4 border-t border-slate-700 flex gap-2 justify-end">
+        <button value="cancel" class="btn btn-ghost btn-sm">Cancel</button>
+        <button id="btnReject" class="btn btn-error btn-sm" value="reject">Reject</button>
+        <button id="btnRevise" class="btn btn-warning btn-sm" value="revise">Needs Revision</button>
+        <button id="btnApprove" class="btn btn-success btn-sm" value="approve">Approve</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- App JS -->
+  <script src="js/pmatrix.js"></script>
+</body>
+</html>
