@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Kudos & Flags — MemoCare</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <!-- Firebase compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+  <style>
+    body{ background:#0b1330; color:#fff; }
+    .file-pill{ display:inline-block; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Top Bar -->
+  <div class="w-full bg-[#0059F7] p-4 shadow-md flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-star text-white text-xl"></i>
+      <h1 class="text-xl md:text-2xl font-bold">Kudos & Flags — سجل الإيجابيات والسلبيات</h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <img id="top-avatar" class="w-8 h-8 rounded-full border border-white/30" src="https://i.imgur.com/6VBx3io.png" alt="avatar">
+      <span id="top-name" class="text-sm md:text-base">—</span>
+    </div>
+  </div>
+
+  <!-- Container -->
+  <div class="max-w-7xl mx-auto p-4 md:p-6">
+    <!-- Profile/Target picker -->
+    <div class="bg-[#151F42] p-4 rounded-lg shadow-md flex flex-col gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-blue-300 font-bold">الموظّف:</span>
+          <span id="profile-name" class="text-white/90">—</span>
+        </div>
+
+        <!-- يظهر للأدمن فقط -->
+        <div id="admin-staff-picker" class="hidden flex items-center gap-2">
+          <span class="text-white/70 text-sm">اختَر موظفًا:</span>
+          <select id="staff-select" class="select select-sm bg-gray-700 text-white min-w-[220px]"></select>
+        </div>
+
+        <div class="ms-auto flex items-center gap-2">
+          <button id="btn-refresh" class="btn btn-sm">تحديث</button>
+          <button id="btn-export" class="btn btn-sm">تصدير CSV</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <input id="fb-search" type="text" placeholder="بحث في العنوان/الملاحظات..." class="input input-sm input-bordered bg-gray-700 text-white"/>
+        <select id="fb-type-filter" class="select select-sm bg-gray-700 text-white">
+          <option value="">الكل (النوع)</option>
+          <option value="positive">Positive</option>
+          <option value="negative">Negative</option>
+        </select>
+        <select id="fb-category-filter" class="select select-sm bg-gray-700 text-white">
+          <option value="">الكل (الفئة)</option>
+          <option>Teamwork</option><option>Leadership</option>
+          <option>Quality</option><option>Punctuality</option>
+          <option>Patient Safety</option>
+        </select>
+        <select id="fb-range-filter" class="select select-sm bg-gray-700 text-white">
+          <option value="all">كل الوقت</option>
+          <option value="30">آخر 30 يوم</option>
+          <option value="90">آخر 90 يوم</option>
+        </select>
+        <select id="fb-sort" class="select select-sm bg-gray-700 text-white">
+          <option value="createdDesc">الأحدث أولًا</option>
+          <option value="createdAsc">الأقدم أولًا</option>
+          <option value="pointsDesc">الأعلى نقاطًا</option>
+          <option value="pointsAsc">الأقل نقاطًا</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center">
+        <div class="text-blue-400 font-bold">Total</div>
+        <div id="fb-total" class="text-2xl">0</div>
+      </div>
+      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center">
+        <div class="text-green-400 font-bold">Positive</div>
+        <div id="fb-positive" class="text-2xl">0</div>
+      </div>
+      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center">
+        <div class="text-yellow-400 font-bold">Negative</div>
+        <div id="fb-negative" class="text-2xl">0</div>
+      </div>
+      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center">
+        <div class="text-indigo-400 font-bold">Score</div>
+        <div id="fb-score" class="text-2xl">0</div>
+      </div>
+    </div>
+
+    <!-- Badges -->
+    <div class="mt-3 bg-[#151F42] p-4 rounded-lg shadow-md">
+      <div class="text-white/80 font-bold mb-2">Badges</div>
+      <div id="fb-badges" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- Admin Add Form (hidden for staff) -->
+    <div id="fb-admin-form" class="mt-6 bg-[#151F42] p-4 rounded-lg shadow-md hidden">
+      <h3 class="text-lg font-bold text-green-300 mb-3">إضافة إدخال (للمشرفين)</h3>
+      <div class="grid md:grid-cols-5 gap-2">
+        <select id="fb-type" class="select select-sm bg-gray-700 text-white">
+          <option value="positive">Positive</option>
+          <option value="negative">Negative</option>
+        </select>
+        <select id="fb-category" class="select select-sm bg-gray-700 text-white">
+          <option>Teamwork</option><option>Leadership</option>
+          <option>Quality</option><option>Punctuality</option>
+          <option>Patient Safety</option>
+        </select>
+        <input id="fb-title" type="text" placeholder="عنوان مختصر"
+               class="input input-sm bg-gray-700 text-white"/>
+        <input id="fb-points" type="number" placeholder="النقاط (مثال 5 أو -3)"
+               class="input input-sm bg-gray-700 text-white"/>
+        <input id="fb-space" type="text" placeholder="SpaceID (اختياري)"
+               class="input input-sm bg-gray-700 text-white"/>
+      </div>
+
+      <!-- 📎 زر ومُدخل المرفقات -->
+      <div class="mt-2 flex items-center gap-2">
+        <input id="fb-files" type="file" multiple
+               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+               class="file-input file-input-bordered file-input-sm bg-gray-700 text-white"/>
+        <span class="text-xs text-white/70">يمكن رفع عدة ملفات (PDF/صور/مستندات).</span>
+      </div>
+
+      <textarea id="fb-notes" rows="3" placeholder="ملاحظات..."
+                class="textarea textarea-bordered w-full bg-gray-700 text-white mt-2"></textarea>
+      <div class="flex gap-2 mt-2">
+        <button id="fb-add-btn" class="btn btn-primary btn-sm">إضافة</button>
+        <button id="fb-clear-btn" class="btn btn-ghost btn-sm">تفريغ الحقول</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="mt-6 bg-[#151F42] p-4 rounded-lg shadow-md overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-gray-700 text-white">
+          <tr>
+            <th class="p-2">النوع</th>
+            <th class="p-2">الفئة</th>
+            <th class="p-2">العنوان</th>
+            <th class="p-2">النقاط</th>
+            <th class="p-2">التاريخ</th>
+            <th class="p-2">أضيف بواسطة</th>
+            <th class="p-2">ملاحظات</th>
+            <th class="p-2">مرفقات</th>
+            <th class="p-2 text-center">إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="fb-table" class="text-white"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Firebase + Page Logic -->
+  <script>
+    // ـــــــــ Firebase Config (مشروعك) ـــــــــ
+    const firebaseConfig = {
+      apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+      authDomain: "ctwo-eee79.firebaseapp.com",
+      projectId: "ctwo-eee79",
+      storageBucket: "ctwo-eee79.appspot.com",
+      messagingSenderId: "788657051205",
+      appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+      measurementId: "G-4VTCQR4ZVR"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    const storage = firebase.storage();
+
+    // عناصر الصفحة
+    const topAvatar = document.getElementById("top-avatar");
+    const topName   = document.getElementById("top-name");
+    const profileNameEl = document.getElementById("profile-name");
+    const staffPickerWrap = document.getElementById("admin-staff-picker");
+    const staffSelect = document.getElementById("staff-select");
+
+    const fbTableEl = document.getElementById("fb-table");
+    const fbTotalEl = document.getElementById("fb-total");
+    const fbPositiveEl = document.getElementById("fb-positive");
+    const fbNegativeEl = document.getElementById("fb-negative");
+    const fbScoreEl = document.getElementById("fb-score");
+    const fbBadgesEl = document.getElementById("fb-badges");
+
+    const fbSearchEl = document.getElementById("fb-search");
+    const fbTypeFilterEl = document.getElementById("fb-type-filter");
+    const fbCategoryFilterEl = document.getElementById("fb-category-filter");
+    const fbRangeFilterEl = document.getElementById("fb-range-filter");
+    const fbSortEl = document.getElementById("fb-sort");
+    const exportBtn = document.getElementById("btn-export");
+    const refreshBtn = document.getElementById("btn-refresh");
+
+    const adminForm = document.getElementById("fb-admin-form");
+    const addBtn = document.getElementById("fb-add-btn");
+    const clearBtn = document.getElementById("fb-clear-btn");
+
+    const inType = document.getElementById("fb-type");
+    const inCat  = document.getElementById("fb-category");
+    const inTitle= document.getElementById("fb-title");
+    const inPoints= document.getElementById("fb-points");
+    const inNotes = document.getElementById("fb-notes");
+    const inSpace = document.getElementById("fb-space");
+    const inFiles = document.getElementById("fb-files"); // 👈
+
+    // حالة
+    let currentUser = null;
+    let currentProfileUID = null; // الموظف المستهدف
+    let isAdmin = false;
+    let cacheDocs = []; // جميع سجلات الموظف
+
+    // Helpers
+    const toast = (msg) => {
+      const d = document.createElement("div");
+      Object.assign(d.style,{
+        position:"fixed",inset:"auto auto 24px 24px",background:"#222",color:"#fff",
+        padding:"10px 14px",borderRadius:"10px",boxShadow:"0 6px 24px rgba(0,0,0,.25)",zIndex:9999
+      });
+      d.textContent = msg; document.body.appendChild(d);
+      setTimeout(()=>d.remove(),1400);
+    };
+
+    function getUrlUID(){
+      const p = new URLSearchParams(location.search);
+      return p.get("uid") || null;
+    }
+
+    function summarize(list){
+      const total = list.length;
+      const pos = list.filter(x => x.type === "positive").length;
+      const neg = list.filter(x => x.type === "negative").length;
+      const score = list.reduce((a,b)=> a + (Number(b.points) || 0), 0);
+      fbTotalEl.textContent = total;
+      fbPositiveEl.textContent = pos;
+      fbNegativeEl.textContent = neg;
+      fbScoreEl.textContent = score;
+    }
+
+    function renderBadges(list){
+      fbBadgesEl.innerHTML = "";
+      const score = list.reduce((a,b)=> a + (Number(b.points)||0), 0);
+      const positives = list.filter(x=>x.type==="positive").length;
+      const negatives = list.filter(x=>x.type==="negative").length;
+      const qualityStars = list.filter(x=>x.category==="Quality" && x.type==="positive").length;
+
+      const badges=[];
+      if(score>=20) badges.push({t:"🌟 High Performer",cls:"badge-info"});
+      if(positives>=5) badges.push({t:"👍 Kudos Streak",cls:"badge-success"});
+      if(negatives===0 && list.length>0) badges.push({t:"🛡 Zero Flags",cls:"badge-primary"});
+      if(qualityStars>=3) badges.push({t:"🏆 Quality Champion",cls:"badge-warning"});
+
+      if(!badges.length){
+        fbBadgesEl.innerHTML = `<span class="text-gray-400 text-sm">لا توجد شارات بعد.</span>`;
+        return;
+      }
+      badges.forEach(b=>{
+        const s=document.createElement("span");
+        s.className=`badge ${b.cls}`; s.textContent=b.t;
+        fbBadgesEl.appendChild(s);
+      });
+    }
+
+    function applyFilters(){
+      let data=[...cacheDocs];
+      const q=(fbSearchEl.value||"").toLowerCase().trim();
+      const type=fbTypeFilterEl.value||"";
+      const cat=fbCategoryFilterEl.value||"";
+      const range=fbRangeFilterEl.value||"all";
+      const sort=fbSortEl.value||"createdDesc";
+
+      if(q){
+        data=data.filter(x=>
+          (x.title||"").toLowerCase().includes(q) ||
+          (x.notes||"").toLowerCase().includes(q)
+        );
+      }
+      if(type) data=data.filter(x=>x.type===type);
+      if(cat)  data=data.filter(x=>(x.category||"")===cat);
+      if(range!=="all"){
+        const days=parseInt(range,10);
+        const since=Date.now()-days*86400000;
+        data=data.filter(x=>x.createdAt?.seconds ? (x.createdAt.seconds*1000)>=since : false);
+      }
+
+      // sort
+      data.sort((a,b)=>{
+        if(sort==="createdDesc") return (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0);
+        if(sort==="createdAsc")  return (a.createdAt?.seconds||0)-(b.createdAt?.seconds||0);
+        if(sort==="pointsDesc")  return (Number(b.points)||0)-(Number(a.points)||0);
+        if(sort==="pointsAsc")   return (Number(a.points)||0)-(Number(b.points)||0);
+        return 0;
+      });
+
+      renderTable(data);
+      summarize(data);
+      renderBadges(data);
+      return data;
+    }
+
+    function renderAttachmentsCell(item){
+      const urls = Array.isArray(item.attachments) ? item.attachments : [];
+      if(urls.length === 0) return "—";
+      // أول رابط + عدّاد للباقي
+      const first = urls[0];
+      const restCount = urls.length - 1;
+      const name = decodeURIComponent(first.split("?")[0].split("/").pop());
+      let html = `<a href="${first}" target="_blank" class="link text-blue-300 file-pill">📎 ${name}</a>`;
+      if(restCount > 0){
+        html += ` <span class="badge badge-ghost text-xs">+${restCount} أخرى</span>`;
+      }
+      return html;
+    }
+
+    function renderTable(list){
+      fbTableEl.innerHTML="";
+      if(!list.length){
+        fbTableEl.innerHTML = `<tr><td colspan="9" class="text-center text-gray-400 p-4">لا توجد سجلات.</td></tr>`;
+        return;
+      }
+      list.forEach(item=>{
+        const created = item.createdAt?.seconds
+          ? new Date(item.createdAt.seconds*1000).toLocaleString()
+          : "—";
+        const typeBadge = item.type==="positive"
+          ? `<span class="badge badge-success">Positive</span>`
+          : `<span class="badge badge-warning">Negative</span>`;
+        const notesShort=(item.notes||"").length>70 ? (item.notes||"").slice(0,70)+"..." : (item.notes||"");
+        const canManage = isAdmin || (currentUser?.uid===item.createdByUID);
+
+        const tr=document.createElement("tr");
+        tr.className="border-b border-gray-600";
+        tr.innerHTML=`
+          <td class="p-2">${typeBadge}</td>
+          <td class="p-2">${item.category||"—"}</td>
+          <td class="p-2 text-blue-300">${item.title||"—"}</td>
+          <td class="p-2 ${item.points>=0 ? 'text-green-400':'text-red-400'} font-bold">${item.points??0}</td>
+          <td class="p-2 text-xs text-gray-400">${created}</td>
+          <td class="p-2 text-xs">${item.createdByName||"—"}</td>
+          <td class="p-2 text-sm">${notesShort}</td>
+          <td class="p-2 text-sm">${renderAttachmentsCell(item)}</td>
+          <td class="p-2 text-center">
+            ${canManage?`<button class="btn btn-ghost btn-xs text-red-400" data-del="${item.id}">
+              <i class="fa fa-trash"></i>
+            </button>`:"—"}
+          </td>
+        `;
+        fbTableEl.appendChild(tr);
+      });
+
+      // bind delete
+      fbTableEl.querySelectorAll("[data-del]").forEach(btn=>{
+        btn.addEventListener("click", async ()=>{
+          const id=btn.getAttribute("data-del");
+          if(!confirm("حذف هذا الإدخال؟ سيظلّت الملفات على التخزين.")) return;
+          try{
+            await db.collection("feedback").doc(id).delete();
+            await loadFeedback(currentProfileUID);
+            toast("تم الحذف ✅");
+          }catch(e){
+            console.error(e); toast("ليس لديك صلاحية الحذف");
+          }
+        });
+      });
+    }
+
+    async function uploadAttachments(docId, fileList){
+      if(!fileList || fileList.length === 0) return [];
+      const uploads = [];
+      for(const file of fileList){
+        const path = `feedback/${docId}/${Date.now()}_${file.name}`;
+        const ref = storage.ref().child(path);
+        uploads.push(
+          ref.put(file).then(()=> ref.getDownloadURL())
+        );
+      }
+      const urls = await Promise.all(uploads);
+      return urls;
+    }
+
+    async function loadFeedback(staffUID){
+      try{
+        const snap = await db.collection("feedback")
+          .where("staffUID","==",staffUID)
+          .orderBy("createdAt","desc")
+          .get();
+        cacheDocs = snap.docs.map(d=>({id:d.id,...d.data()}));
+        applyFilters();
+      }catch(e){
+        console.error(e);
+        cacheDocs = [];
+        applyFilters();
+        if(e?.code==="permission-denied"){
+          toast("لا تملك صلاحية للاطلاع على هذه الصفحة");
+        }
+      }
+    }
+
+    async function addEntry(){
+      if(!isAdmin){ toast("Admins only"); return; }
+      const type=inType.value;
+      const category=inCat.value;
+      const title=inTitle.value.trim();
+      const pts=Number(inPoints.value||0);
+      const notes=inNotes.value.trim();
+      const space=inSpace.value.trim()||null;
+      const files=inFiles.files;
+      if(!title) return toast("العنوان مطلوب");
+
+      try{
+        // أنشئ Doc ID أولًا لاستخدامه في مسار المرفقات
+        const docRef = db.collection("feedback").doc();
+
+        // ارفع المرفقات (لو فيه)
+        if(files && files.length){
+          toast(`جارٍ رفع ${files.length} ملف...`);
+        }
+        const attachmentUrls = await uploadAttachments(docRef.id, files);
+
+        // اسم المُنشئ
+        const meDoc = await db.collection("users").doc(currentUser.uid).get();
+        const createdByName = meDoc.exists ? (meDoc.data().name || "Admin") : "Admin";
+
+        // احفظ المستند
+        await docRef.set({
+          staffUID: currentProfileUID,
+          spaceID: space,
+          type, category, title, notes,
+          points: pts,
+          attachments: attachmentUrls,          // 👈 حفظ الروابط
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdByUID: currentUser.uid,
+          createdByName
+        });
+
+        // تفريغ الحقول
+        inTitle.value=""; inPoints.value=""; inNotes.value="";
+        if(inFiles) inFiles.value="";
+
+        await loadFeedback(currentProfileUID);
+        toast("تمت الإضافة ✅");
+      }catch(e){
+        console.error(e); toast("تعذّر الإضافة (صلاحيات/قواعد التخزين؟)");
+      }
+    }
+
+    function exportCSV(){
+      const data = applyFilters();
+      const rows=[["Type","Category","Title","Points","CreatedAt","By","Notes","Attachments"]];
+      data.forEach(x=>{
+        const ts = x.createdAt?.seconds ? new Date(x.createdAt.seconds*1000).toISOString() : "";
+        const att = Array.isArray(x.attachments) ? x.attachments.join(" | ") : "";
+        rows.push([
+          x.type, x.category||"", x.title||"", x.points??0, ts, x.createdByName||"", (x.notes||"").replace(/\n/g," "), att
+        ]);
+      });
+      const csv = rows.map(r=> r.map(f=> `"${String(f).replace(/"/g,'""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=`feedback_${currentProfileUID}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function bindFilters(){
+      [fbSearchEl, fbTypeFilterEl, fbCategoryFilterEl, fbRangeFilterEl, fbSortEl]
+        .forEach(el=> el && el.addEventListener("input", applyFilters));
+      exportBtn.addEventListener("click", exportCSV);
+      refreshBtn.addEventListener("click", ()=> loadFeedback(currentProfileUID));
+      addBtn.addEventListener("click", addEntry);
+      clearBtn.addEventListener("click", ()=>{
+        inTitle.value=""; inPoints.value=""; inNotes.value="";
+        if(inFiles) inFiles.value="";
+      });
+      staffSelect.addEventListener("change", async ()=>{
+        currentProfileUID = staffSelect.value;
+        await hydrateProfileBar(currentProfileUID);
+        await loadFeedback(currentProfileUID);
+      });
+    }
+
+    async function hydrateTopBar(user){
+      topName.textContent = user.displayName || user.email || "User";
+      const uDoc= await db.collection("users").doc(user.uid).get();
+      if(uDoc.exists){
+        const d=uDoc.data();
+        topName.textContent = d.name || topName.textContent;
+        if(d.profilePic) topAvatar.src = d.profilePic;
+      }
+    }
+
+    async function hydrateProfileBar(targetUID){
+      const uDoc= await db.collection("users").doc(targetUID).get();
+      profileNameEl.textContent = uDoc.exists ? (uDoc.data().name || "User") : "User";
+    }
+
+    async function maybeShowStaffPicker(){
+      if(!isAdmin) { staffPickerWrap.classList.add("hidden"); return; }
+      staffPickerWrap.classList.remove("hidden");
+      try{
+        const snap = await db.collection("users").orderBy("name").get();
+        staffSelect.innerHTML="";
+        snap.docs.forEach(d=>{
+          const opt=document.createElement("option");
+          opt.value=d.id; opt.textContent = (d.data().name || d.id);
+          staffSelect.appendChild(opt);
+        });
+        if(currentProfileUID) staffSelect.value=currentProfileUID;
+      }catch(e){ console.error(e); }
+    }
+
+    function roleIsAdminString(role){
+      return ["admin","supervisor","head"].includes(String(role||"").toLowerCase());
+    }
+
+    // تحقّق شامل للدور
+    async function detectAdmin(uid){
+      let adminFlag = false;
+      try{
+        const meDoc = await db.collection("users").doc(uid).get();
+        if(meDoc.exists){
+          const d = meDoc.data();
+          if (d.admin === true || roleIsAdminString(d.role)) adminFlag = true;
+        }
+      }catch(e){}
+
+      try{
+        const rDoc = await db.collection("userRoles").doc(uid).get();
+        if(rDoc.exists && rDoc.data().admin === true) adminFlag = true;
+      }catch(e){}
+
+      try{
+        const token = await auth.currentUser.getIdTokenResult();
+        if(token?.claims?.admin === true || token?.claims?.role === "admin") adminFlag = true;
+      }catch(e){}
+
+      if(uid === "VEPPHo0YHvcIGA0hsqxBmAAkDRK2") adminFlag = true;
+      return adminFlag;
+    }
+
+    // Auth flow
+    auth.onAuthStateChanged(async (user)=>{
+      if(!user){
+        alert("يجب تسجيل الدخول.");
+        return;
+      }
+      currentUser = user;
+      await hydrateTopBar(user);
+
+      // تحقق الدور أولًا
+      isAdmin = await detectAdmin(user.uid);
+      if(isAdmin) adminForm.classList.remove("hidden");
+
+      // حدّد UID الهدف (من URL أو من المستخدم نفسه)
+      const urlUID = getUrlUID();
+      if (urlUID && (isAdmin || urlUID === user.uid)) {
+        currentProfileUID = urlUID;
+      } else {
+        currentProfileUID = user.uid;
+      }
+
+      await hydrateProfileBar(currentProfileUID);
+      await maybeShowStaffPicker();
+      bindFilters();
+      await loadFeedback(currentProfileUID);
+    });
+  </script>
+</body>
+</html>
