@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ER Productivity — Twilight Glass</title>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Fonts & Icons -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+<!-- SheetJS (XLSX) + FileSaver -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+
+    /* CTAS colored badges */
+.ctas-badge{
+  display:inline-block; padding:.25rem .5rem; border-radius:.75rem;
+  margin: .125rem .25rem; font-weight:600; font-size:.85rem;
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+.ctas-1{ background:#ef4444; color:#fff; border-color:#f87171; }      /* RED   */
+.ctas-2{ background:#3b82f6; color:#fff; border-color:#60a5fa; }      /* BLUE  */
+.ctas-3{ background:#f59e0b; color:#111827; border-color:#fbbf24; }   /* YELLOW(غامق نص) */
+.ctas-4{ background:#10b981; color:#06251e; border-color:#34d399; }   /* GREEN */
+.ctas-5{ background:#ffffff; color:#0f172a; border-color:#e5e7eb; }   /* WHITE */
+.ctas-unknown{ background:#64748b; color:#e5e7eb; border-color:#94a3b8; } /* رمادي */
+
+
+
+  :root{
+    --glass-bg: rgba(15, 23, 42, 0.45);
+    --glass-stroke: rgba(148, 163, 184, 0.20);
+  }
+  body{
+    font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 500px at 80% -10%, #0ea5e9 0%, transparent 60%),
+      radial-gradient(1000px 600px at -10% 110%, #0ea5e9 0%, transparent 60%),
+      linear-gradient(180deg, #0b1e3b 0%, #0f172a 100%);
+    color:#e5e7eb;
+    min-height:100vh;
+  }
+  .glass{
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border:1px solid var(--glass-stroke);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .badge{
+    background: linear-gradient(135deg, rgba(14,165,233,.25), rgba(6,182,212,.22));
+    border:1px solid rgba(125,211,252,.25);
+    color:#cbe7ff;
+  }
+  .btn{
+    background: linear-gradient(135deg, #1e3a8a, #0ea5e9);
+    border:1px solid rgba(125,211,252,.25);
+    color:#fff;
+  }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .pill{
+    background: linear-gradient(135deg, rgba(99,102,241,.25), rgba(59,130,246,.22));
+    border:1px solid rgba(147,197,253,.20);
+  }
+  .grid-cols-fit{ grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .table-wrap{ max-height: 420px; overflow:auto; }
+  .tiny{ font-size: .8rem; color:#93c5fd; }
+  .glass-title{
+    background: linear-gradient(90deg, rgba(14,165,233,.18), rgba(6,182,212,.12));
+    border-bottom:1px solid rgba(148,163,184,.18);
+  }
+  .note{ color:#bfdbfe; }
+  .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal.show{ display:flex; }
+  .modal-backdrop{ position:absolute; inset:0; background:rgba(2,6,23,.6); backdrop-filter: blur(4px); }
+  .modal-body{ position:relative; z-index:1; max-width:1100px; width:100%; }
+</style>
+</head>
+<body class="p-5 sm:p-8">
+
+  <!-- Header -->
+  <header class="glass p-5 sm:p-7 mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold text-cyan-300">لوحة إنتاجية الأطباء — ER</h1>
+        <p class="note mt-1">⬅️ اسم التقرير كما يخرج من النظام: <span class="font-semibold">ER VISITS REPORT.xlsx</span></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="pill px-3 py-2 rounded-xl cursor-pointer hover:opacity-90">
+          <i class="fa-solid fa-file-arrow-up mr-2"></i>
+          <span>ارفع الملف (XLSX)</span>
+          <input id="fileInput" type="file" accept=".xlsx" class="hidden" />
+        </label>
+        <button id="resetBtn" class="pill px-3 py-2 rounded-xl hover:opacity-90" type="button">
+          <i class="fa-solid fa-rotate-right mr-2"></i>تفريغ
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Actions -->
+  <section class="grid gap-4 md:grid-cols-2 mb-6">
+    <div class="glass p-5">
+      <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+        <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-filter mr-2"></i>تصفية حسب الطبيب</h2>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <select id="doctorSelect" class="glass w-full p-3 rounded-xl focus:outline-none"></select>
+        <button id="exportExcelBtn" class="btn rounded-xl px-4 py-3 hover:opacity-90" type="button" disabled>
+          <i class="fa-regular fa-file-excel mr-2"></i>تصدير Excel (البيانات المنظفة)
+        </button>
+        <button id="exportChartsBtn" class="btn rounded-xl px-4 py-3 hover:opacity-90" type="button" disabled>
+          <i class="fa-regular fa-image mr-2"></i>تصدير الشارت
+        </button>
+      </div>
+      <p class="tiny mt-3">
+        * تُحسب الزيارة الفريدة = <span class="underline decoration-dotted">MRN + REGISTRATION DATE</span>، ويُستبعد أي سجل
+        <b>DISH. TYPE = Canceled</b> من العدّ والإنتاجية.
+      </p>
+    </div>
+
+    <div class="glass p-5">
+      <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+        <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-circle-info mr-2"></i>ملحوظة مهمة</h2>
+      </div>
+      <p class="note leading-8">
+        الصفحة تقرأ <b>ER VISITS REPORT.xlsx</b>، تنظّف البيانات، تحسب إنتاجية كل طبيب وتوزيع <b>CTAS</b>، تكشف التكرارات، تُحصي الحالات بدون CTAS،
+        وتعرض عدادًا منفصلًا لـ <b>Cancelled</b>، مع شارتات وتصدير.
+      </p>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section class="grid gap-4 md:grid-cols-5 mb-6">
+    <div class="glass p-5">
+      <div class="tiny">إجمالي السجلات (خام)</div>
+      <div id="kpiTotal" class="text-3xl font-bold text-white mt-1">0</div>
+    </div>
+    <div class="glass p-5">
+      <div class="tiny">الزيارات الفريدة (بعد الاستبعاد)</div>
+      <div id="kpiUnique" class="text-3xl font-bold text-white mt-1">0</div>
+    </div>
+    <div class="glass p-5">
+      <div class="tiny">سجلات مكررة لنفس المرضى تقريبًا</div>
+      <div id="kpiDupes" class="text-3xl font-bold text-white mt-1">0</div>
+    </div>
+    <div class="glass p-5">
+      <div class="tiny">حالات بدون CTAS TYPE</div>
+      <div id="kpiNoCtas" class="text-3xl font-bold text-white mt-1">0</div>
+    </div>
+    <div class="glass p-5">
+      <div class="tiny">عدد Canceled (مستبعدة)</div>
+      <div id="kpiCanceled" class="text-3xl font-bold text-white mt-1">0</div>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section class="grid gap-4 lg:grid-cols-2 mb-6">
+    <div class="glass p-5">
+      <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+        <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-chart-column mr-2"></i>إنتاجية الأطباء (عدد الحالات الفريدة)</h2>
+      </div>
+      <canvas id="doctorBar" class="cursor-pointer"></canvas>
+      <p class="tiny mt-2">🖱️ اضغط على أي طبيب لعرض تفاصيل حالاته وتوزيع CTAS والتصدير الخاص به.</p>
+    </div>
+
+<div class="glass p-5">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200">
+      <i class="fa-solid fa-chart-column mr-2"></i>
+      توزيع CTAS (إجمالي بعد الاستبعاد)
+    </h2>
+  </div>
+  <div class="relative w-full h-64 sm:h-72 md:h-80">
+    <canvas id="ctasBar"></canvas>
+  </div>
+</div>
+  </section>
+
+<!-- Ranking -->
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200">
+      <i class="fa-solid fa-ranking-star mr-2"></i>
+      تصنيف الأطباء (Count & Acuity)
+    </h2>
+  </div>
+
+  <!-- شرح طريقة الترتيب وحساب الـ Acuity -->
+<details class="mb-4">
+  <summary class="cursor-pointer pill px-3 py-2 rounded-xl inline-flex items-center gap-2">
+    <i class="fa-solid fa-circle-question"></i>
+    كيف تم ترتيب الأطباء؟ وكيف حُسِب الـ Acuity Score؟
+  </summary>
+  <div class="mt-3 text-sm leading-7 note">
+    <ul class="list-disc pr-5">
+      <li><span class="font-semibold">الترتيب:</span> يتم أولًا حسب <b>عدد الحالات الفريدة</b> للطبيب (تنازليًا). عند التعادل، نرتّب حسب <b>Acuity Score</b> (تنازليًا).</li>
+      <li><span class="font-semibold">الحالات الفريدة:</span> تُحتسب زيارة واحدة لكل مريض في اليوم على مفتاح <code>MRN + REGISTRATION DATE</code> بعد <b>استبعاد</b> سجلات <b>DISH. TYPE = Canceled</b>.</li>
+      <li>
+        <span class="font-semibold">Acuity Score:</span> هو <b>مجموع أوزان CTAS</b> لكل الحالات الفريدة للطبيب. 
+        <div class="mt-2 flex flex-wrap gap-2">
+          <span class="ctas-badge ctas-1">CTAS 1 = 5</span>
+          <span class="ctas-badge ctas-2">CTAS 2 = 4</span>
+          <span class="ctas-badge ctas-3">CTAS 3 = 3</span>
+          <span class="ctas-badge ctas-4">CTAS 4 = 2</span>
+          <span class="ctas-badge ctas-5">CTAS 5 = 1</span>
+          <span class="ctas-badge ctas-unknown">Unknown = 0</span>
+        </div>
+        <div class="tiny mt-2">
+          * في حال كتابة CTAS كنص مثل <code>Level 3</code> يتم استخلاص الرقم (1–5). أي قيمة غير رقمية تُعامل كـ <b>Unknown</b>.
+        </div>
+      </li>
+    </ul>
+  </div>
+</details>
+
+  <div class="table-wrap">
+    <table class="w-full text-sm">
+      <thead class="text-cyan-200">
+        <tr class="border-b border-slate-600/40">
+          <th class="p-2 text-right">#</th>
+          <th class="p-2 text-right">الطبيب</th>
+          <th class="p-2 text-right">الحالات الفريدة</th>
+          <th class="p-2 text-right">Acuity Score</th>
+<th class="p-2 text-right">مستويات CTAS للطبيب (1→5 + Unknown)</th>
+        </tr>
+      </thead>
+      <tbody id="rankBody"></tbody>
+    </table>
+  </div>
+</section>
+
+  <!-- Details -->
+  <section class="glass p-5">
+    <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+      <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-table-list mr-2"></i>تفاصيل مختصرة (آخر 300 صف بعد التنظيف)</h2>
+    </div>
+    <div class="table-wrap">
+      <table class="w-full text-sm">
+        <thead class="text-cyan-200">
+          <tr class="border-b border-slate-600/40">
+            <th class="text-right p-2">MRN</th>
+            <th class="text-right p-2">PATIENT NAME</th>
+            <th class="text-right p-2">DOCTOR</th>
+            <th class="text-right p-2">CTAS TYPE</th>
+            <th class="text-right p-2">REGISTRATION DATE</th>
+            <th class="text-right p-2">REGISTRATION TIME</th>
+            <th class="text-right p-2">DISH. TYPE</th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Doctor Modal -->
+  <div id="doctorModal" class="modal">
+    <div class="modal-backdrop" data-close="modal"></div>
+    <div class="modal-body">
+      <div class="glass p-5">
+        <div class="flex items-center justify-between">
+          <h3 id="modalTitle" class="text-xl font-semibold text-cyan-200">تفاصيل الطبيب</h3>
+          <button class="pill px-3 py-2 rounded-xl hover:opacity-90" data-close="modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="grid gap-4 lg:grid-cols-2 mt-4">
+          <div>
+            <canvas id="doctorPie"></canvas>
+            <div class="mt-3">
+              <button id="exportDoctorExcelBtn" class="btn rounded-xl px-4 py-3 hover:opacity-90" type="button">
+                <i class="fa-regular fa-file-excel mr-2"></i>تصدير Excel — حالات الطبيب
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="w-full text-sm">
+              <thead class="text-cyan-200">
+                <tr class="border-b border-slate-600/40">
+                  <th class="p-2 text-right">MRN</th>
+                  <th class="p-2 text-right">PATIENT</th>
+                  <th class="p-2 text-right">CTAS</th>
+                  <th class="p-2 text-right">REG DATE</th>
+                  <th class="p-2 text-right">REG TIME</th>
+                </tr>
+              </thead>
+              <tbody id="doctorRowsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // --- Expected columns ---
+  const COLS = {
+    MRN: 'MRN',
+    PATIENT: 'PATIENT NAME',
+    DOCTOR: 'DOCTOR',
+    REG_DATE: 'REGISTRATION DATE',
+    REG_TIME: 'REGISTRATION TIME',
+    CTAS: 'CTAS TYPE',
+    DISH_TYPE: 'DISH. TYPE',
+    FINAL_DX: 'FINAL DIAGNOSIS',
+    DX_CODE: 'Diagnosis Code'
+  };
+
+  // --- Acuity Weights (للـ Ranking) ---
+  const CTAS_WEIGHT = { '1':5, '2':4, '3':3, '4':2, '5':1, 'UNKNOWN':0 };
+
+  // State
+  let rawRows = [];
+  let cleanedRows = [];   // بعد استبعاد Canceled
+  let uniqueVisits = [];  // بعد dedup MRN+REG_DATE (مع استبعاد Canceled)
+  let doctorProductivity = {}; // {doctor: count}
+  let ctasCounts = {};         // إجمالي CTAS بعد الاستبعاد
+  let doctors = [];
+  let canceledCount = 0;
+  let missingCTAS = 0;
+
+  let barChart, pieChart, doctorPieChart;
+
+  // Elements
+  const fileInput = document.getElementById('fileInput');
+  const resetBtn = document.getElementById('resetBtn');
+  const doctorSelect = document.getElementById('doctorSelect');
+  const exportExcelBtn = document.getElementById('exportExcelBtn');
+  const exportChartsBtn = document.getElementById('exportChartsBtn');
+
+  const kpiTotal = document.getElementById('kpiTotal');
+  const kpiUnique = document.getElementById('kpiUnique');
+  const kpiDupes = document.getElementById('kpiDupes');
+  const kpiNoCtas = document.getElementById('kpiNoCtas');
+  const kpiCanceled = document.getElementById('kpiCanceled');
+
+  const rowsBody = document.getElementById('rowsBody');
+  const rankBody = document.getElementById('rankBody');
+
+  // Modal elems
+  const modal = document.getElementById('doctorModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const exportDoctorExcelBtn = document.getElementById('exportDoctorExcelBtn');
+  const doctorRowsBody = document.getElementById('doctorRowsBody');
+
+  // Close modal on any element with data-close="modal"
+  document.addEventListener('click', (e) => {
+    if (e.target.dataset.close === 'modal') modal.classList.remove('show');
+  });
+
+  resetBtn.addEventListener('click', () => resetAll());
+  fileInput.addEventListener('change', handleFile);
+  doctorSelect.addEventListener('change', renderTable);
+  exportExcelBtn.addEventListener('click', exportExcelAll);
+  exportChartsBtn.addEventListener('click', exportChartImages);
+  exportDoctorExcelBtn.addEventListener('click', () => {
+    const title = modalTitle.textContent || '';
+    const doc = title.replace(/^تفاصيل الطبيب:\s*/,'').trim();
+    const rows = getRowsByDoctor(doc);
+    exportExcelDoctor(doc, rows);
+  });
+
+  function resetAll(){
+    rawRows = [];
+    cleanedRows = [];
+    uniqueVisits = [];
+    doctorProductivity = {};
+    ctasCounts = {};
+    doctors = [];
+    canceledCount = 0;
+    missingCTAS = 0;
+    kpiTotal.textContent = '0';
+    kpiUnique.textContent = '0';
+    kpiDupes.textContent = '0';
+    kpiNoCtas.textContent = '0';
+    kpiCanceled.textContent = '0';
+    doctorSelect.innerHTML = '';
+    rowsBody.innerHTML = '';
+    rankBody.innerHTML = '';
+    exportExcelBtn.disabled = true;
+    exportChartsBtn.disabled = true;
+    destroyCharts();
+    if (modal.classList.contains('show')) modal.classList.remove('show');
+  }
+
+  function destroyCharts(){
+    if (barChart) { barChart.destroy(); barChart = null; }
+    if (pieChart) { pieChart.destroy(); pieChart = null; }
+    if (doctorPieChart) { doctorPieChart.destroy(); doctorPieChart = null; }
+  }
+
+  // --- Helpers ---
+  function cleanStr(v){ return v==null ? '' : String(v).trim(); }
+
+  function normalizeDate(value){
+    if (value == null || value === '') return '';
+    if (typeof value === 'number'){
+      const d = XLSX.SSF.parse_date_code(value);
+      if (!d) return '';
+      const date = new Date(Date.UTC(d.y, d.m-1, d.d));
+      return date.toISOString().slice(0,10);
+    }
+    const tryDate = new Date(value);
+    if (!isNaN(tryDate.getTime())) {
+      return new Date(tryDate.getFullYear(), tryDate.getMonth(), tryDate.getDate())
+             .toISOString().slice(0,10);
+    }
+    const m = String(value).match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if (m) {
+      const y = +m[1], mo = +m[2]-1, d = +m[3];
+      const dt = new Date(y, mo, d);
+      return dt.toISOString().slice(0,10);
+    }
+    return String(value).trim();
+  }
+
+  function isCanceled(row){
+    const v = cleanStr(row[COLS.DISH_TYPE]).toLowerCase();
+    return v === 'canceled' || v === 'cancelled';
+  }
+
+  function ctasKey(v){
+    const s = cleanStr(v);
+    if (!s) return 'Unknown';
+    const m = s.match(/[1-5]/);
+    return m ? m[0] : s; // لو مكتوب نصيًا (e.g., Level 3) هنستخرج الرقم
+  }
+
+  function ctasWeight(v){
+    const k = ctasKey(v);
+    return CTAS_WEIGHT[k] ?? CTAS_WEIGHT['UNKNOWN'];
+  }
+
+  function escapeHtml(v){
+    return String(v ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;');
+  }
+
+  // --- File handling ---
+  async function handleFile(e){
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+    rawRows = json;
+    processData();
+  }
+
+  // --- Processing pipeline ---
+  function processData(){
+    if (!rawRows.length){ alert('لا توجد بيانات مقروءة من الملف.'); return; }
+
+    // 1) إحصاء الـ Canceled واستبعادها
+    canceledCount = 0;
+    cleanedRows = [];
+    for (const r of rawRows){
+      if (isCanceled(r)) { canceledCount++; continue; }
+      cleanedRows.push(r);
+    }
+
+    // 2) dedup على أساس MRN + REG_DATE
+    const keySet = new Set();
+    uniqueVisits = [];
+    missingCTAS = 0;
+
+    for (const row of cleanedRows){
+      const mrn = cleanStr(row[COLS.MRN]);
+      const regDate = normalizeDate(row[COLS.REG_DATE]);
+      const ctas = cleanStr(row[COLS.CTAS]);
+      if (!ctas) missingCTAS++;
+
+      const key = `${mrn}|${regDate}`;
+      if (!keySet.has(key)){
+        keySet.add(key);
+        uniqueVisits.push({ ...row, __mrn: mrn, __regDate: regDate, __key: key });
+      }
+    }
+
+    // KPIs
+    const total = rawRows.length;
+    const uniqueCount = uniqueVisits.length;
+    const dupes = Math.max(cleanedRows.length - uniqueCount, 0); // المكرر بين غير الـ Canceled
+
+    kpiTotal.textContent = total.toLocaleString('en-US');
+    kpiUnique.textContent = uniqueCount.toLocaleString('en-US');
+    kpiDupes.textContent = dupes.toLocaleString('en-US');
+    kpiNoCtas.textContent = missingCTAS.toLocaleString('en-US');
+    kpiCanceled.textContent = canceledCount.toLocaleString('en-US');
+
+    // قوائم الأطباء + إنتاجية + CTAS إجمالي
+    doctorProductivity = {};
+    ctasCounts = {};
+    const setDoctors = new Set();
+
+    for (const r of uniqueVisits){
+      const doc = cleanStr(r[COLS.DOCTOR]) || 'غير محدد';
+      const ck = ctasKey(r[COLS.CTAS]) || 'Unknown';
+      setDoctors.add(doc);
+      doctorProductivity[doc] = (doctorProductivity[doc] || 0) + 1;
+      ctasCounts[ck] = (ctasCounts[ck] || 0) + 1;
+    }
+    doctors = Array.from(setDoctors).sort((a,b)=> a.localeCompare(b,'ar'));
+
+    // واجهة الاختيار
+    doctorSelect.innerHTML = `<option value="__ALL__">جميع الأطباء</option>` +
+      doctors.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+
+    renderCharts();
+    renderTable();
+    renderRanking();
+
+    exportExcelBtn.disabled = uniqueVisits.length === 0;
+    exportChartsBtn.disabled = !(barChart || pieChart);
+  }
+
+  // --- Charts ---
+  function renderCharts(){
+    destroyCharts();
+
+    // Bar per doctor
+    const labels = Object.keys(doctorProductivity).sort((a,b)=> a.localeCompare(b,'ar'));
+    const values = labels.map(l => doctorProductivity[l]);
+
+    const barCtx = document.getElementById('doctorBar').getContext('2d');
+    barChart = new Chart(barCtx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'حالات فريدة لكل طبيب', data: values }] },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false }, tooltip: { mode:'index', intersect:false } },
+        onClick: (_, elements) => {
+          if (!elements.length) return;
+          const idx = elements[0].index;
+          const doc = labels[idx];
+          openDoctorModal(doc);
+        },
+        scales: {
+          x: { ticks:{ color:'#c7d2fe' }, grid:{ color:'rgba(148,163,184,.15)'} },
+          y: { ticks:{ color:'#c7d2fe' }, grid:{ color:'rgba(148,163,184,.15)'} }
+        }
+      }
+    });
+
+    // Pie for CTAS (overall)
+// Bar for CTAS (overall)
+const barCtx2 = document.getElementById('ctasBar').getContext('2d');
+const order = ['1','2','3','4','5','Unknown'];
+const barLabels = order.filter(k => ctasCounts[k] > 0);
+const barVals = barLabels.map(l => ctasCounts[l]);
+
+// ألوان CTAS حسب الاتفاق
+const colors = {
+  '1': '#ef4444',   // Red
+  '2': '#3b82f6',   // Blue
+  '3': '#facc15',   // Yellow
+  '4': '#22c55e',   // Green
+  '5': '#ffffff',   // White
+  'Unknown': '#64748b' // Gray
+};
+
+pieChart = new Chart(barCtx2, {
+  type: 'bar',
+  data: {
+    labels: barLabels.map(l => (l==='Unknown'?'CTAS ?':`CTAS ${l}`)),
+    datasets: [{
+      label: 'عدد الحالات',
+      data: barVals,
+      backgroundColor: barLabels.map(l => colors[l])
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      x: { ticks:{ color:'#c7d2fe' }, grid:{ color:'rgba(148,163,184,.15)'} },
+      y: { ticks:{ color:'#c7d2fe' }, grid:{ color:'rgba(148,163,184,.15)'}, beginAtZero:true }
+    }
+  }
+});
+
+  }
+
+  // --- Table (overview, last 300) ---
+  function renderTable(){
+    const rowsBody = document.getElementById('rowsBody');
+    rowsBody.innerHTML = '';
+    const selected = doctorSelect.value || '__ALL__';
+    const filtered = selected==='__ALL__' ? uniqueVisits : uniqueVisits.filter(r => cleanStr(r[COLS.DOCTOR])===selected);
+    const limited = filtered.slice(0, 300);
+
+    const frag = document.createDocumentFragment();
+    for (const r of limited){
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-600/30 hover:bg-white/5';
+      tr.innerHTML = [
+        r[COLS.MRN], r[COLS.PATIENT], r[COLS.DOCTOR], r[COLS.CTAS],
+        r[COLS.REG_DATE], r[COLS.REG_TIME], r[COLS.DISH_TYPE]
+      ].map(v => `<td class="p-2">${escapeHtml(v)}</td>`).join('');
+      frag.appendChild(tr);
+    }
+    rowsBody.appendChild(frag);
+  }
+
+  // --- Ranking ---
+function renderRanking(){
+  rankBody.innerHTML = '';
+  const items = Object.keys(doctorProductivity).map(doc => {
+    const rows = getRowsByDoctor(doc);
+    const ctasMap = countCTAS(rows);
+    const score = rows.reduce((s,r)=> s + ctasWeight(r[COLS.CTAS]), 0);
+    return { doc, count: doctorProductivity[doc], score, ctasMap };
+  });
+
+  // ترتيب: أولاً بالعدد ثم بالـ Acuity Score (تنازليًا)
+  items.sort((a,b) => (b.count - a.count) || (b.score - a.score));
+
+  const frag = document.createDocumentFragment();
+  let rank = 1;
+  for (const it of items){
+  // عدّ CTAS للطبيب (it.ctasMap موجود من قبل)
+  const c1 = it.ctasMap['1'] || 0;
+  const c2 = it.ctasMap['2'] || 0;
+  const c3 = it.ctasMap['3'] || 0;
+  const c4 = it.ctasMap['4'] || 0;
+  const c5 = it.ctasMap['5'] || 0;
+  const cu = it.ctasMap['Unknown'] || 0;
+
+  // Badges ثابتة 1→5 + Unknown لو موجود
+  const ctasBadges = `
+    <span class="ctas-badge ctas-1" title="CTAS 1">${c1}</span>
+    <span class="ctas-badge ctas-2" title="CTAS 2">${c2}</span>
+    <span class="ctas-badge ctas-3" title="CTAS 3">${c3}</span>
+    <span class="ctas-badge ctas-4" title="CTAS 4">${c4}</span>
+    <span class="ctas-badge ctas-5" title="CTAS 5">${c5}</span>
+    ${cu > 0 ? `<span class="ctas-badge ctas-unknown" title="Unknown">${cu}</span>` : ``}
+  `;
+
+  const tr = document.createElement('tr');
+  tr.className = 'border-b border-slate-600/30 hover:bg-white/5';
+  tr.innerHTML = `
+    <td class="p-2">${rank++}</td>
+    <td class="p-2">${escapeHtml(it.doc)}</td>
+    <td class="p-2">${it.count}</td>
+    <td class="p-2">${it.score}</td>
+    <td class="p-2">${ctasBadges}</td>
+  `;
+  frag.appendChild(tr);
+}
+rankBody.appendChild(frag);
+}
+  function countCTAS(rows){
+    const m = {};
+    for (const r of rows){
+      const k = ctasKey(r[COLS.CTAS]) || 'Unknown';
+      m[k] = (m[k]||0)+1;
+    }
+    return m;
+  }
+
+  function getRowsByDoctor(doc){
+    return uniqueVisits.filter(r => (cleanStr(r[COLS.DOCTOR]) || 'غير محدد') === doc);
+  }
+
+  // --- Modal for doctor details ---
+  function openDoctorModal(doc){
+    modalTitle.textContent = `تفاصيل الطبيب: ${doc}`;
+    // table
+    doctorRowsBody.innerHTML = '';
+    const rows = getRowsByDoctor(doc);
+    const limited = rows.slice(0, 400);
+    const frag = document.createDocumentFragment();
+    for (const r of limited){
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-600/30 hover:bg-white/5';
+      tr.innerHTML = [
+        r[COLS.MRN], r[COLS.PATIENT], r[COLS.CTAS], r[COLS.REG_DATE], r[COLS.REG_TIME]
+      ].map(v => `<td class="p-2">${escapeHtml(v)}</td>`).join('');
+      frag.appendChild(tr);
+    }
+    doctorRowsBody.appendChild(frag);
+
+    // pie chart for this doctor
+    const ctasMap = countCTAS(rows);
+    const labels = Object.keys(ctasMap).sort((a,b)=> (parseInt(a)||99) - (parseInt(b)||99));
+    const vals = labels.map(l => ctasMap[l]);
+
+    if (doctorPieChart) doctorPieChart.destroy();
+    const ctx = document.getElementById('doctorPie').getContext('2d');
+    doctorPieChart = new Chart(ctx, {
+      type: 'pie',
+      data: { labels, datasets: [{ data: vals, label: `CTAS — ${doc}` }] },
+      options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#c7d2fe' } } } }
+    });
+
+    modal.classList.add('show');
+  }
+
+  // --- Export: All cleaned + per-doctor ---
+  function exportExcelAll(){
+    // Sheets: Per Doctor + Details (unique, cleaned) + Summary
+    const perDoctor = [['DOCTOR','UNIQUE VISITS']];
+    Object.keys(doctorProductivity)
+      .sort((a,b)=> a.localeCompare(b,'ar'))
+      .forEach(d => perDoctor.push([d, doctorProductivity[d]]));
+
+    const detailsHeader = [
+      COLS.DOCTOR, COLS.MRN, COLS.PATIENT, COLS.CTAS,
+      COLS.REG_DATE, COLS.REG_TIME, COLS.FINAL_DX, COLS.DX_CODE
+    ];
+    const detailsRows = uniqueVisits.map(r => ([
+      cleanStr(r[COLS.DOCTOR]),
+      cleanStr(r[COLS.MRN]),
+      cleanStr(r[COLS.PATIENT]),
+      cleanStr(r[COLS.CTAS]),
+      cleanStr(r[COLS.REG_DATE]),
+      cleanStr(r[COLS.REG_TIME]),
+      cleanStr(r[COLS.FINAL_DX]),
+      cleanStr(r[COLS.DX_CODE]),
+    ]));
+
+    const summary = [
+      ['Metric','Value'],
+      ['Raw Total', rawRows.length],
+      ['Canceled (excluded)', canceledCount],
+      ['Cleaned (Raw - Canceled)', cleanedRows.length],
+      ['Unique Visits', uniqueVisits.length],
+      ['Duplicates (within cleaned)', Math.max(cleanedRows.length - uniqueVisits.length, 0)],
+      ['No CTAS (within cleaned)', missingCTAS]
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(perDoctor), 'Per Doctor');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([detailsHeader, ...detailsRows]), 'Details');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: "application/octet-stream" }), fileStamp('ER_Productivity_All'));
+  }
+
+  function exportExcelDoctor(doc, rows){
+    const header = [COLS.DOCTOR, COLS.MRN, COLS.PATIENT, COLS.CTAS, COLS.REG_DATE, COLS.REG_TIME, COLS.FINAL_DX, COLS.DX_CODE];
+    const body = rows.map(r => ([
+      cleanStr(r[COLS.DOCTOR]), cleanStr(r[COLS.MRN]), cleanStr(r[COLS.PATIENT]),
+      cleanStr(r[COLS.CTAS]), cleanStr(r[COLS.REG_DATE]), cleanStr(r[COLS.REG_TIME]),
+      cleanStr(r[COLS.FINAL_DX]), cleanStr(r[COLS.DX_CODE]),
+    ]));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), `${safeSheetName(doc)} Cases`);
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: "application/octet-stream" }), fileStamp(`Doctor_${doc}_Cases`));
+  }
+
+  function fileStamp(prefix){
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    return `${prefix}_${stamp}.xlsx`;
+  }
+
+  function safeSheetName(name){ return String(name).slice(0,28).replace(/[\\/?*\[\]]/g,'_'); }
+
+  // --- Export charts as PNGs ---
+  function exportChartImages(){
+    if (barChart){
+      downloadDataUrl(barChart.toBase64Image(), 'Doctor_Productivity.png');
+    }
+    if (pieChart){
+      downloadDataUrl(pieChart.toBase64Image(), 'CTAS_Distribution.png');
+    }
+  }
+  function downloadDataUrl(dataUrl, filename){
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = filename; a.click();
+  }
+})();
+</script>
+
+<footer class="mt-8 text-center tiny">
+  تصميم Twilight Glass — لون أزرق غامق — <span class="text-cyan-300 font-semibold">MemoCare</span>
+</footer>
+
+</body>
+</html>
