@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nurses Productivity — Twilight Glass</title>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Fonts & Icons -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+<!-- SheetJS + FileSaver -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- Chart.js Annotation plugin -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+  :root{
+    --glass-bg: rgba(15, 23, 42, 0.45);
+    --glass-stroke: rgba(148, 163, 184, 0.20);
+  }
+  body{
+    font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 500px at 80% -10%, #0ea5e9 0%, transparent 60%),
+      radial-gradient(1000px 600px at -10% 110%, #0ea5e9 0%, transparent 60%),
+      linear-gradient(180deg, #0b1e3b 0%, #0f172a 100%);
+    color:#e5e7eb; min-height:100vh;
+  }
+  .glass{ background:var(--glass-bg); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--glass-stroke); border-radius:18px;
+    box-shadow:0 10px 30px rgba(2,6,23,.45), inset 0 1px 0 rgba(255,255,255,.04); }
+  .glass-title{ background:linear-gradient(90deg, rgba(14,165,233,.18), rgba(6,182,212,.12));
+    border-bottom:1px solid rgba(148,163,184,.18);}
+  .pill{ background:linear-gradient(135deg, rgba(99,102,241,.25), rgba(59,130,246,.22));
+    border:1px solid rgba(147,197,253,.20); border-radius:14px;}
+  .btn{ background:linear-gradient(135deg, #1e3a8a, #0ea5e9); border:1px solid rgba(125,211,252,.25); color:#fff; border-radius:14px;}
+  .btn:disabled{opacity:.5; cursor:not-allowed;}
+  .tiny{ font-size:.85rem; color:#93c5fd;}
+  .table-wrap{ max-height:420px; overflow:auto; }
+  .ctas-badge{ display:inline-block; padding:.25rem .5rem; border-radius:.75rem; margin:.125rem .25rem; font-weight:600; font-size:.85rem; border:1px solid rgba(255,255,255,.15); box-shadow: inset 0 1px 0 rgba(255,255,255,.05);}
+  .ctas-1{ background:#ef4444; color:#fff; border-color:#f87171;}     /* RED */
+  .ctas-2{ background:#3b82f6; color:#fff; border-color:#60a5fa;}     /* BLUE */
+  .ctas-3{ background:#facc15; color:#111827; border-color:#fde047;}  /* YELLOW */
+  .ctas-4{ background:#22c55e; color:#06251e; border-color:#34d399;}  /* GREEN */
+  .ctas-5{ background:#ffffff; color:#0f172a; border-color:#e5e7eb;}  /* WHITE */
+  .ctas-u{ background:#64748b; color:#e5e7eb; border-color:#94a3b8;}  /* Unknown */
+  .neg{ color:#fecaca; }
+  .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal.show{ display:flex; }
+  .modal-backdrop{ position:absolute; inset:0; background:rgba(2,6,23,.6); backdrop-filter: blur(4px); }
+  .modal-body{ position:relative; z-index:1; max-width:1100px; width:100%; }
+</style>
+</head>
+
+<section class="glass p-5 sm:p-6 mb-6">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <button id="langToggle" class="pill px-3 py-2 hover:opacity-90" type="button">
+        🌐 English
+      </button>
+    </div>
+    <div class="grid gap-3 md:grid-cols-4 w-full">
+      <div>
+        <label class="tiny block mb-1">بداية الدوام</label>
+        <input id="shiftStart" type="time" value="08:00" class="glass w-full p-3 rounded-xl">
+      </div>
+      <div>
+        <label class="tiny block mb-1">نهاية الدوام</label>
+        <input id="shiftEnd" type="time" value="20:00" class="glass w-full p-3 rounded-xl">
+      </div>
+      <div>
+        <label class="tiny block mb-1">أوقات الصلوات (اختياري)</label>
+        <div class="grid grid-cols-5 gap-2">
+          <input id="prayFajr" type="time" class="glass p-2 rounded-lg" placeholder="فجر">
+          <input id="prayDhuhr" type="time" class="glass p-2 rounded-lg" placeholder="ظهر">
+          <input id="prayAsr" type="time" class="glass p-2 rounded-lg" placeholder="عصر">
+          <input id="prayMaghrib" type="time" class="glass p-2 rounded-lg" placeholder="مغرب">
+          <input id="prayIsha" type="time" class="glass p-2 rounded-lg" placeholder="عشاء">
+        </div>
+      </div>
+      <div class="flex items-end">
+        <button id="applyOps" class="btn px-4 py-3 hover:opacity-90 w-full"><i class="fa-solid fa-sliders mr-2"></i>تطبيق</button>
+      </div>
+    </div>
+  </div>
+  <p class="tiny mt-3">* أوقات الصلوات يفضل إدخالها كساعة ثابتة تقريبية (مدينة/تاريخك). سنعرض خطوط رأسية للمقارنة داخل شارت “توزيع الوصول خلال 24 ساعة”.</p>
+</section>
+
+
+<body class="p-5 sm:p-8">
+
+<header class="glass p-5 sm:p-7 mb-6">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold text-cyan-300">لوحة إنتاجية التمريض — ER</h1>
+      <p class="tiny mt-1">ارفع ملف XLSX بالحقول الرئيسية: PatientCode, PatientName, Gnder, NationalityName, Birth Date, Age, DoctorCode, DoctorName, NurseCode, NurseName, AreaName, BedCode, TriageNo, SerialNo, VisitDate, DischargeStatus Name, PainScale Name, AcuityScale Name, PatientInclinic Date, Is PatientExamined, PatientExamined Date, AssignBed Date, AssignNurse Date, AssignDoctor Date, Nurse SeenTime In Min, Physician SeenTime In Min.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="pill px-3 py-2 cursor-pointer hover:opacity-90">
+        <i class="fa-solid fa-file-arrow-up mr-2"></i> ارفع الملف (XLSX)
+        <input id="fileInput" type="file" accept=".xlsx" class="hidden"/>
+      </label>
+      <button id="resetBtn" class="pill px-3 py-2 hover:opacity-90" type="button">
+        <i class="fa-solid fa-rotate-right mr-2"></i>تفريغ
+      </button>
+    </div>
+  </div>
+</header>
+
+<section class="glass p-5 sm:p-6 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-filter mr-2"></i>فلاتر</h2>
+  </div>
+  <div class="grid gap-3 md:grid-cols-4">
+    <div>
+      <label class="tiny block mb-1">من تاريخ (VisitDate)</label>
+      <input id="fromDate" type="date" class="glass w-full p-3 rounded-xl">
+    </div>
+    <div>
+      <label class="tiny block mb-1">إلى تاريخ (VisitDate)</label>
+      <input id="toDate" type="date" class="glass w-full p-3 rounded-xl">
+    </div>
+    <div class="flex items-end">
+      <button id="applyFilter" class="btn px-4 py-3 hover:opacity-90 w-full"><i class="fa-solid fa-check mr-2"></i>تطبيق</button>
+    </div>
+    <div class="flex items-end">
+      <button id="clearFilter" class="pill px-4 py-3 hover:opacity-90 w-full"><i class="fa-solid fa-broom mr-2"></i>مسح الفلتر</button>
+    </div>
+  </div>
+  <p class="tiny mt-3">* الفلتر يؤثر على جميع الشارتات والجداول (وفق نطاق <b>VisitDate</b>). توزيع ساعات الوصول يعتمد على <b>PatientInclinic Date</b> (ساعة/دقيقة إن وُجدت).</p>
+</section>
+
+
+
+<section class="grid gap-4 md:grid-cols-8 mb-6">
+  <div class="glass p-5"><div class="tiny i18n" data-k="kpi_raw">إجمالي السجلات (خام)</div><div id="kRaw" class="text-3xl font-bold">0</div></div>
+  <div class="glass p-5"><div class="tiny i18n" data-k="kpi_assigned">حالات بممرض مُسنّد</div><div id="kAssigned" class="text-3xl font-bold">0</div></div>
+  <div class="glass p-5"><div class="tiny i18n" data-k="kpi_unassigned">بدون Assign Nurse <span class="neg">(سلبية)</span></div><div id="kUnassigned" class="text-3xl font-bold">0</div></div>
+  <div class="glass p-5"><div class="tiny i18n" data-k="kpi_unassigned_pct">% بدون Assign</div><div id="kUnassignedPct" class="text-3xl font-bold">0%</div></div>
+  <div class="glass p-5"><div class="tiny i18n" data-k="kpi_avg_seen">متوسط زمن رؤية الممرض (د)</div><div id="kAvgSeen" class="text-3xl font-bold">0</div></div>
+  <div class="glass p-5"><div class="tiny">Top Nurse</div><div id="kTopNurse" class="text-xl font-bold">—</div></div>
+  <div class="glass p-5"><div class="tiny i18n" data-k="kpi_peak">ذروة ساعات الدوام</div><div id="kPeakHours" class="text-sm font-bold leading-6">—</div></div>
+  <div class="glass p-5"><div class="tiny i18n" data-k="kpi_low">أقل إنتاجية</div><div id="kLowNurse" class="text-sm font-bold leading-6">—</div></div>
+</section>
+
+<section class="grid gap-4 lg:grid-cols-2 mb-6">
+  <div class="glass p-5">
+    <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+      <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-chart-column mr-2"></i>إنتاجية الممرضين (عدد الحالات المُسنّدة)</h2>
+    </div>
+    <div class="relative w-full h-72 md:h-80"><canvas id="nurseBar" class="cursor-pointer"></canvas></div>
+    <p class="tiny mt-2">🖱️ اضغط على أي ممرض لعرض تفاصيله (حالاته + توزيع CTAS) وتصدير ملفه.</p>
+  </div>
+  <div class="glass p-5">
+    <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+      <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-layer-group mr-2"></i>CTAS لكل ممرض (Stacked)</h2>
+    </div>
+    <div class="relative w-full h-72 md:h-80"><canvas id="ctasStack"></canvas></div>
+  </div>
+</section>
+
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-ranking-star mr-2"></i>تصنيف الممرضين</h2>
+  </div>
+  <details class="mb-4">
+    <summary class="cursor-pointer pill px-3 py-2 inline-flex items-center gap-2">
+      <i class="fa-solid fa-circle-question"></i>
+      كيف تم الترتيب؟ وما دلالة ألوان CTAS؟
+    </summary>
+    <div class="mt-3 text-sm leading-7">
+      <ul class="list-disc pr-5">
+        <li>الترتيب: <b>Cases</b> تنازليًا → <b>Acuity Score</b> تنازليًا → <b>Avg Seen</b> تصاعديًا.</li>
+        <li>أوزان CTAS: <b>1=5</b>, <b>2=4</b>, <b>3=3</b>, <b>4=2</b>, <b>5=1</b>, <b>Unknown=0</b>.</li>
+        <li>الألوان:
+          <span class="ctas-badge ctas-1">CTAS 1</span>
+          <span class="ctas-badge ctas-2">CTAS 2</span>
+          <span class="ctas-badge ctas-3">CTAS 3</span>
+          <span class="ctas-badge ctas-4">CTAS 4</span>
+          <span class="ctas-badge ctas-5">CTAS 5</span>
+          <span class="ctas-badge ctas-u">Unknown</span>
+        </li>
+      </ul>
+    </div>
+  </details>
+  <div class="table-wrap">
+    <table class="w-full text-sm">
+      <thead class="text-cyan-200">
+        <tr class="border-b border-slate-600/40">
+          <th class="p-2 text-right">#</th>
+          <th class="p-2 text-right">Nurse</th>
+          <th class="p-2 text-right">Cases</th>
+          <th class="p-2 text-right">Acuity Score</th>
+          <th class="p-2 text-right">Avg Seen (min)</th>
+          <th class="p-2 text-right">CTAS 1</th>
+          <th class="p-2 text-right">CTAS 2</th>
+          <th class="p-2 text-right">CTAS 3</th>
+          <th class="p-2 text-right">CTAS 4</th>
+          <th class="p-2 text-right">CTAS 5</th>
+          <th class="p-2 text-right">Unknown</th>
+        </tr>
+      </thead>
+      <tbody id="rankBody"></tbody>
+    </table>
+  </div>
+</section>
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-trophy mr-2"></i>Top Ranked per CTAS (1→5)</h2>
+  </div>
+  <div class="relative w-full h-72 md:h-80"><canvas id="topPerCTAS"></canvas></div>
+  <p class="tiny mt-2">* كل عمود يمثل أعلى ممرض من حيث عدد الحالات في CTAS معيّن. التسمية فوق العمود = اسم الممرض.</p>
+</section>
+
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-calendar-range mr-2"></i>فترة الفحص من VisitDate</h2>
+  </div>
+  <div class="flex flex-wrap items-center gap-4 mb-3">
+    <div class="pill px-3 py-2 tiny">من: <span id="visitMin" class="font-semibold text-cyan-200">—</span></div>
+    <div class="pill px-3 py-2 tiny">إلى: <span id="visitMax" class="font-semibold text-cyan-200">—</span></div>
+    <div class="pill px-3 py-2 tiny">إجمالي الزيارات: <span id="visitCount" class="font-semibold text-cyan-200">0</span></div>
+  </div>
+  <div class="relative w-full h-64 sm:h-72 md:h-80"><canvas id="visitTrend"></canvas></div>
+</section>
+
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-clock mr-2"></i>وقت وجود الحالات — PatientInclinic Date</h2>
+  </div>
+  <div class="relative w-full h-64 sm:h-72 md:h-80"><canvas id="inclinicTrend"></canvas></div>
+</section>
+
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-clock-rotate-left mr-2"></i>توزيع الوصول خلال 24 ساعة (PatientInclinic)</h2>
+  </div>
+  <div class="relative w-full h-64 sm:h-72 md:h-80"><canvas id="inclinicHourly"></canvas></div>
+  <p class="tiny mt-2">يعتمد على ساعة <b>PatientInclinic Date</b>؛ إن لم تكن متوفرة يوضَع ضمن "غير محدد".</p>
+</section>
+
+
+
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-stopwatch mr-2"></i>متوسط زمن رؤية الممرض لكل CTAS</h2>
+  </div>
+  <div class="grid gap-4 lg:grid-cols-2">
+    <div class="relative w-full h-64 sm:h-72 md:h-80"><canvas id="avgSeenByCTAS"></canvas></div>
+    <div class="table-wrap">
+      <table class="w-full text-sm">
+        <thead class="text-cyan-200">
+          <tr class="border-b border-slate-600/40">
+            <th class="p-2 text-right">CTAS</th>
+            <th class="p-2 text-right">متوسط الزمن (د)</th>
+            <th class="p-2 text-right"># حالات محسوبة</th>
+          </tr>
+        </thead>
+        <tbody id="avgSeenTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="glass p-5 mb-6">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-users mr-2"></i>توزيع الجنسيات والجنس</h2>
+  </div>
+  <div class="grid gap-4 lg:grid-cols-2">
+    <div class="relative w-full h-64 sm:h-72 md:h-80"><canvas id="nationalityTop"></canvas></div>
+    <div class="relative w-full h-64 sm:h-72 md:h-80"><canvas id="genderDist"></canvas></div>
+  </div>
+</section>
+
+<section class="glass p-5">
+  <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px]">
+    <h2 class="font-semibold text-cyan-200"><i class="fa-solid fa-table-list mr-2"></i>تفاصيل مختصرة (آخر 300 صف)</h2>
+  </div>
+  <div class="flex gap-3 mb-3">
+    <select id="nurseSelect" class="glass p-3 rounded-xl"></select>
+    <button id="exportAllBtn" class="btn px-4 py-3 hover:opacity-90" disabled><i class="fa-regular fa-file-excel mr-2"></i>تصدير Excel (المنظّف)</button>
+    <button id="exportChartsBtn" class="btn px-4 py-3 hover:opacity-90" disabled><i class="fa-regular fa-image mr-2"></i>تصدير الشارتات</button>
+  </div>
+  <div class="table-wrap">
+    <table class="w-full text-sm">
+      <thead class="text-cyan-200">
+        <tr class="border-b border-slate-600/40">
+          <th class="p-2 text-right">PatientCode</th>
+          <th class="p-2 text-right">PatientName</th>
+          <th class="p-2 text-right">NurseName</th>
+          <th class="p-2 text-right">CTAS</th>
+          <th class="p-2 text-right">Acuity Name</th>
+          <th class="p-2 text-right">AssignNurse Date</th>
+          <th class="p-2 text-right">Nurse SeenTime (min)</th>
+        </tr>
+      </thead>
+      <tbody id="rowsBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Nurse Modal -->
+<div id="nurseModal" class="modal">
+  <div class="modal-backdrop" data-close="modal"></div>
+  <div class="modal-body">
+    <div class="glass p-5">
+      <div class="flex items-center justify-between">
+        <h3 id="modalTitle" class="text-xl font-semibold text-cyan-200">تفاصيل الممرض</h3>
+        <button class="pill px-3 py-2 hover:opacity-90" data-close="modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="grid gap-4 lg:grid-cols-2 mt-4">
+        <div>
+          <div class="relative w-full h-64 sm:h-72 md:h-80"><canvas id="nurseCTAS"></canvas></div>
+          <div class="mt-3">
+            <button id="exportNurseBtn" class="btn px-4 py-3 hover:opacity-90"><i class="fa-regular fa-file-excel mr-2"></i>تصدير Excel — حالات الممرّض</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="w-full text-sm">
+            <thead class="text-cyan-200">
+              <tr class="border-b border-slate-600/40">
+                <th class="p-2 text-right">Patient</th>
+                <th class="p-2 text-right">CTAS</th>
+                <th class="p-2 text-right">AssignNurse</th>
+                <th class="p-2 text-right">Seen (min)</th>
+              </tr>
+            </thead>
+            <tbody id="nurseRowsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- App JS -->
+<script src="./app.js"></script>
+
+<footer class="mt-8 text-center tiny">
+  تصميم Twilight Glass — أزرق غامق — <span class="text-cyan-300 font-semibold">MemoCare</span>
+</footer>
+
+</body>
+
+<script>
+(() => {
+  /* ===================== I18N (زر اللغة لا يعرض "عربي") ===================== */
+  const I18N = {
+    ar: { dir:'rtl', lang:'ar',
+      kpi_raw:'إجمالي السجلات (خام)', kpi_assigned:'حالات بممرض مُسنّد', kpi_unassigned:'بدون Assign Nurse (سلبية)',
+      kpi_unassigned_pct:'% بدون Assign', kpi_avg_seen:'متوسط زمن رؤية الممرض (د)', kpi_peak:'ذروة ساعات اليوم', kpi_low:'أقل إنتاجية',
+      prod_title:'إنتاجية الممرضين (عدد الحالات المُسنّدة)', ctas_title:'CTAS لكل ممرض (Stacked)',
+      top_per_ctas:'Top Ranked per CTAS (1→5)', visits_period:'فترة الفحص من VisitDate',
+      inclinic_title:'وقت وجود الحالات — PatientInclinic Date',
+      hourly_title:'توزيع الوصول خلال 24 ساعة (PatientInclinic)',
+    },
+    en: { dir:'ltr', lang:'en',
+      kpi_raw:'Total Records (raw)', kpi_assigned:'Assigned to Nurse', kpi_unassigned:'Without Assign Nurse (Negative)',
+      kpi_unassigned_pct:'% Without Assign', kpi_avg_seen:'Avg Nurse Seen (min)', kpi_peak:'Peak Hours (day)', kpi_low:'Lowest Performance',
+      prod_title:'Nurses Productivity (Assigned Cases)', ctas_title:'CTAS per Nurse (Stacked)',
+      top_per_ctas:'Top Ranked per CTAS (1→5)', visits_period:'Visit Period (VisitDate)',
+      inclinic_title:'Patient In-Clinic — Timeline',
+      hourly_title:'Hourly Distribution (PatientInclinic)',
+    }
+  };
+  let CUR_LANG = 'ar';
+  function applyLang(){
+    const L = I18N[CUR_LANG];
+    document.documentElement.dir = L.dir;
+    document.documentElement.lang = L.lang;
+    document.querySelectorAll('.i18n').forEach(el=>{
+      const k = el.dataset.k;
+      if (k && L[k]) el.textContent = L[k];
+    });
+    const t = document.getElementById('langToggle');
+    if (t) t.textContent = '🌐 English'; // لا نعرض "عربي" إطلاقًا
+  }
+
+  /* ===================== ثوابت الأعمدة / الألوان ===================== */
+  const COL = {
+    PatientCode:'PatientCode', PatientName:'PatientName', Gnder:'Gnder', NationalityName:'NationalityName',
+    BirthDate:'Birth Date', Age:'Age', DoctorCode:'DoctorCode', DoctorName:'DoctorName',
+    NurseCode:'NurseCode', NurseName:'NurseName', AreaName:'AreaName', BedCode:'BedCode',
+    TriageNo:'TriageNo', SerialNo:'SerialNo', VisitDate:'VisitDate',
+    DischargeStatus:'DischargeStatus Name', PainScale:'PainScale Name',
+    AcuityName:'AcuityScale Name', InClinicDate:'PatientInclinic Date',
+    IsExamined:'Is PatientExamined', ExaminedDate:'PatientExamined Date',
+    AssignBed:'AssignBed Date', AssignNurse:'AssignNurse Date', AssignDoctor:'AssignDoctor Date',
+    NurseSeen:'Nurse SeenTime In Min', PhysicianSeen:'Physician SeenTime In Min'
+  };
+  const CTAS_COLORS = {'1':'#ef4444','2':'#3b82f6','3':'#facc15','4':'#22c55e','5':'#ffffff','Unknown':'#64748b'};
+  const CTAS_WEIGHT = { '1':5, '2':4, '3':3, '4':2, '5':1, 'Unknown':0 };
+
+  /* ===================== الحالة العامة ===================== */
+  let rawRows=[], cleaned=[], filtered=[], assigned=[], unassigned=[], nurses=[], perNurse={};
+  let GLOBAL_AVG_SEEN_CTAS=null, VISIT_BY_DAY=null, INCLINIC_BY_DAY=null, INCLINIC_BY_HOUR=null, NAT_COUNT=null, GENDER_COUNT=null;
+
+  // أوقات الصلوات (تُحتسب تلقائيًا لمكة)
+  let PRAYERS = []; // مصفوفة ساعات عشرية داخل 0..24
+
+  /* ===================== عناصر DOM ===================== */
+  const $ = (id)=> document.getElementById(id);
+  const fileInput = $('fileInput'), resetBtn = $('resetBtn'), nurseSelect = $('nurseSelect');
+  const kRaw=$('kRaw'), kAssigned=$('kAssigned'), kUnassigned=$('kUnassigned'), kUnassignedPct=$('kUnassignedPct'), kAvgSeen=$('kAvgSeen'),
+        kTopNurse=$('kTopNurse'), kPeakHours=$('kPeakHours'), kLowNurse=$('kLowNurse');
+  const rowsBody=$('rowsBody'), rankBody=$('rankBody');
+  const visitMinEl=$('visitMin'), visitMaxEl=$('visitMax'), visitCountEl=$('visitCount');
+  const fromDateEl=$('fromDate'), toDateEl=$('toDate'), applyFilterBtn=$('applyFilter'), clearFilterBtn=$('clearFilter');
+  const langToggle = $('langToggle');
+
+  // الرسوم
+  let nurseBar=null, ctasStack=null, topPerCTAS=null, visitTrend=null, inclinicTrend=null, inclinicHourly=null, avgSeenByCTAS=null, nationalityTop=null, genderDist=null, nurseCTAS=null;
+
+  /* ===================== أدوات مساعدة ===================== */
+  function escapeHtml(s){ return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
+  function cleanStr(v){ return v==null? '': String(v).trim(); }
+  function hasValue(v){ return v !== null && v !== undefined && String(v).trim() !== ''; }
+  function toNum(v){ const n = Number(String(v).replace(',', '.')); return isNaN(n)? null : n; }
+  function normalizeDate(v){ const d = parseExcelDateTime(v); if (!d) return ''; return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0,10); }
+  function parseExcelDateTime(v){
+    if (!hasValue(v)) return null;
+    if (typeof v === 'number'){ const obj = XLSX.SSF.parse_date_code(v); if (!obj) return null;
+      return new Date(Date.UTC(obj.y, obj.m-1, obj.d, obj.H||0, obj.M||0, Math.floor(obj.S||0))); }
+    const s = String(v).replace(/\u00A0/g,' ').trim(); const tryNative = new Date(s); if (!isNaN(tryNative.getTime())) return tryNative;
+    const m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m){ const y=+m[1], mo=+m[2]-1, d=+m[3], H=+(m[4]||0), Mi=+(m[5]||0), S=+(m[6]||0); return new Date(y, mo, d, H, Mi, S); }
+    return null;
+  }
+  function ctasKey(v){ const s = cleanStr(v); if (!s) return 'Unknown'; const m = s.match(/[1-5]/); return m ? m[0] : 'Unknown'; }
+
+  function normKey(k){ return String(k||'').replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim().toLowerCase(); }
+  const headerAlias = new Map([
+    ['patientcode','PatientCode'], ['patient name','PatientName'], ['patientname','PatientName'],
+    ['gnder','Gnder'], ['gender','Gnder'], ['nationalityname','NationalityName'],
+    ['birth date','Birth Date'], ['birthdate','Birth Date'], ['age','Age'],
+    ['doctorcode','DoctorCode'], ['doctor code','DoctorCode'], ['doctorname','DoctorName'], ['doctor name','DoctorName'],
+    ['nursecode','NurseCode'], ['nurse code','NurseCode'], ['nursename','NurseName'], ['nurse name','NurseName'],
+    ['areaname','AreaName'], ['area name','AreaName'], ['bedcode','BedCode'], ['bed code','BedCode'],
+    ['triageno','TriageNo'], ['triage no','TriageNo'], ['serialno','SerialNo'], ['serial no','SerialNo'],
+    ['visitdate','VisitDate'], ['visit date','VisitDate'], ['dischargestatus name','DischargeStatus Name'],
+    ['painscale name','PainScale Name'], ['acuityscale name','AcuityScale Name'],
+    ['patientinclinic date','PatientInclinic Date'], ['is patientexamined','Is PatientExamined'],
+    ['patientexamined date','PatientExamined Date'], ['assignbed date','AssignBed Date'],
+    ['assignnurse date','AssignNurse Date'], ['assigndoctor date','AssignDoctor Date'],
+    ['nurse seentime in min','Nurse SeenTime In Min'], ['physician seentime in min','Physician SeenTime In Min'],
+  ]);
+  function remapRowKeys(row){ const out={}; for (const [k,v] of Object.entries(row)){ const nk = headerAlias.get(normKey(k)) || k; out[nk]=v; } return out; }
+
+  /* ===================== أحداث ===================== */
+  document.addEventListener('click', (e)=>{ if (e.target.dataset.close === 'modal') document.getElementById('nurseModal').classList.remove('show'); });
+  fileInput.addEventListener('change', handleFile);
+  resetBtn.addEventListener('click', resetAll);
+  nurseSelect.addEventListener('change', renderTable);
+  $('exportAllBtn').addEventListener('click', exportAllExcel);
+  $('exportChartsBtn').addEventListener('click', downloadCharts);
+  $('exportNurseBtn').addEventListener('click', exportCurrentNurseExcel);
+  applyFilterBtn.addEventListener('click', applyFilter);
+  clearFilterBtn.addEventListener('click', clearFilter);
+  langToggle.addEventListener('click', () => { CUR_LANG = (CUR_LANG==='ar'?'en':'ar'); applyLang(); renderCharts(); });
+
+  applyLang();
+  computeMakkahPrayersForToday(); // أول حساب تلقائي
+  setInterval(computeMakkahPrayersForToday, 60*60*1000); // نحدّث كل ساعة (اختياري)
+
+  /* ===================== تحميل الملف ===================== */
+  async function handleFile(e){
+    const file = e.target.files?.[0]; if(!file) return;
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array', cellDates:true, dateNF:'yyyy-mm-dd'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+    rawRows = raw.map(remapRowKeys);
+    buildCleaned();
+    applyFilter();
+  }
+
+  function buildCleaned(){
+    cleaned = rawRows.map(r => {
+      const inClinicDT = parseExcelDateTime(r[COL.InClinicDate]);
+      return {
+        ...r,
+        __NurseName: cleanStr(r[COL.NurseName]) || 'غير محدد',
+        __NurseCode: cleanStr(r[COL.NurseCode]),
+        __AssignNurse: normalizeDate(r[COL.AssignNurse]),
+        __AcuityType: ctasKey(r[COL.AcuityName]),
+        __AcuityName: cleanStr(r[COL.AcuityName]),
+        __Seen: toNum(r[COL.NurseSeen]),
+        __Patient: cleanStr(r[COL.PatientName]),
+        __PatientCode: cleanStr(r[COL.PatientCode]),
+        __VisitDate: normalizeDate(r[COL.VisitDate]),
+        __InClinicDT: inClinicDT,
+        __InClinic: inClinicDT ? new Date(inClinicDT.getFullYear(), inClinicDT.getMonth(), inClinicDT.getDate()).toISOString().slice(0,10) : '',
+        __Gender: cleanStr(r[COL.Gnder]) || 'غير محدد',
+        __Nat: cleanStr(r[COL.NationalityName]) || 'غير معروف'
+      };
+    });
+    kRaw.textContent = rawRows.length.toLocaleString('en-US');
+  }
+
+  function applyFilter(){
+    const f = fromDateEl.value ? new Date(fromDateEl.value) : null;
+    const t = toDateEl.value ? new Date(toDateEl.value) : null;
+    filtered = cleaned.filter(r => {
+      if (!r.__VisitDate) return false;
+      const d = new Date(r.__VisitDate);
+      if (f && d < new Date(f.getFullYear(), f.getMonth(), f.getDate())) return false;
+      if (t && d > new Date(t.getFullYear(), t.getMonth(), t.getDate())) return false;
+      return true;
+    });
+    if (!f && !t) filtered = cleaned.filter(r => !!r.__VisitDate);
+    recomputeAndRender();
+  }
+  function clearFilter(){ fromDateEl.value=''; toDateEl.value=''; applyFilter(); }
+
+  function resetAll(){
+    rawRows=[]; cleaned=[]; filtered=[]; assigned=[]; unassigned=[]; nurses=[]; perNurse={};
+    GLOBAL_AVG_SEEN_CTAS=VISIT_BY_DAY=INCLINIC_BY_DAY=INCLINIC_BY_HOUR=NAT_COUNT=GENDER_COUNT=null;
+    ['kRaw','kAssigned','kUnassigned','kUnassignedPct','kAvgSeen','kTopNurse','kPeakHours','kLowNurse'].forEach(id => $(id).textContent = id==='kUnassignedPct' ? '0%' : '—');
+    nurseSelect.innerHTML=''; rowsBody.innerHTML=''; rankBody.innerHTML='';
+    visitMinEl.textContent='—'; visitMaxEl.textContent='—'; visitCountEl.textContent='0';
+    fromDateEl.value=''; toDateEl.value='';
+    destroyCharts();
+    document.getElementById('nurseModal').classList.remove('show');
+  }
+  function destroyCharts(){
+    [nurseBar, ctasStack, topPerCTAS, visitTrend, inclinicTrend, inclinicHourly, avgSeenByCTAS, nationalityTop, genderDist, nurseCTAS].forEach(c=>{ if(c){c.destroy();} });
+    nurseBar=ctasStack=topPerCTAS=visitTrend=inclinicTrend=inclinicHourly=avgSeenByCTAS=nationalityTop=genderDist=nurseCTAS=null;
+  }
+
+  /* ===================== إعادة الحساب والعرض ===================== */
+  function recomputeAndRender(){
+    assigned = filtered.filter(r => hasValue(r.__AssignNurse));
+    unassigned = filtered.filter(r => !hasValue(r.__AssignNurse));
+
+    kAssigned.textContent = assigned.length.toLocaleString('en-US');
+    kUnassigned.textContent = unassigned.length.toLocaleString('en-US');
+    kUnassignedPct.textContent = `${(filtered.length ? (unassigned.length/filtered.length*100) : 0).toFixed(1)}%`;
+    const seenVals = assigned.map(r=>r.__Seen).filter(v=>v!==null);
+    kAvgSeen.textContent = `${seenVals.length ? Math.round(seenVals.reduce((a,b)=>a+b,0)/seenVals.length) : 0}`;
+
+    const map = {};
+    const globalAvgSeen = { '1':{sum:0,cnt:0}, '2':{sum:0,cnt:0}, '3':{sum:0,cnt:0}, '4':{sum:0,cnt:0}, '5':{sum:0,cnt:0}, 'Unknown':{sum:0,cnt:0} };
+    const visitByDay = {}, inclinicByDay = {};
+    const inclinicByHour = Array(24).fill(0); let hourUnknown = 0;
+    const natCount = {}, genderCount = {};
+
+    for (const r of filtered){
+      if (r.__VisitDate){ visitByDay[r.__VisitDate] = (visitByDay[r.__VisitDate]||0) + 1; }
+      if (r.__InClinic){ inclinicByDay[r.__InClinic] = (inclinicByDay[r.__InClinic]||0) + 1; }
+      if (r.__InClinicDT instanceof Date && !isNaN(r.__InClinicDT.getTime())){
+        inclinicByHour[r.__InClinicDT.getHours()] += 1;
+      } else hourUnknown += 1;
+
+      natCount[r.__Nat] = (natCount[r.__Nat]||0) + 1;
+      genderCount[r.__Gender] = (genderCount[r.__Gender]||0) + 1;
+
+      if (!hasValue(r.__AssignNurse)) continue;
+      const nurse = r.__NurseName;
+      if (!map[nurse]){
+        map[nurse] = {
+          cases:0, seenSum:0, seenCnt:0, acuityScore:0,
+          ctas:{'1':0,'2':0,'3':0,'4':0,'5':0,'Unknown':0},
+          seenByCTAS:{'1':{sum:0,cnt:0},'2':{sum:0,cnt:0},'3':{sum:0,cnt:0},'4':{sum:0,cnt:0},'5':{sum:0,cnt:0},'Unknown':{sum:0,cnt:0}}
+        };
+      }
+      map[nurse].cases += 1;
+      const k = ctasKey(r.__AcuityType);
+      map[nurse].ctas[k] = (map[nurse].ctas[k]||0) + 1;
+      map[nurse].acuityScore += CTAS_WEIGHT[k] || 0;
+      if (r.__Seen !== null){
+        map[nurse].seenSum += r.__Seen; map[nurse].seenCnt += 1;
+        map[nurse].seenByCTAS[k].sum += r.__Seen; map[nurse].seenByCTAS[k].cnt += 1;
+        globalAvgSeen[k].sum += r.__Seen; globalAvgSeen[k].cnt += 1;
+      }
+    }
+
+    // استبعاد “غير محدد”
+    delete map['غير محدد'];
+    perNurse = map;
+
+    // ذروة اليوم (3 ساعات الأعلى إجمالًا)
+    const peaks = topHoursAllDay(inclinicByHour, 3);
+    kPeakHours.textContent = peaks.length ? peaks.map(h => `${h}:00`).join(' , ') : '—';
+
+    // أقل إنتاجية
+    const low = lowestPerformance(perNurse);
+    kLowNurse.textContent = low ? `${low.nurse} — Cases:${low.cases}, Avg:${Math.round(low.avgSeen)}` : '—';
+
+    nurses = Object.keys(perNurse).sort((a,b)=> a.localeCompare(b, 'ar'));
+    const top = nurses.map(n => ({n, c: perNurse[n].cases})).sort((a,b)=>b.c-a.c)[0];
+    kTopNurse.textContent = top ? `${top.n} (${top.c})` : '—';
+
+    GLOBAL_AVG_SEEN_CTAS = globalAvgSeen;
+    VISIT_BY_DAY = visitByDay; INCLINIC_BY_DAY = inclinicByDay;
+    INCLINIC_BY_HOUR = { hours: inclinicByHour, unknown: hourUnknown };
+    NAT_COUNT = natCount; GENDER_COUNT = genderCount;
+
+    const vd = Object.keys(VISIT_BY_DAY||{}).sort();
+    visitMinEl.textContent = vd[0] || '—';
+    visitMaxEl.textContent = vd[vd.length-1] || '—';
+    visitCountEl.textContent = vd.reduce((s,d)=> s + (VISIT_BY_DAY[d]||0), 0);
+
+    nurseSelect.innerHTML = `<option value="__ALL__">${CUR_LANG==='ar'?'جميع الممرضين':'All Nurses'}</option>` + nurses.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+
+    renderRank(); renderTable(); renderCharts();
+    $('exportChartsBtn').disabled = !(nurseBar || ctasStack);
+  }
+
+  function lowestPerformance(map){
+    const arr = Object.keys(map).map(n => {
+      const it = map[n]; const avg = it.seenCnt ? (it.seenSum/it.seenCnt) : Infinity;
+      return { nurse:n, cases:it.cases, avgSeen:avg };
+    });
+    if (!arr.length) return null;
+    arr.sort((a,b)=> (a.cases - b.cases) || (b.avgSeen - a.avgSeen)); // أقل حالات ثم أعلى متوسط
+    return arr[0];
+  }
+  function topHoursAllDay(hourCounts, take=3){
+    const arr = Array.from({length:24}, (_,h)=>({h, c: hourCounts[h]||0}));
+    arr.sort((a,b)=> b.c - a.c);
+    return arr.slice(0, take).map(x=>x.h);
+  }
+
+  /* ===================== الجداول ===================== */
+  function renderRank(){
+    rankBody.innerHTML = '';
+    const items = Object.keys(perNurse).map(n => {
+      const it = perNurse[n];
+      const avg = it.seenCnt ? (it.seenSum/it.seenCnt) : 0;
+      return { nurse:n, cases:it.cases, avgSeen:avg, score:it.acuityScore, ctas:it.ctas };
+    }).sort((a,b)=> (b.cases - a.cases) || (b.score - a.score) || (a.avgSeen - b.avgSeen));
+
+    let rank = 1; const frag = document.createDocumentFragment();
+    for (const it of items){
+      const tr = document.createElement('tr'); tr.className = 'border-b border-slate-600/30 hover:bg-white/5';
+      const td = (v)=> `<td class="p-2">${v}</td>`;
+      tr.innerHTML = [
+        td(rank++), td(escapeHtml(it.nurse)), td(it.cases), td(it.score), td(Math.round(it.avgSeen)),
+        td(`<span class="ctas-badge ctas-1">${it.ctas['1']||0}</span>`),
+        td(`<span class="ctas-badge ctas-2">${it.ctas['2']||0}</span>`),
+        td(`<span class="ctas-badge ctas-3">${it.ctas['3']||0}</span>`),
+        td(`<span class="ctas-badge ctas-4">${it.ctas['4']||0}</span>`),
+        td(`<span class="ctas-badge ctas-5">${it.ctas['5']||0}</span>`),
+        td(`<span class="ctas-badge ctas-u">${it.ctas['Unknown']||0}</span>`)
+      ].join('');
+      frag.appendChild(tr);
+    }
+    rankBody.appendChild(frag);
+  }
+  function renderTable(){
+    rowsBody.innerHTML = '';
+    const selected = nurseSelect.value || '__ALL__';
+    const list = filtered.filter(r => selected==='__ALL__' ? true : r.__NurseName===selected).slice(0,300);
+    const frag = document.createDocumentFragment();
+    for (const r of list){
+      const tr = document.createElement('tr'); tr.className = 'border-b border-slate-600/30 hover:bg-white/5';
+      tr.innerHTML = [ r.__PatientCode, r.__Patient, r.__NurseName, r.__AcuityType, r.__AcuityName, r.__AssignNurse, r[COL.NurseSeen] ]
+        .map(v=> `<td class="p-2">${escapeHtml(v)}</td>`).join('');
+      frag.appendChild(tr);
+    }
+    rowsBody.appendChild(frag);
+  }
+
+  /* ===================== الرسوم ===================== */
+  function renderCharts(){
+    destroyCharts();
+
+    const labels = Object.keys(perNurse).sort((a,b)=> a.localeCompare(b, 'ar'));
+    const values = labels.map(n => perNurse[n].cases);
+    nurseBar = new Chart($('nurseBar').getContext('2d'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label:(CUR_LANG==='ar'?'حالات مُسنّدة':'Assigned Cases'), data: values, backgroundColor:'#60a5fa' }] },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } },
+        onClick: (_, els)=>{ if(!els.length) return; const i=els[0].index; openNurseModal(labels[i]); },
+        scales:{ x:{ ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.15)'} },
+                y:{ beginAtZero:true, ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.15)'} } }
+      }
+    });
+
+    const order = ['1','2','3','4','5','Unknown'];
+    const datasets = order.map(k => ({
+      label: (k==='Unknown' ? 'CTAS ?' : `CTAS ${k}`),
+      data: labels.map(n => perNurse[n].ctas[k] || 0),
+      backgroundColor: CTAS_COLORS[k]
+    }));
+    ctasStack = new Chart($('ctasStack').getContext('2d'), {
+      type:'bar', data:{ labels, datasets },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#c7d2fe' } } },
+        scales:{ x:{ stacked:true, ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.15)'} },
+                 y:{ stacked:true, beginAtZero:true, ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.15)'} } } }
+    });
+
+    // Top per CTAS
+    const best = topPerCTASData(perNurse);
+    topPerCTAS = new Chart($('topPerCTAS').getContext('2d'), {
+      type:'bar',
+      data:{ labels: ['CTAS 1','CTAS 2','CTAS 3','CTAS 4','CTAS 5'],
+             datasets:[{ data: [1,2,3,4,5].map(k=> best[k]?.count || 0), backgroundColor: [1,2,3,4,5].map(k=>CTAS_COLORS[String(k)]) }]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false },
+          tooltip:{ callbacks:{ afterLabel:(ctx)=> (best[ctx.dataIndex+1]?.nurse ? `\n${best[ctx.dataIndex+1].nurse}`:'' ) } } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'} }, y:{ beginAtZero:true, ticks:{color:'#c7d2fe'} } }
+      }
+    });
+    drawBarTopLabels(topPerCTAS, [1,2,3,4,5].map(k=>best[k]?.nurse || ''));
+
+    // VisitDate trend
+    const days = Object.keys(VISIT_BY_DAY||{}).sort();
+    visitTrend = new Chart($('visitTrend').getContext('2d'), {
+      type:'line', data:{ labels: days, datasets:[{ label:(CUR_LANG==='ar'?'الزيارات/اليوم':'Visits/day'), data: days.map(d=>VISIT_BY_DAY[d]||0) }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        elements:{ line:{ tension:.3 } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.12)'} },
+                 y:{ beginAtZero:true, ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.12)'} } } }
+    });
+
+    // In-clinic trend
+    const days2 = Object.keys(INCLINIC_BY_DAY||{}).sort();
+    inclinicTrend = new Chart($('inclinicTrend').getContext('2d'), {
+      type:'line', data:{ labels: days2, datasets:[{ label:'In-clinic/day', data: days2.map(d=>INCLINIC_BY_DAY[d]||0) }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        elements:{ line:{ tension:.3 } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.12)'} },
+                 y:{ beginAtZero:true, ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.12)'} } } }
+    });
+
+    // Hourly distribution + خطوط الصلوات لمكة
+    const hourCounts = (INCLINIC_BY_HOUR?.hours) || Array(24).fill(0);
+    const unknownCnt = INCLINIC_BY_HOUR?.unknown || 0;
+    const annotations = buildPrayerAnnotations(PRAYERS);
+    inclinicHourly = new Chart($('inclinicHourly').getContext('2d'), {
+      type:'bar',
+      data:{ labels: Array.from({length:24}, (_,h)=> `${h}:00`), datasets:[{ label:(CUR_LANG==='ar'?'عدد الحالات/ساعة':'Cases/hour'), data: hourCounts, backgroundColor:'#93c5fd' }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false }, title:{ display:true, text: (CUR_LANG==='ar'?`غير محدد (بدون وقت): ${unknownCnt}`:`Unknown time: ${unknownCnt}`) },
+          annotation: { annotations } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'} }, y:{ beginAtZero:true, ticks:{color:'#c7d2fe'} } }
+      }
+    });
+
+    // Avg Seen by CTAS
+    const g = GLOBAL_AVG_SEEN_CTAS || {}; const ord = ['1','2','3','4','5','Unknown'];
+    const ctasLab = ord.map(k => k==='Unknown' ? 'CTAS ?' : `CTAS ${k}`);
+    const avgVals = ord.map(k => { const o = g[k]||{sum:0,cnt:0}; return o.cnt? (o.sum/o.cnt) : 0; });
+    avgSeenByCTAS = new Chart($('avgSeenByCTAS').getContext('2d'), {
+      type:'bar', data:{ labels: ctasLab, datasets:[{ label:(CUR_LANG==='ar'?'متوسط زمن الرؤية (د)':'Avg Seen (min)'), data: avgVals, backgroundColor: ord.map(k=>CTAS_COLORS[k]) }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.12)'} },
+                 y:{ beginAtZero:true, ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.12)'} } } }
+    });
+    document.getElementById('avgSeenTableBody').innerHTML = ord.map(k=>{
+      const o = g[k]||{sum:0,cnt:0}; const label = (k==='Unknown' ? 'CTAS ?' : `CTAS ${k}`);
+      const avg = o.cnt ? Math.round(o.sum/o.cnt) : 0;
+      return `<tr class="border-b border-slate-600/30"><td class="p-2">${label}</td><td class="p-2">${avg}</td><td class="p-2">${o.cnt}</td></tr>`;
+    }).join('');
+
+    // Nationality / Gender
+    const nc = Object.entries(NAT_COUNT||{}).sort((a,b)=> b[1]-a[1]).slice(0,12);
+    nationalityTop = new Chart($('nationalityTop').getContext('2d'), {
+      type:'bar', data:{ labels: nc.map(x=>x[0]), datasets:[{ label:(CUR_LANG==='ar'?'عدد الحالات':'Cases'), data:nc.map(x=>x[1]), backgroundColor:'#38bdf8' }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'} }, y:{ beginAtZero:true, ticks:{color:'#c7d2fe'} } } }
+    });
+    const gn = Object.entries(GENDER_COUNT||{}).sort((a,b)=> b[1]-a[1]);
+    genderDist = new Chart($('genderDist').getContext('2d'), {
+      type:'bar', data:{ labels: gn.map(x=>x[0]), datasets:[{ label:(CUR_LANG==='ar'?'عدد الحالات':'Cases'), data:gn.map(x=>x[1]), backgroundColor:'#a78bfa' }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'} }, y:{ beginAtZero:true, ticks:{color:'#c7d2fe'} } } }
+    });
+  }
+
+  function buildPrayerAnnotations(prayers){
+    const anns = {};
+    const names = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
+    prayers.forEach((h,i)=>{
+      anns['p'+i] = {
+        type:'line', xMin: h-0.5, xMax: h-0.5, yMin:0, yMax:'100%',
+        borderColor:'rgba(14,165,233,0.9)', borderWidth:2, borderDash:[4,4],
+        label:{ enabled:true, backgroundColor:'rgba(14,165,233,0.15)', color:'#bae6fd', position:'start',
+          content: names[i] }
+      };
+    });
+    return anns;
+  }
+
+  function topPerCTASData(map){
+    const best = {1:null,2:null,3:null,4:null,5:null};
+    for (const [n, it] of Object.entries(map)){
+      for (let k=1;k<=5;k++){
+        const c = it.ctas[String(k)] || 0;
+        if (!best[k] || c > best[k].count) best[k] = { nurse:n, count:c };
+      }
+    }
+    return best;
+  }
+  function drawBarTopLabels(chart, labels){
+    chart.options.animation = false; chart.update();
+    setTimeout(()=> {
+      const ctx = chart.ctx; ctx.save(); ctx.fillStyle = '#c7d2fe'; ctx.textAlign = 'center'; ctx.font = '12px Cairo, sans-serif';
+      chart.getDatasetMeta(0).data.forEach((bar, i)=>{ const {x, y} = bar.tooltipPosition(); const name = labels[i] || ''; if (name) ctx.fillText(name, x, y - 14); });
+      ctx.restore();
+    }, 0);
+  }
+
+  function openNurseModal(nurse){
+    $('modalTitle').textContent = (CUR_LANG==='ar'?'تفاصيل الممرض: ':'Nurse Details: ') + nurse;
+    $('nurseRowsBody').innerHTML = '';
+    const rows = filtered.filter(r => r.__NurseName === nurse && hasValue(r.__AssignNurse));
+    const frag = document.createDocumentFragment();
+    rows.slice(0,400).forEach(r => {
+      const tr = document.createElement('tr'); tr.className = 'border-b border-slate-600/30 hover:bg-white/5';
+      tr.innerHTML = [ r.__Patient, r.__AcuityType || 'Unknown', r.__AssignNurse || '—', (r.__Seen ?? '—') ].map(v => `<td class="p-2">${escapeHtml(v)}</td>`).join('');
+      frag.appendChild(tr);
+    });
+    $('nurseRowsBody').appendChild(frag);
+
+    if (nurseCTAS) nurseCTAS.destroy();
+    const map = perNurse[nurse]?.ctas || {}; const order = ['1','2','3','4','5','Unknown'];
+    nurseCTAS = new Chart($('nurseCTAS').getContext('2d'), {
+      type: 'bar',
+      data: { labels: order.map(k => k==='Unknown' ? 'CTAS ?' : `CTAS ${k}`),
+              datasets: [{ data: order.map(k => map[k]||0), backgroundColor: order.map(k => CTAS_COLORS[k]) }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        scales:{ x:{ ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.15)'} },
+                y:{ beginAtZero:true, ticks:{color:'#c7d2fe'}, grid:{color:'rgba(148,163,184,.15)'} } }
+      }
+    });
+
+    const seenBy = perNurse[nurse]?.seenByCTAS || {};
+    const tips = ['1','2','3','4','5','Unknown'].map(k=>{
+      const o = seenBy[k]||{sum:0,cnt:0}; const avg = o.cnt? Math.round(o.sum/o.cnt) : 0;
+      return `${k==='Unknown'?'?':k}:${avg}`;
+    }).join(' | ');
+    $('modalTitle').title = `Avg Seen per CTAS → ${tips}`;
+
+    const modal = document.getElementById('nurseModal');
+    modal.dataset.currentNurse = nurse; modal.classList.add('show');
+  }
+
+  /* ===================== تصدير ===================== */
+  function exportAllExcel(){
+    const per = [['NurseName','Cases','AcuityScore','AvgSeen(min)','CTAS1','CTAS2','CTAS3','CTAS4','CTAS5','Unknown']];
+    const ns = Object.keys(perNurse).sort((a,b)=> a.localeCompare(b, 'ar'));
+    ns.forEach(n => {
+      const it = perNurse[n]; const avg = it.seenCnt ? Math.round(it.seenSum/it.seenCnt) : 0;
+      per.push([n, it.cases, it.acuityScore, avg, it.ctas['1']||0,it.ctas['2']||0,it.ctas['3']||0,it.ctas['4']||0,it.ctas['5']||0,it.ctas['Unknown']||0]);
+    });
+
+    const detHeader = ['PatientCode','PatientName','NurseName','CTAS','AcuityName','AssignNurse Date','Nurse SeenTime (min)','VisitDate','InClinicDate','Gender','Nationality'];
+    const detRows = filtered.map(r => [r.__PatientCode, r.__Patient, r.__NurseName, r.__AcuityType, r.__AcuityName, r.__AssignNurse, r[COL.NurseSeen] ?? '', r.__VisitDate, r.__InClinic, r.__Gender, r.__Nat]);
+
+    const unHeader = ['PatientCode','PatientName','VisitDate','AssignNurse Date','NurseName'];
+    const unRows = unassigned.map(r => [r.__PatientCode, r.__Patient, r.__VisitDate || '', r.__AssignNurse || '', r.__NurseName]);
+
+    const avgHeader = ['CTAS','AvgSeen(min)','Count'];
+    const order = ['1','2','3','4','5','Unknown'];
+    const avgRows = order.map(k=>{
+      const o = (GLOBAL_AVG_SEEN_CTAS||{})[k]||{sum:0,cnt:0}; const avg = o.cnt? Math.round(o.sum/o.cnt) : 0;
+      return [k==='Unknown'?'?':k, avg, o.cnt];
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(per), 'Per Nurse');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([detHeader, ...detRows]), 'Details');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([unHeader, ...unRows]), 'Unassigned');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([avgHeader, ...avgRows]), 'AvgSeen_CTAS');
+
+    const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    saveAs(new Blob([out], {type:"application/octet-stream"}), `Nurses_Productivity_${stamp}.xlsx`);
+  }
+  function exportCurrentNurseExcel(){
+    const nurse = document.getElementById('nurseModal').dataset.currentNurse || '';
+    const rows = filtered.filter(r => r.__NurseName === nurse && hasValue(r.__AssignNurse));
+    const header = ['PatientCode','PatientName','CTAS','AcuityName','AssignNurse Date','Nurse SeenTime (min)','VisitDate','InClinicDate'];
+    const body = rows.map(r => [r.__PatientCode, r.__Patient, r.__AcuityType, r.__AcuityName, r.__AssignNurse, r[COL.NurseSeen] ?? '', r.__VisitDate, r.__InClinic]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...body]), nurse.slice(0,28) || 'Nurse');
+    const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    saveAs(new Blob([out], {type:"application/octet-stream"}), `Nurse_${nurse}_${stamp}.xlsx`);
+  }
+  function downloadCharts(){
+    const imgs = [];
+    if (nurseBar) imgs.push({url:nurseBar.toBase64Image(), name:'Nurse_Productivity.png'});
+    if (ctasStack) imgs.push({url:ctasStack.toBase64Image(), name:'CTAS_Stacked_Per_Nurse.png'});
+    if (topPerCTAS) imgs.push({url:topPerCTAS.toBase64Image(), name:'Top_Per_CTAS.png'});
+    if (visitTrend) imgs.push({url:visitTrend.toBase64Image(), name:'Visit_Trend.png'});
+    if (inclinicTrend) imgs.push({url:inclinicTrend.toBase64Image(), name:'InClinic_Trend.png'});
+    if (inclinicHourly) imgs.push({url:inclinicHourly.toBase64Image(), name:'InClinic_Hourly.png'});
+    if (avgSeenByCTAS) imgs.push({url:avgSeenByCTAS.toBase64Image(), name:'AvgSeen_CTAS.png'});
+    if (nationalityTop) imgs.push({url:nationalityTop.toBase64Image(), name:'Nationality_Top.png'});
+    if (genderDist) imgs.push({url:genderDist.toBase64Image(), name:'Gender_Dist.png'});
+    imgs.forEach(({url,name}) => { const a=document.createElement('a'); a.href=url; a.download=name; a.click(); });
+  }
+
+  /* ===================== حساب صلوات مكة تلقائيًا ===================== */
+  function computeMakkahPrayersForToday(){
+    const now = new Date(); // وقت المتصفح
+    PRAYERS = getPrayerHoursForDate(now); // ساعات عشرية 0..24
+    // بعد التحديث، لو في بيانات بالفعل نعيد رسم الشارت للسواتر
+    if (inclinicHourly) renderCharts();
+  }
+
+  // إحداثيات مكة + زاوية الفجر 18°، الإشاء 90 دقيقة بعد المغرب (تقريب أم القرى)
+  const MAKKAH = { lat:21.3891, lng:39.8579, tz:+3, fajrAngle:18, ishaAfterMaghribMin:90 };
+  function getPrayerHoursForDate(date){
+    const julian = toJulian(date);
+    const D = julian - 2451545.0;
+    const {decl, eqt} = sunPosition(D);
+    const noon = (12 + MAKKAH.tz) - (eqt/60) - (MAKKAH.lng/15 - 0); // تقريب بسيط
+
+    // helper
+    const HA = (lat, decl, alt) => {
+      const rad = Math.PI/180;
+      const cosH = (Math.sin(alt*rad) - Math.sin(lat*rad)*Math.sin(decl*rad)) / (Math.cos(lat*rad)*Math.cos(decl*rad));
+      if (cosH <= -1) return 180; if (cosH >= 1) return 0;
+      return Math.acos(cosH)/rad;
+    };
+
+    const lat = MAKKAH.lat;
+    // شروق/غروب: ارتفاع -0.833°
+    const hSun = 0.833;
+    const Hsr = HA(lat, decl, -hSun);
+    const sunrise = noon - Hsr/15;
+    const sunset  = noon + Hsr/15;
+
+    // Dhuhr = Solar noon
+    const dhuhr = noon;
+
+    // Asr (ظل 1 ×) — زاوية ارتفاع الشمس لظل 1 تقريبًا: compute via atan(1 + tan(|lat-decl|))
+    const rad = Math.PI/180;
+    const asrAngle = -Math.atan(1 + Math.tan(Math.abs(lat-decl)*rad))/rad; // تقريبي
+    const Hasr = HA(lat, decl, asrAngle);
+    const asr = noon + Hasr/15;
+
+    // Fajr/Isha بالزوايا
+    const Hfajr = HA(lat, decl, -MAKKAH.fajrAngle);
+    const fajr = noon - Hfajr/15;
+    const isha = (sunset + MAKKAH.ishaAfterMaghribMin/60); // 90 دقيقة بعد المغرب
+
+    // ترتيب: فجر، ظهر، عصر، مغرب، عشاء — كلها داخل 0..24
+    return [fajr, dhuhr, asr, sunset, isha].map(wrap24);
+  }
+  function wrap24(h){ let x=h; while(x<0)x+=24; while(x>=24)x-=24; return x; }
+
+  // فلكيات مبسطة
+  function toJulian(date){
+    const a = Math.floor((14-(date.getMonth()+1))/12);
+    const y = date.getFullYear()+4800-a;
+    const m = (date.getMonth()+1)+12*a-3;
+    const JDN = date.getDate() + Math.floor((153*m+2)/5) + 365*y + Math.floor(y/4) - Math.floor(y/100) + Math.floor(y/400) - 32045;
+    const dayFrac = (date.getUTCHours()*3600 + date.getUTCMinutes()*60 + date.getUTCSeconds())/86400;
+    return JDN + dayFrac;
+  }
+  function sunPosition(D){
+    const rad = Math.PI/180;
+    const g = 357.529 + 0.98560028*D;
+    const q = 280.459 + 0.98564736*D;
+    const L = q + 1.915*Math.sin(g*rad) + 0.020*Math.sin(2*g*rad);
+    const e = 23.439 - 0.00000036*D;
+    const RA = Math.atan2(Math.cos(e*rad)*Math.sin(L*rad), Math.cos(L*rad))/rad;
+    const RA_hours = (RA<0?RA+360:RA)/15;
+    const decl = Math.asin(Math.sin(e*rad)*Math.sin(L*rad))/rad;
+    const eqt = 4*(q - (RA<0?RA+360:RA)); // minutes
+    return { decl, eqt, RA_hours };
+  }
+
+})();
+
+</script>
+</html>
