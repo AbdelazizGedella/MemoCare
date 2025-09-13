@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>منصة إدارة بيانات الطوارئ — ED Data Manager</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Icons / Fonts -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Firebase compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root { --brand:#0ea5e9; }
+    body { font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; background:#0b1e3b; color:#fff; }
+    .grid-2{ display:grid; grid-template-columns: 1fr; gap:1rem; }
+    @media(min-width:1024px){ .grid-2{ grid-template-columns: 420px 1fr; } }
+    input[type="time"]{ direction:ltr; }
+    .scroll-x{ overflow-x:auto; }
+    .chip{ display:inline-flex; align-items:center; gap:.5rem; background:rgba(255,255,255,.08); color:#fff; border-radius:9999px; padding:.25rem .75rem; font-size:.875rem; }
+    .chip button{ background:transparent; border:none; cursor:pointer; font-size:.75rem; color:#fff; opacity:.8; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="sticky top-0 z-40 backdrop-blur bg-[#0b1e3bcc] border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-house-medical text-cyan-300 text-xl"></i>
+        <h1 class="text-lg lg:text-2xl font-bold">منصة إدارة بيانات الطوارئ</h1>
+        <span class="text-xs opacity-70">(Firebase Ready)</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="langToggle" class="btn btn-sm btn-outline border-cyan-400 text-cyan-300">
+          <i class="fa-solid fa-language"></i><span class="ml-2">AR</span>
+        </button>
+        <button id="exportAllBtn" class="btn btn-sm btn-accent">
+          <i class="fa-solid fa-table mr-2"></i>تصدير الكل (XLSX)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <div role="tablist" class="tabs tabs-lifted">
+      <!-- Code Blue -->
+      <input type="radio" name="tabs" role="tab" class="tab" aria-label="Code Blue" checked />
+      <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
+        <section>
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold">حالات كود بلو (Code Blue)</h2>
+            <div class="flex gap-2">
+              <button id="codeBlueExportBtn" class="btn btn-sm">
+                <i class="fa-solid fa-file-export mr-1"></i>تصدير السجلات
+              </button>
+              <button id="losExportBtn" class="btn btn-sm btn-info">
+                <i class="fa-solid fa-clock mr-1"></i>تصدير LOS
+              </button>
+            </div>
+          </div>
+
+          <!-- Analytics -->
+          <section class="space-y-4 mt-3">
+            <h3 class="text-lg font-bold">الإحصائيات</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="card bg-base-200 p-4"><canvas id="chartOutcome" height="160"></canvas></div>
+              <div class="card bg-base-200 p-4 md:col-span-2"><canvas id="chartDestination" height="160"></canvas></div>
+            </div>
+            <div class="card bg-base-200 p-4">
+              <canvas id="chartLOS" height="160"></canvas>
+            </div>
+            <div id="losStats" class="my-3"></div>
+            <div class="overflow-x-auto">
+              <table id="losTable" class="table table-sm w-full"></table>
+            </div>
+          </section>
+
+          <!-- CodeBlue Form -->
+          <form id="codeBlueForm" class="space-y-3 bg-base-200/20 p-4 rounded mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <input type="date" name="date" class="input input-bordered w-full" required>
+              <input type="text" name="mrn" placeholder="رقم الملف" class="input input-bordered w-full" required>
+              <input type="text" name="name" placeholder="الاسم" class="input input-bordered w-full" required>
+
+              <!-- الوصول/الخروج -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label class="label"><span class="label-text">وقت الوصول (24h)</span></label>
+                  <input type="time" name="arrival" class="input input-bordered w-full" step="60" style="direction:ltr">
+                </div>
+                <div>
+                  <label class="label"><span class="label-text">تاريخ الخروج</span></label>
+                  <input type="date" name="dischargeDate" class="input input-bordered w-full">
+                </div>
+                <div>
+                  <label class="label"><span class="label-text">وقت الخروج (24h)</span></label>
+                  <input type="time" name="discharge" class="input input-bordered w-full" step="60" style="direction:ltr">
+                </div>
+              </div>
+
+              <select name="outcome" class="select select-bordered w-full">
+                <option value="success">ناجح (ROSC)</option>
+                <option value="failed">غير ناجح</option>
+              </select>
+
+              <input type="text" name="destination" placeholder="الوجهة" class="input input-bordered w-full">
+
+              <select name="arrivalMethod" class="select select-bordered w-full">
+                <option value="self">Arrival Method: Self</option>
+                <option value="rca">Arrival Method: RCA</option>
+              </select>
+
+              <div class="md:col-span-2 xl:col-span-3">
+                <label class="label"><span class="label-text">مرفق النموذج (PDF/صورة)</span></label>
+                <input type="file" name="sheet" class="file-input file-input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="label"><span class="label-text">الأطباء</span></label>
+                <div class="flex gap-2">
+                  <input id="cbDocInput" type="text" class="input input-bordered flex-1" placeholder="اكتب الاسم ثم Enter">
+                  <button type="button" onclick="addChip('cbDoctors','cbDocInput')" class="btn">إضافة</button>
+                </div>
+                <div id="cbDoctors" class="flex flex-wrap gap-2 mt-2"></div>
+              </div>
+              <div>
+                <label class="label"><span class="label-text">التمريض</span></label>
+                <div class="flex gap-2">
+                  <input id="cbNurseInput" type="text" class="input input-bordered flex-1" placeholder="اكتب الاسم ثم Enter">
+                  <button type="button" onclick="addChip('cbNurses','cbNurseInput')" class="btn">إضافة</button>
+                </div>
+                <div id="cbNurses" class="flex flex-wrap gap-2 mt-2"></div>
+              </div>
+              <div>
+                <label class="label"><span class="label-text">RT</span></label>
+                <div class="flex gap-2">
+                  <input id="cbRtInput" type="text" class="input input-bordered flex-1" placeholder="اكتب الاسم ثم Enter">
+                  <button type="button" onclick="addChip('cbRT','cbRtInput')" class="btn">إضافة</button>
+                </div>
+                <div id="cbRT" class="flex flex-wrap gap-2 mt-2"></div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <label class="flex items-center gap-2">
+                <input type="checkbox" name="newEpisode" class="checkbox">
+                <span>إضافة حلقة كود جديدة لنفس المريض</span>
+              </label>
+              <button type="submit" class="btn btn-primary">حفظ</button>
+            </div>
+          </form>
+
+          <!-- Grouped by MRN -->
+          <div class="mt-6">
+            <div id="codeBlueList" class="space-y-3"></div>
+          </div>
+        </section>
+      </div>
+
+
+   <!-- Edit Modal (Transfers) -->
+<dialog id="trEditModal" class="modal">
+  <div class="modal-box w-11/12 max-w-5xl">
+    <h3 class="font-bold text-lg mb-4">تعديل سجل التحويل</h3>
+
+    <form id="trEditForm" class="space-y-4">
+      <input type="hidden" name="docId" />
+      <input type="hidden" name="prevType" />
+      <input type="hidden" name="oldAcceptPath" />
+
+      <!-- نوع التحويل -->
+      <div class="flex flex-wrap items-center gap-4">
+        <label class="label cursor-pointer">
+          <input type="radio" name="trEditType" value="internal" class="radio radio-info" checked>
+          <span class="ml-2">تحويل داخلي</span>
+        </label>
+        <label class="label cursor-pointer">
+          <input type="radio" name="trEditType" value="external" class="radio radio-info">
+          <span class="ml-2">تحويل خارجي</span>
+        </label>
+      </div>
+
+      <!-- مشترك -->
+      <div class="grid grid-cols-2 gap-3">
+        <label class="form-control">
+          <span class="label-text">رقم الملف</span>
+          <input type="text" class="input input-bordered" name="mrn">
+        </label>
+        <label class="form-control">
+          <span class="label-text">اسم المريض</span>
+          <input type="text" class="input input-bordered" name="name">
+        </label>
+      </div>
+
+      <!-- تسجيل الطوارئ -->
+      <div class="grid grid-cols-2 gap-3">
+        <label class="form-control">
+          <span class="label-text">تاريخ تسجيل الطوارئ</span>
+          <input type="date" class="input input-bordered" name="src_erRegDate">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت تسجيل الطوارئ</span>
+          <input type="time" class="input input-bordered" name="src_erRegTime" step="60">
+        </label>
+      </div>
+
+      <!-- INTERNAL -->
+      <div id="trEditInternalFields" class="grid grid-cols-2 gap-3">
+        <label class="form-control">
+          <span class="label-text">تاريخ التحويل</span>
+          <input type="date" class="input input-bordered" name="int_date">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت مغادرتنا</span>
+          <input type="time" class="input input-bordered" name="int_departTime" step="60">
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">وقت طلب الاستشارة</span>
+          <input type="time" class="input input-bordered" name="int_consultReqTime" step="60">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت رد الاستشارة</span>
+          <input type="time" class="input input-bordered" name="int_consultRespTime" step="60">
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">تاريخ الدخول للقسم الثاني</span>
+          <input type="date" class="input input-bordered" name="int_admitDate">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت الدخول للقسم الثاني</span>
+          <input type="time" class="input input-bordered" name="int_admitTime" step="60">
+        </label>
+
+        <label class="form-control col-span-2">
+          <span class="label-text">القسم الداخلي</span>
+          <input type="text" class="input input-bordered" name="internalDept">
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">الطبيب المُحيل</span>
+          <input type="text" class="input input-bordered" name="int_refPhysician">
+        </label>
+        <label class="form-control">
+          <span class="label-text">تمريضنا</span>
+          <input type="text" class="input input-bordered" name="int_sourceNurse">
+        </label>
+        <label class="form-control">
+          <span class="label-text">الاستقبال (القسم الثاني)</span>
+          <input type="text" class="input input-bordered" name="int_recvReception">
+        </label>
+        <label class="form-control">
+          <span class="label-text">طبيب القسم الثاني</span>
+          <input type="text" class="input input-bordered" name="int_recvPhysician">
+        </label>
+        <label class="form-control">
+          <span class="label-text">تمريض القسم الثاني</span>
+          <input type="text" class="input input-bordered" name="int_recvNurse">
+        </label>
+      </div>
+
+      <!-- EXTERNAL -->
+      <div id="trEditExternalFields" class="grid grid-cols-2 gap-3 hidden">
+        <label class="form-control col-span-2">
+          <span class="label-text">المستشفى القابل</span>
+          <input type="text" class="input input-bordered" name="ext_recvHospital">
+        </label>
+        <label class="form-control">
+          <span class="label-text">القسم هناك</span>
+          <input type="text" class="input input-bordered" name="ext_recvDept">
+        </label>
+        <label class="form-control">
+          <span class="label-text">رقم الملف هناك</span>
+          <input type="text" class="input input-bordered" name="ext_recvMrn">
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">تاريخ المغادرة</span>
+          <input type="date" class="input input-bordered" name="ext_departDate">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت المغادرة</span>
+          <input type="time" class="input input-bordered" name="ext_departTime" step="60">
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">تاريخ الوصول</span>
+          <input type="date" class="input input-bordered" name="ext_arriveAcceptDate">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت الوصول</span>
+          <input type="time" class="input input-bordered" name="ext_arriveAcceptTime" step="60">
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">تاريخ الدخول (هناك)</span>
+          <input type="date" class="input input-bordered" name="ext_admitDate">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت الدخول (هناك)</span>
+          <input type="time" class="input input-bordered" name="ext_admitTime" step="60">
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">تاريخ العودة</span>
+          <input type="date" class="input input-bordered" name="ext_arriveBackDate">
+        </label>
+        <label class="form-control">
+          <span class="label-text">وقت العودة</span>
+          <input type="time" class="input input-bordered" name="ext_arriveBackTime" step="60">
+        </label>
+
+        <div class="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <div class="label"><span class="label-text">ورقة القبول الحالية</span></div>
+            <div id="trCurrentAcceptLink" class="opacity-90"></div>
+          </div>
+          <label class="form-control">
+            <span class="label-text">استبدال ورقة القبول (اختياري)</span>
+            <input type="file" class="file-input file-input-bordered w-full" name="ext_acceptPaper" accept=".pdf,.jpg,.jpeg,.png">
+          </label>
+        </div>
+      </div>
+
+      <label class="form-control">
+        <span class="label-text">سبب التحويل</span>
+        <textarea class="textarea textarea-bordered" name="reason" rows="2"></textarea>
+      </label>
+    </form>
+
+    <div class="modal-action">
+      <button id="trEditSaveBtn" class="btn btn-primary">حفظ التعديلات</button>
+      <form method="dialog"><button class="btn">إغلاق</button></form>
+    </div>
+  </div>
+</dialog>
+
+
+
+      <!-- Mortality -->
+      <input type="radio" name="tabs" role="tab" class="tab" aria-label="Mortality" />
+      <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
+        <section id="mortalitySection" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold">سجل الوفيات (Mortality)</h2>
+            <button class="btn btn-sm btn-accent" onclick="exportTable('mortalityTable','Mortality.xlsx')">
+              <i class="fa-solid fa-file-export mr-2"></i>تصدير XLSX
+            </button>
+          </div>
+
+          <div class="grid-2">
+            <form id="mortalityForm" class="space-y-3 bg-base-200/40 p-4 rounded-2xl">
+              <label class="form-control">
+                <span class="label-text">اسم المتوفى</span>
+                <input required type="text" class="input input-bordered" name="name">
+              </label>
+              <label class="form-control">
+                <span class="label-text">رقم الملف</span>
+                <input type="text" class="input input-bordered" name="mrn">
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="form-control">
+                  <span class="label-text">تاريخ الوفاة</span>
+                  <input required type="date" class="input input-bordered" name="date">
+                </label>
+                <label class="form-control">
+                  <span class="label-text">وقت الوفاة</span>
+                  <input type="time" class="input input-bordered" name="time" step="60">
+                </label>
+              </div>
+              <label class="form-control">
+                <span class="label-text">الممرض/ـة المكلف/ـة</span>
+                <input type="text" class="input input-bordered" name="nurse">
+              </label>
+              <div class="text-right">
+                <button class="btn btn-primary" type="submit">
+                  <i class="fa-solid fa-plus mr-2"></i>حفظ السجل
+                </button>
+              </div>
+            </form>
+
+            <div class="bg-base-200/40 p-3 rounded-2xl scroll-x">
+              <table id="mortalityTable" class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>الاسم</th>
+                    <th>رقم الملف</th>
+                    <th>تاريخ الوفاة</th>
+                    <th>وقت الوفاة</th>
+                    <th>الممرض/ـة المكلف/ـة</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+          </div>
+        </section>
+      </div>
+
+<!-- Transfers -->
+<input type="radio" name="tabs" role="tab" class="tab" aria-label="Transfers" />
+<div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
+  <section id="transferSection" class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold">سجل التحويلات (داخلية/خارجية)</h2>
+      <button class="btn btn-sm btn-accent" onclick="exportTable('transferTable','Transfers.xlsx')">
+        <i class="fa-solid fa-file-export mr-2"></i>تصدير XLSX
+      </button>
+    </div>
+
+    <div class="grid-2">
+      <!-- ========== FORM ========== -->
+      <form id="transferForm" class="space-y-3 bg-base-200/40 p-4 rounded-2xl">
+        <div class="flex flex-wrap items-center gap-4">
+          <label class="label cursor-pointer">
+            <input type="radio" name="trType" value="internal" class="radio radio-info" checked>
+            <span class="ml-2">تحويل داخلي</span>
+          </label>
+          <label class="label cursor-pointer">
+            <input type="radio" name="trType" value="external" class="radio radio-info">
+            <span class="ml-2">تحويل خارجي</span>
+          </label>
+        </div>
+
+        <!-- مشترك -->
+        <div class="grid grid-cols-2 gap-3">
+          <label class="form-control col-span-2 lg:col-span-1">
+            <span class="label-text">رقم الملف (مستشفانا)</span>
+            <input required type="text" class="input input-bordered" name="mrn">
+          </label>
+          <label class="form-control col-span-2 lg:col-span-1">
+            <span class="label-text">اسم المريض</span>
+            <input required type="text" class="input input-bordered" name="name">
+          </label>
+        </div>
+
+        <!-- تسجيل الطوارئ (مشترك) -->
+        <div class="grid grid-cols-2 gap-3">
+          <label class="form-control">
+            <span class="label-text">تاريخ تسجيل الحالة بالطوارئ</span>
+            <input type="date" class="input input-bordered" name="src_erRegDate">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت تسجيل الحالة بالطوارئ</span>
+            <input type="time" class="input input-bordered" name="src_erRegTime" step="60">
+          </label>
+        </div>
+
+        <!-- INTERNAL ONLY -->
+        <div id="internalFields" class="grid grid-cols-2 gap-3">
+          <label class="form-control">
+            <span class="label-text">تاريخ التحويل (الداخلي)</span>
+            <input type="date" class="input input-bordered" name="int_date">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت مغادرة مستشفانا</span>
+            <input type="time" class="input input-bordered" name="int_departTime" step="60">
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">وقت طلب الاستشارة</span>
+            <input type="time" class="input input-bordered" name="int_consultReqTime" step="60">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت رد الاستشارة</span>
+            <input type="time" class="input input-bordered" name="int_consultRespTime" step="60">
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">تاريخ الدخول للقسم الثاني</span>
+            <input type="date" class="input input-bordered" name="int_admitDate">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت الدخول للقسم الثاني</span>
+            <input type="time" class="input input-bordered" name="int_admitTime" step="60">
+          </label>
+
+          <label class="form-control col-span-2">
+            <span class="label-text">القسم (داخل مستشفانا)</span>
+            <input type="text" class="input input-bordered" name="internalDept" placeholder="ICU / Ward / OR...">
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">الطبيب المُحيل</span>
+            <input type="text" class="input input-bordered" name="int_refPhysician">
+          </label>
+          <label class="form-control">
+            <span class="label-text">التمريض (من قسمنا)</span>
+            <input type="text" class="input input-bordered" name="int_sourceNurse">
+          </label>
+          <label class="form-control">
+            <span class="label-text">الاستقبال (القسم الثاني)</span>
+            <input type="text" class="input input-bordered" name="int_recvReception">
+          </label>
+          <label class="form-control">
+            <span class="label-text">طبيب القسم الثاني</span>
+            <input type="text" class="input input-bordered" name="int_recvPhysician">
+          </label>
+          <label class="form-control">
+            <span class="label-text">تمريض القسم الثاني</span>
+            <input type="text" class="input input-bordered" name="int_recvNurse">
+          </label>
+        </div>
+
+        <!-- EXTERNAL ONLY -->
+        <div id="externalFields" class="grid grid-cols-2 gap-3 hidden">
+          <label class="form-control col-span-2">
+            <span class="label-text">المستشفى القابل</span>
+            <input type="text" class="input input-bordered" name="ext_recvHospital" placeholder="اسم المستشفى">
+          </label>
+          <label class="form-control">
+            <span class="label-text">القسم بالمستشفى القابل</span>
+            <input type="text" class="input input-bordered" name="ext_recvDept" placeholder="ICU / ER / Ward...">
+          </label>
+          <label class="form-control">
+            <span class="label-text">رقم الملف بالمستشفى القابل</span>
+            <input type="text" class="input input-bordered" name="ext_recvMrn">
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">تاريخ مغادرة مستشفانا</span>
+            <input type="date" class="input input-bordered" name="ext_departDate">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت مغادرة مستشفانا</span>
+            <input type="time" class="input input-bordered" name="ext_departTime" step="60">
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">تاريخ الوصول للمستشفى القابِل</span>
+            <input type="date" class="input input-bordered" name="ext_arriveAcceptDate">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت الوصول للمستشفى القابِل</span>
+            <input type="time" class="input input-bordered" name="ext_arriveAcceptTime" step="60">
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">تاريخ الدخول بالمستشفى القابِل</span>
+            <input type="date" class="input input-bordered" name="ext_admitDate">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت الدخول بالمستشفى القابِل</span>
+            <input type="time" class="input input-bordered" name="ext_admitTime" step="60">
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">تاريخ العودة لمستشفانا</span>
+            <input type="date" class="input input-bordered" name="ext_arriveBackDate">
+          </label>
+          <label class="form-control">
+            <span class="label-text">وقت العودة لمستشفانا</span>
+            <input type="time" class="input input-bordered" name="ext_arriveBackTime" step="60">
+          </label>
+
+          <label class="form-control col-span-2">
+            <span class="label-text">ورقة القبول (PDF/صورة)</span>
+            <input type="file" class="file-input file-input-bordered w-full" name="ext_acceptPaper" accept=".pdf,.jpg,.jpeg,.png">
+          </label>
+        </div>
+
+        <label class="form-control">
+          <span class="label-text">سبب التحويل</span>
+          <textarea class="textarea textarea-bordered" name="reason" rows="2"></textarea>
+        </label>
+
+        <div class="text-right">
+          <button class="btn btn-primary" type="submit">
+            <i class="fa-solid fa-plus mr-2"></i>حفظ السجل
+          </button>
+        </div>
+      </form>
+
+      <!-- ========== ANALYTICS + TABLE ========== -->
+      <div class="bg-base-200/40 p-3 rounded-2xl scroll-x space-y-4">
+        <!-- Internal KPIs -->
+        <div class="space-y-2">
+          <h3 class="font-bold">مؤشرات (التحويل الداخلي)</h3>
+          <div id="trIntStats" class="stats shadow w-full"></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="card bg-base-200 p-3"><canvas id="trIntChartConsult" height="160"></canvas></div>
+            <div class="card bg-base-200 p-3"><canvas id="trIntChartDepartAdmit" height="160"></canvas></div>
+          </div>
+          <div class="overflow-x-auto">
+            <table id="trIntKPITable" class="table table-sm w-full"></table>
+          </div>
+        </div>
+
+        <hr class="opacity-20">
+
+        <!-- External KPIs -->
+        <div class="space-y-2">
+          <h3 class="font-bold">مؤشرات (التحويل الخارجي)</h3>
+          <div id="trExtStats" class="stats shadow w-full"></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="card bg-base-200 p-3"><canvas id="trExtChartTravel" height="160"></canvas></div>
+            <div class="card bg-base-200 p-3"><canvas id="trExtChartTotal" height="160"></canvas></div>
+          </div>
+          <div class="overflow-x-auto">
+            <table id="trExtKPITable" class="table table-sm w-full"></table>
+          </div>
+        </div>
+
+        <hr class="opacity-20">
+
+        <!-- Raw Table -->
+        <table id="transferTable" class="table table-sm">
+          <thead>
+            <tr>
+              <th>النوع</th>
+              <th>ملفنا</th>
+              <th>الاسم</th>
+
+              <th>تاريخ تسجيل الطوارئ</th>
+              <th>وقت تسجيل الطوارئ</th>
+
+              <!-- داخلي -->
+              <th>تاريخ التحويل</th>
+              <th>وقت مغادرتنا</th>
+              <th>طلب الاستشارة</th>
+              <th>رد الاستشارة</th>
+              <th>تاريخ الدخول (داخلي)</th>
+              <th>وقت الدخول (داخلي)</th>
+              <th>القسم الداخلي</th>
+              <th>الطبيب المُحيل</th>
+              <th>تمريضنا</th>
+              <th>الاستقبال (القسم الثاني)</th>
+              <th>طبيب القسم الثاني</th>
+              <th>تمريض القسم الثاني</th>
+
+              <!-- خارجي -->
+              <th>المستشفى القابل</th>
+              <th>القسم هناك</th>
+              <th>تاريخ المغادرة</th>
+              <th>وقت المغادرة</th>
+              <th>تاريخ الوصول هناك</th>
+              <th>وقت الوصول هناك</th>
+              <th>تاريخ الدخول (خارجي)</th>
+              <th>وقت الدخول (خارجي)</th>
+              <th>تاريخ العودة</th>
+              <th>وقت العودة</th>
+              <th>ملف المستشفى القابل</th>
+              <th>السبب</th>
+              <th>ورقة القبول</th>
+
+              <th>تحكم</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+      </div>
+    </div>
+  </section>
+</div>
+
+      <!-- ICU -->
+      <input type="radio" name="tabs" role="tab" class="tab" aria-label="ICU Admissions" />
+      <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
+        <section id="icuSection" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold">سجل دخول العناية المركزة (ICU)</h2>
+            <button class="btn btn-sm btn-accent" onclick="exportTable('icuTable','ICU_Admissions.xlsx')">
+              <i class="fa-solid fa-file-export mr-2"></i>تصدير XLSX
+            </button>
+          </div>
+
+          <div class="grid-2">
+            <form id="icuForm" class="space-y-3 bg-base-200/40 p-4 rounded-2xl">
+              <div class="grid grid-cols-2 gap-3">
+                <label class="form-control col-span-2 lg:col-span-1">
+                  <span class="label-text">رقم الملف (مستشفانا)</span>
+                  <input required type="text" class="input input-bordered" name="mrn">
+                </label>
+                <label class="form-control col-span-2 lg:col-span-1">
+                  <span class="label-text">اسم المريض</span>
+                  <input required type="text" class="input input-bordered" name="name">
+                </label>
+                <label class="form-control">
+                  <span class="label-text">تاريخ التحويل</span>
+                  <input type="date" class="input input-bordered" name="date">
+                </label>
+                <label class="form-control">
+                  <span class="label-text">وقت مغادرة مستشفانا</span>
+                  <input type="time" class="input input-bordered" name="depart" step="60">
+                </label>
+              </div>
+              <label class="form-control">
+                <span class="label-text">سبب الدخول</span>
+                <input type="text" class="input input-bordered" name="reason">
+              </label>
+              <label class="form-control">
+                <span class="label-text">إحالة من</span>
+                <input type="text" class="input input-bordered" name="referral">
+              </label>
+              <div class="text-right">
+                <button class="btn btn-primary" type="submit">
+                  <i class="fa-solid fa-plus mr-2"></i>حفظ السجل
+                </button>
+              </div>
+            </form>
+
+            <div class="bg-base-200/40 p-3 rounded-2xl scroll-x">
+              <table id="icuTable" class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>ملفنا</th>
+                    <th>الاسم</th>
+                    <th>تاريخ التحويل</th>
+                    <th>وقت المغادرة</th>
+                    <th>سبب الدخول</th>
+                    <th>إحالة من</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Edit Modal (Code Blue) -->
+    <dialog id="editModal" class="modal">
+      <div class="modal-box w-11/12 max-w-4xl">
+        <h3 class="font-bold text-lg mb-4">تعديل سجل كود بلو</h3>
+        <form id="editForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input type="hidden" name="docId" />
+          <input type="hidden" name="oldSheetPath" />
+
+          <label class="form-control"><span class="label-text">التاريخ</span><input type="date" name="date" class="input input-bordered"></label>
+          <label class="form-control"><span class="label-text">MRN</span><input type="text" name="mrn" class="input input-bordered"></label>
+
+          <label class="form-control md:col-span-2"><span class="label-text">الاسم</span><input type="text" name="name" class="input input-bordered"></label>
+
+          <label class="form-control"><span class="label-text">وقت الوصول</span><input type="time" name="arrival" class="input input-bordered" step="60" style="direction:ltr"></label>
+          <label class="form-control"><span class="label-text">تاريخ الخروج</span><input type="date" name="dischargeDate" class="input input-bordered"></label>
+          <label class="form-control"><span class="label-text">وقت الخروج</span><input type="time" name="discharge" class="input input-bordered" step="60" style="direction:ltr"></label>
+
+          <label class="form-control">
+            <span class="label-text">النتيجة</span>
+            <select name="outcome" class="select select-bordered">
+              <option value="success">ناجح (ROSC)</option>
+              <option value="failed">غير ناجح</option>
+            </select>
+          </label>
+
+          <label class="form-control"><span class="label-text">الوجهة</span><input type="text" name="destination" class="input input-bordered"></label>
+          <label class="form-control">
+            <span class="label-text">Arrival Method</span>
+            <select name="arrivalMethod" class="select select-bordered"><option value="self">Self</option><option value="rca">RCA</option></select>
+          </label>
+
+          <label class="form-control md:col-span-2">
+            <span class="label-text">الأطباء (افصل بفواصل , أو ،)</span>
+            <textarea name="doctors" rows="2" class="textarea textarea-bordered" placeholder="مثال: د. أحمد، د. علي"></textarea>
+          </label>
+          <label class="form-control md:col-span-2">
+            <span class="label-text">التمريض (افصل بفواصل)</span>
+            <textarea name="nurses" rows="2" class="textarea textarea-bordered"></textarea>
+          </label>
+          <label class="form-control md:col-span-2">
+            <span class="label-text">RT (افصل بفواصل)</span>
+            <textarea name="rt" rows="2" class="textarea textarea-bordered"></textarea>
+          </label>
+
+          <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <div class="label"><span class="label-text">المرفق الحالي</span></div>
+              <div id="currentSheetLink" class="opacity-90"></div>
+            </div>
+            <label class="form-control">
+              <span class="label-text">استبدال المرفق (اختياري)</span>
+              <input type="file" name="sheet" class="file-input file-input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png" />
+            </label>
+          </div>
+        </form>
+        <div class="modal-action">
+          <button id="editSaveBtn" class="btn btn-primary">حفظ التعديلات</button>
+          <form method="dialog"><button class="btn">إغلاق</button></form>
+        </div>
+      </div>
+    </dialog>
+
+  </main>
+
+  <!-- Templates -->
+  <template id="chipTpl">
+    <span class="chip">
+      <i class="fa-solid fa-user-nurse"></i>
+      <span class="nm"></span>
+      <button type="button" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+    </span>
+  </template>
+
+  <!-- App scripts -->
+  <script src="js/common.js"></script>
+  <script src="js/codeblue.js"></script>
+  <script src="js/transfer.js"></script>
+</body>
+</html>
