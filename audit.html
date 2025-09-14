@@ -1,320 +1,280 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>Patient Records (Main + Free Disposables)</title>
-  <small style="color: gray;">
-  Patient Services by Doctor (Inc-Pkg) Excel<br>
-  + Disposables Consumables Quantity Deduction Services in XLSX File
-</small>
-
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>عارض الحالات — الخدمات + المستلزمات المجانية</title>
+  <meta name="color-scheme" content="dark light" />
+  <!-- SheetJS (XLS/XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { background:#0b1e3b; color:#fff; font-family:Arial, sans-serif; padding:20px; }
-    h1 { text-align:center; color:#22d3ee; margin-bottom:16px; }
-    .upload-box { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:16px; }
-    input[type=file], button { background:#1e3a8a; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
-    .hint { text-align:center; color:#93c5fd; margin-bottom:18px; }
-    .date-block { background:#1e293b; margin:15px 0; padding:12px; border-radius:12px; }
-    .date-title { font-weight:bold; color:#0ea5e9; cursor:pointer; }
-    .patient-list { display:none; margin-top:10px; }
-    .patient-card { background:#334155; border-radius:10px; padding:10px; margin:8px 0; cursor:pointer; }
-    .patient-card:hover { background:#475569; }
-    .header-line { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-    .left { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .badges { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:bold; }
-    .b-pat { background:#facc15; color:#000; }      /* 👤 */
-    .b-comp { background:#34d399; color:#000; }     /* 🏥 */
-    .b-med { background:#ec4899; color:#fff; }      /* 💊 */
-    .b-sup { background:#38bdf8; color:#000; }      /* 📦 */
-    .b-serv { background:#86efac; color:#064e3b; }  /* 🛠 */
-    .b-free { background:#f472b6; color:#fff; }     /* 🆓 */
-
-    /* ✅ بادجات المكان */
-    .b-er  { background:#f59e0b; color:#0b1e3b; }   /* ER */
-    .b-icu { background:#ef4444; color:#fff; }      /* ICU */
-    .details { display:none; margin-top:10px; }
-    h3 { margin:10px 0; color:#22d3ee; }
-    table { width:100%; border-collapse:collapse; background:#1e293b; border-radius:8px; overflow:hidden; margin-bottom:12px; }
-    th, td { border:1px solid #334155; padding:8px; font-size:13px; text-align:left; }
-    th { background:#0ea5e9; color:#fff; }
-    .export-btn { background:#0ea5e9; }
+    :root{
+      --bg:#0b1e3b; --card:#102a56; --muted:#9cb4e8; --text:#fff; --acc:#19c8a7; --chip:#13376b;
+      --shadow:0 12px 35px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:"Cairo",system-ui,sans-serif; background:linear-gradient(135deg,#0a1a3f,#0b1e3b); color:var(--text)}
+    header{position:sticky;top:0;z-index:10;backdrop-filter:blur(8px);background:linear-gradient(180deg,rgba(11,30,59,.9),rgba(11,30,59,.65));border-bottom:1px solid rgba(255,255,255,.08)}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px}
+    h1{margin:0;font-size:clamp(18px,3.2vw,26px)} .sub{color:var(--muted);font-size:13px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .field{background:var(--card);border:1px solid rgba(255,255,255,.08);padding:10px 12px;border-radius:12px;box-shadow:var(--shadow)}
+    .btn{cursor:pointer;border:none;padding:10px 14px;border-radius:12px;font-weight:700;box-shadow:var(--shadow)}
+    .btn.primary{background:linear-gradient(135deg,#19c8a7,#2f7cf0);color:#fff}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.15);color:#fff}
+    .btn.small{padding:6px 10px;border-radius:10px;font-weight:600}
+    .filters input,.filters select{appearance:none;background:var(--card);border:1px solid rgba(255,255,255,.08);color:#fff;padding:9px 12px;border-radius:12px}
+    .stats{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+    .stat-chip{background:var(--chip);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.08)}
+    main{max-width:1200px;margin:26px auto 100px;padding:0 18px}
+    .date-group{margin-bottom:24px}
+    .date-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:14px;cursor:pointer}
+    .date-hd h2{margin:0;font-size:18px}
+    .patients{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:12px}
+    .card{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+    .card .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .name{font-weight:800;font-size:16px}.medno{color:var(--muted);font-size:12px}.icons{display:flex;gap:6px;font-size:20px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chip{background:var(--chip);border:1px solid rgba(255,255,255,.08);padding:4px 8px;border-radius:999px;font-size:12px;color:#dbe7ff}
+    table{width:100%;border-collapse:collapse;margin-top:10px;background:rgba(0,0,0,.12);border-radius:12px;overflow:hidden}
+    thead th{position:sticky;top:0;background:rgba(255,255,255,.06);font-size:12px;text-align:right;padding:8px;color:#cfe0ff}
+    tbody td{padding:8px;border-top:1px dashed rgba(255,255,255,.08);font-size:13px}
+    .muted{color:var(--muted)} .pill{padding:3px 7px;border-radius:999px;font-size:11px;border:1px solid rgba(255,255,255,.12)}
+    .loader{display:none;gap:10px;align-items:center;color:var(--muted)} .loader.spin .dot{width:8px;height:8px;border-radius:50%;background:var(--acc);animation:b 1s infinite alternate} .loader.spin .dot:nth-child(2){animation-delay:.15s} .loader.spin .dot:nth-child(3){animation-delay:.3s} @keyframes b{to{transform:translateY(-4px);opacity:.6}}
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:50}
+    .modal.show{display:flex}
+    .modal .box{width:min(1000px,95vw);max-height:80vh;overflow:auto;background:var(--card);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:var(--shadow);padding:14px}
+    .modal .hd{display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:0;background:linear-gradient(180deg,rgba(16,42,86,.98),rgba(16,42,86,.9));border-bottom:1px solid rgba(255,255,255,.08);padding:10px 6px;z-index:2}
+    .section{margin:12px 0} .section h3{margin:.2rem 0 .4rem;font-size:15px}
+    .modal .ft{display:flex;gap:8px;justify-content:flex-start;padding:8px 0}
+    .date-hd .chev{transition:transform .2s ease} .date-group.open .chev{transform:rotate(90deg)}
   </style>
 </head>
 <body>
-  <h1>Patient Records</h1>
+  <header>
+    <div class="wrap">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:14px">
+        <div>
+          <h1>عارض الحالات — الخدمات + المستلزمات المجانية</h1>
+          <div class="sub">تحميل ملف الخدمات (XLS) + ملف المستلزمات المجانية (XLSX) ← العرض مُرتّب حسب التاريخ من ملف الخدمات. صيغة التاريخ المعروضة دائمًا: <b>DD-MM-YYYY</b>.</div>
+        </div>
+        <div class="loader" id="loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span> <span>جارٍ التحليل…</span></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label class="field">الملف (1): Patient Services by Doctor (Inc-Pkg) Excel.xls<br><input id="fileMain" type="file" accept=".xls,.xlsx"/></label>
+        <label class="field">الملف (2): Disposables Consumables Quantity Deduction (XLSX)<br><input id="fileFree" type="file" accept=".xlsx,.xls"/></label>
+        <button class="btn primary" id="btnParse">تحليل وعرض</button>
+        <button class="btn ghost" id="btnReset" title="مسح النتائج وإعادة التحميل">مسح</button>
+        <button class="btn ghost" id="btnExportView" title="تصدير النتائج الظاهرة إلى Excel">تصدير النتائج الظاهرة (Excel)</button>
+      </div>
+      <div class="filters" style="margin-top:10px">
+        <input id="q" type="search" placeholder="بحث بالاسم أو رقم الملف"/>
+        <label>من <input id="from" type="date"></label>
+        <label>إلى <input id="to" type="date"></label>
+        <select id="sort"><option value="desc">ترتيب التاريخ: الأحدث أولاً</option><option value="asc">ترتيب التاريخ: الأقدم أولاً</option></select>
+        <button class="btn small ghost" id="applyFilters">تطبيق الفلاتر</button>
+      </div>
+      <div class="stats" style="margin-top:10px">
+        <span class="stat-chip" id="statDates">عدد الأيام: —</span>
+        <span class="stat-chip" id="statPatients">إجمالي البطاقات: —</span>
+        <span class="stat-chip" id="statFree">صفوف FREE المقروءة: —</span>
+      </div>
+    </div>
+  </header>
+  <main id="app"></main>
 
-  <div class="upload-box">
-    <label><input type="file" id="fileMain" accept=".xls,.xlsx" /></label>
-    <label><input type="file" id="fileFree" accept=".xls,.xlsx" /></label>
-    <button id="btnRender">Render</button>
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="box" role="dialog" aria-modal="true">
+      <div class="hd">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div id="modalTitle" class="name">—</div>
+          <div id="modalSub" class="medno muted">—</div>
+        </div>
+        <div class="ft">
+          <button class="btn small ghost" id="btnModalExport">تحميل (Excel)</button>
+          <button class="btn small" style="background:transparent;border:1px solid rgba(255,255,255,.25);color:#fff" id="btnModalClose">إغلاق ✕</button>
+        </div>
+      </div>
+      <div id="modalBody"></div>
+    </div>
   </div>
 
-  <div class="hint">ارفع ملف الخدمات/الكاش أولاً، ثم ملف <strong>Free Disposables</strong> (اختياري) → اضغط Render</div>
+  <div class="wrap muted" style="opacity:.8;margin-bottom:24px">❗️العرض يعتمد على <b>ملف الخدمات</b> كأساس للتجميع حسب التاريخ والمريض. لا ننشئ بطاقات "Free فقط" لتواريخ بدون خدمات، لكن نعرض كل مستلزمات المريض المجانية (نفس اليوم + تواريخ أخرى) داخل تفاصيل الحالة.</div>
 
-  <div id="records"></div>
+<script>
+const $$ = sel => document.querySelector(sel);
+const pad2 = n => (n<10? '0'+n: ''+n);
+const toDDMMYYYY = (d) => `${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${d.getFullYear()}`;
+const fromInputDate = (str) => { if(!str) return null; const [y,m,d]=str.split('-').map(Number); return new Date(y,(m||1)-1,d||1); };
+const norm = (s) => (s==null? '': String(s).replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim().toLowerCase());
+const cleanStr = (s) => (s==null? '': String(s).trim());
 
-  <script>
-    // ---------- Helpers ----------
-    const normKey = k => (k||"").toString().toLowerCase().replace(/\s+/g,"").replace(/[_-]/g,"");
-    const get = (obj, keyVariants, def="") => {
-      for (const k of keyVariants) {
-        const kk = normKey(k);
-        if (kk in obj) return obj[kk];
-      }
-      return def;
-    };
-    const asNumber = v => {
-      if (v===null || v===undefined || v==="") return 0;
-      const n = parseFloat(String(v).replace(/,/g,""));
-      return isNaN(n) ? 0 : n;
-    };
-    function excelSerialToDDMMYYYY(val){
-      if (!val && val!==0) return "";
-      if (typeof val === "string") return val;
-      if (typeof val === "number") {
-        if (val > 40000) {
-          const utc_days = Math.floor(val - 25569);
-          const utc_value = utc_days * 86400;
-          const date_info = new Date(utc_value * 1000);
-          const dd = String(date_info.getUTCDate()).padStart(2,"0");
-          const mm = String(date_info.getUTCMonth()+1).padStart(2,"0");
-          const yy = date_info.getUTCFullYear();
-          return `${dd}/${mm}/${yy}`;
-        } else {
-          return String(val);
-        }
-      }
-      return String(val||"");
+function parseExcelDate(v){
+  if(v==null || v==='') return null;
+  if(typeof v==="number"){ const o = XLSX.SSF.parse_date_code(v); if(!o) return null; return new Date(o.y,o.m-1,o.d); }
+  if(v instanceof Date) return v;
+  const s = String(v).trim();
+  const dm = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); if(dm){ let [_,d,m,y]=dm; d=+d; m=+m; y=+y; if(y<100) y+=2000; return new Date(y,m-1,d); }
+  const ym = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/); if(ym){ let [_,y,m,d]=ym; return new Date(+y,+m-1,+d); }
+  const t = Date.parse(s); return isNaN(t)? null : new Date(t);
+}
+
+function guessHeaders(rows){ const headers = rows[0]||[]; const all = headers.map((h,i)=>({i,raw:h,k:norm(h)}));
+  return {headers,all, findAll:(key)=> all.filter(x=>x.k===key).map(x=>x.i), findOne:(key)=>{ const m=all.find(x=>x.k===key); return m? m.i : -1; } };
+}
+
+function parseMain(workbook){
+  const ws = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",blankrows:false});
+  if(!rows.length) return [];
+  const H = guessHeaders(rows);
+  const idxMedno=H.findOne('medno'), idxName=H.findOne('patname');
+  const idxIns  = (H.findAll('ins')[0] ?? -1);
+  const idxServiceDate=H.findOne('service');
+  const idxQty=H.findOne('qty');
+  const idxSectionDesc=H.findOne('sectiondesc');
+  const pidx=H.findAll('proc'); const idxProcCode=pidx[0]??-1, idxProcName=pidx[1]??-1;
+  const out=[];
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r]||[]; const medno=cleanStr(row[idxMedno]); if(!medno) continue;
+    const patname=cleanStr(row[idxName]); const ins=cleanStr(row[idxIns]);
+    const d=parseExcelDate(row[idxServiceDate]); if(!d) continue; const dateStr=toDDMMYYYY(d);
+    const code=cleanStr(row[idxProcCode]); const sname=idxProcName>-1? cleanStr(row[idxProcName]):'';
+    const qty=Number(row[idxQty]||0)||0; const sectionDesc=cleanStr(row[idxSectionDesc]);
+    let bucket='service'; if(/^12/.test(code)) bucket='med'; else if(/^2/.test(code)) bucket='supply';
+    out.push({dateStr,date:d,medno,patname,ins,code,sname,qty,sectionDesc,bucket});
+  }
+  return out;
+}
+
+// Read ALL rows from Free (keep rows even if date is missing)
+function parseFreeAll(workbook){
+  const ws = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",blankrows:false});
+  if(!rows.length) return [];
+  const H = guessHeaders(rows);
+  const idxPatientCode=H.findOne('patient code');
+  const idxPatientEname=H.findOne('patientename');
+  const idxServiceCode=H.findOne('servicecode');
+  const idxServiceEname=H.findOne('serviceename');
+  const idxServiceDate=H.findOne('service date');
+  const idxSectionName=H.findOne('sectionname');
+  const idxItemCode=H.findOne('itemcode');
+  const idxItemName=H.findOne('itemname');
+  const idxIssuedQty=H.findOne('issuedqty');
+  const idxUnchargedQty=H.findOne('unchargedqty');
+  const idxStoreCode=H.findOne('storecode');
+  const idxStoreName=H.findOne('storename');
+  const idxStaffCode=H.findOne('staffcode');
+  const idxEmpName=H.findOne('empname');
+  const out=[];
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r]||[]; const medno=cleanStr(row[idxPatientCode]); if(!medno) continue;
+    const patname=cleanStr(row[idxPatientEname]);
+    const d=parseExcelDate(row[idxServiceDate]); const dateStr=d? toDDMMYYYY(d):'';
+    out.push({dateStr,date:d||null,medno,patname,
+      serviceCode:cleanStr(row[idxServiceCode]), serviceName:cleanStr(row[idxServiceEname]),
+      sectionName:cleanStr(row[idxSectionName]), itemCode:cleanStr(row[idxItemCode]), itemName:cleanStr(row[idxItemName]),
+      issuedQty:Number(row[idxIssuedQty]||0)||0, unchargedQty:Number(row[idxUnchargedQty]||0)||0,
+      storeCode:cleanStr(row[idxStoreCode]), storeName:cleanStr(row[idxStoreName]), staffCode:cleanStr(row[idxStaffCode]), empName:cleanStr(row[idxEmpName])});
+  }
+  return out;
+}
+
+function buildGroups(mainRows, freeRows){
+  const map=new Map();
+  for(const r of mainRows){ let dm=map.get(r.dateStr); if(!dm){dm=new Map();map.set(r.dateStr,dm);} let p=dm.get(r.medno);
+    if(!p){ p={medno:r.medno,patname:r.patname||'',ins:r.ins||'',hasMed:false,hasSupply:false,hasService:false,hasFree:false,sections:new Set(),services:[],free:[]}; dm.set(r.medno,p); }
+    if(r.bucket==='med') p.hasMed=true; else if(r.bucket==='supply') p.hasSupply=true; else p.hasService=true;
+    if(r.sectionDesc) p.sections.add(r.sectionDesc);
+    p.services.push({dateStr:r.dateStr,code:r.code,name:r.sname,qty:r.qty,section:r.sectionDesc,type:r.bucket});
+  }
+  for(const fr of freeRows){ const dm=map.get(fr.dateStr); if(!dm) continue; const p=dm.get(fr.medno); if(!p) continue; p.hasFree=true; p.free.push(fr);} // attach same-date only
+  return map; // Map<dateStr, Map<medno, patientSummary>>
+}
+
+function groupFreeByMed(freeRows){ const m=new Map(); for(const fr of freeRows){ if(!m.has(fr.medno)) m.set(fr.medno,[]); m.get(fr.medno).push(fr);} return m; }
+
+function render(map, opts={}){
+  const q=norm(opts.q||''); const dFrom=opts.from? toDDMMYYYY(opts.from):null; const dTo=opts.to? toDDMMYYYY(opts.to):null; const sort=opts.sort||'desc';
+  const app=$$('#app'); app.innerHTML='';
+  let dates=Array.from(map.keys()); dates.sort((a,b)=>{const pa=a.split('-').reverse().join('-'); const pb=b.split('-').reverse().join('-'); return (sort==='asc'?1:-1)* (pa>pb?1:pa<pb?-1:0);});
+  if(dFrom||dTo){ dates=dates.filter(d=>{const as=d.split('-').reverse().join('-'); if(dFrom){const fs=dFrom.split('-').reverse().join('-'); if(as<fs) return false;} if(dTo){const ts=dTo.split('-').reverse().join('-'); if(as>ts) return false;} return true;}); }
+  let totalCards=0;
+  for(const dateStr of dates){ const pm=map.get(dateStr); let patients=Array.from(pm.values()); if(q){patients=patients.filter(p=> norm(p.patname).includes(q)||norm(p.medno).includes(q));}
+    if(!patients.length) continue; totalCards+=patients.length; const grp=document.createElement('section'); grp.className='date-group';
+    grp.innerHTML=`<div class="date-hd"><h2 style="display:flex;align-items:center;gap:8px"><span class="chev">▶</span> التاريخ: <span class="pill">${dateStr}</span></h2><div class="muted">عدد الحالات: ${patients.length}</div></div><div class="patients" style="display:none"></div>`;
+    const container=grp.querySelector('.patients'); const hd=grp.querySelector('.date-hd'); hd.addEventListener('click',()=>{const open=container.style.display==='none'; container.style.display=open?'grid':'none'; grp.classList.toggle('open',open);});
+    patients.sort((a,b)=> a.patname.localeCompare(b.patname,'ar'));
+    for(const p of patients){ const hasFreeElse=(STATE.freeByMed.get(p.medno)?.length||0)>0; const icons=[ p.hasMed?'💊':'', p.hasSupply?'📦':'', p.hasService?'🛠️':'', (p.hasFree||hasFreeElse)?'🆓':'' ].filter(Boolean).join(' ');
+      const sectionList=Array.from(p.sections); const sectionsHtml=sectionList.length? sectionList.map(s=>`<span class="chip">${s}</span>`).join(' '):'<span class="muted">(لا أقسام مسجلة)</span>';
+      const card=document.createElement('article'); card.className='card';
+      card.innerHTML=`<div class="top"><div><div class="name">${p.patname||'—'}</div><div class="medno">رقم الملف: ${p.medno}</div></div><div class="icons" title="دلالات المحتوى">${icons||'—'}</div></div><div class="chips" style="margin-top:6px"><span class="chip">طريقة الدفع: ${p.ins||'—'}</span>${sectionsHtml}</div><div style="margin-top:10px"><button class="btn small primary" data-action="open-modal">عرض التفاصيل</button></div>`;
+      card.querySelector('[data-action="open-modal"]').addEventListener('click',()=> openModal(dateStr,p)); container.appendChild(card);
     }
+    app.appendChild(grp);
+  }
+  $$('#statDates').textContent=`عدد الأيام: ${dates.length}`; $$('#statPatients').textContent=`إجمالي البطاقات: ${totalCards}`; $$('#statFree').textContent=`صفوف FREE المقروءة: ${STATE.rawFree.length}`;
+}
 
-    function sheetToRowsNormalized(ws){
-      const raw = XLSX.utils.sheet_to_json(ws);
-      return raw.map(r=>{
-        const out = {};
-        Object.keys(r).forEach(k=> out[normKey(k)] = r[k]);
-        return out;
-      });
+let STATE={map:null,rawMain:[],rawFree:[],freeByMed:new Map()}; let CURRENT_MODAL={dateStr:null,patient:null};
+async function readFileAsArrayBuffer(file){ return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsArrayBuffer(file);}); }
+async function handleParse(){ const fMain=$$('#fileMain').files[0]; const fFree=$$('#fileFree').files[0]; if(!fMain){alert('من فضلك اختر ملف الخدمات (XLS)');return;} $$('#loader').classList.add('spin'); $$('#loader').style.display='flex';
+  try{ const wbMain=XLSX.read(await readFileAsArrayBuffer(fMain),{type:'array'}); const mainRows=parseMain(wbMain);
+    let freeRows=[]; if(fFree){ const wbFree=XLSX.read(await readFileAsArrayBuffer(fFree),{type:'array'}); freeRows=parseFreeAll(wbFree); }
+    STATE.rawMain=mainRows; STATE.rawFree=freeRows; STATE.freeByMed=groupFreeByMed(freeRows); STATE.map=buildGroups(mainRows,freeRows); applyFilters();
+  }catch(err){ console.error(err); alert('حدث خطأ أثناء قراءة الملفات. تأكد من الامتدادات والمحتوى.'); }
+  finally{ $$('#loader').classList.remove('spin'); $$('#loader').style.display='none'; }
+}
+function applyFilters(){ if(!STATE.map){ $$('#app').innerHTML='<div class="muted">— لم يتم تحميل بيانات بعد —</div>'; return;} const opts={ q: $$('#q').value, from: fromInputDate($$('#from').value), to: fromInputDate($$('#to').value), sort: $$('#sort').value }; render(STATE.map,opts); }
+function resetAll(){ $$('#fileMain').value=''; $$('#fileFree').value=''; $$('#q').value=''; $$('#from').value=''; $$('#to').value=''; $$('#sort').value='desc'; STATE={map:null,rawMain:[],rawFree:[],freeByMed:new Map()}; $$('#app').innerHTML=''; $$('#statDates').textContent='عدد الأيام: —'; $$('#statPatients').textContent='إجمالي البطاقات: —'; $$('#statFree').textContent='صفوف FREE المقروءة: —'; }
+
+function groupByType(p){ const meds=[],supplies=[],services=[]; for(const s of p.services){ if(s.type==='med') meds.push(s); else if(s.type==='supply') supplies.push(s); else services.push(s);} return {meds,supplies,services,free:p.free||[]}; }
+function buildTableHtml(rows, headers){ if(!rows.length) return '<div class=\'muted\'>(لا يوجد بيانات)</div>'; const thead='<thead><tr>'+headers.map(h=>`<th>${h}</th>`).join('')+'</tr></thead>'; const body='<tbody>'+rows.map(r=>`<tr>${Object.values(r).map(v=>`<td>${v??'—'}</td>`).join('')}</tr>`).join('')+'</tbody>'; return `<table>${thead}${body}</table>`; }
+function openModal(dateStr,p){ CURRENT_MODAL={dateStr,patient:p}; $$('#modalTitle').textContent=p.patname||'—'; $$('#modalSub').textContent=`رقم الملف: ${p.medno} — التاريخ: ${dateStr}`; const {meds,supplies,services,free}=groupByType(p);
+  const freeAll=STATE.freeByMed.get(p.medno)||[]; const freeSame=(free&&free.length)? free : freeAll.filter(f=> f.dateStr===dateStr); const freeOther=freeAll.filter(f=> f.dateStr!==dateStr);
+  const medsRows=meds.map(x=>({'التاريخ':x.dateStr,'الكود':x.code,'الخدمة':x.name,'الكمية':x.qty,'القسم':x.section}));
+  const supRows =supplies.map(x=>({'التاريخ':x.dateStr,'الكود':x.code,'الخدمة':x.name,'الكمية':x.qty,'القسم':x.section}));
+  const srvRows =services.map(x=>({'التاريخ':x.dateStr,'الكود':x.code,'الخدمة':x.name,'الكمية':x.qty,'القسم':x.section}));
+  const freeRowsSame = freeSame.map(f=>({'التاريخ':(f.dateStr||'—'),'ServiceCode':f.serviceCode,'ServiceName':f.serviceName,'ItemCode':f.itemCode,'ItemName':f.itemName,'IssuedQty':f.issuedQty,'UnchargedQty':f.unchargedQty,'Store':(f.storeName||'')+(f.storeCode?` (#${f.storeCode})`:''),'القسم':f.sectionName,'الموظف':(f.empName||'')+(f.staffCode?` (#${f.staffCode})`:'')}));
+  const freeRowsOther = freeOther.map(f=>({'التاريخ':(f.dateStr||'—'),'ServiceCode':f.serviceCode,'ServiceName':f.serviceName,'ItemCode':f.itemCode,'ItemName':f.itemName,'IssuedQty':f.issuedQty,'UnchargedQty':f.unchargedQty,'Store':(f.storeName||'')+(f.storeCode?` (#${f.storeCode})`:''),'القسم':f.sectionName,'الموظف':(f.empName||'')+(f.staffCode?` (#${f.staffCode})`:'')}));
+  const parts=[
+    {title:`💊 أدوية (${medsRows.length})`, html:buildTableHtml(medsRows,['التاريخ','الكود','الخدمة','الكمية','القسم'])},
+    {title:`📦 مستلزمات (${supRows.length})`, html:buildTableHtml(supRows,['التاريخ','الكود','الخدمة','الكمية','القسم'])},
+    {title:`🛠️ خدمات (${srvRows.length})`, html:buildTableHtml(srvRows,['التاريخ','الكود','الخدمة','الكمية','القسم'])},
+    {title:`🆓 مستلزمات مجانية — نفس اليوم (${freeRowsSame.length})`, html:buildTableHtml(freeRowsSame,['التاريخ','ServiceCode','ServiceName','ItemCode','ItemName','IssuedQty','UnchargedQty','Store','القسم','الموظف'])},
+    {title:`🆓 مستلزمات مجانية — تواريخ أخرى (${freeRowsOther.length})`, html:buildTableHtml(freeRowsOther,['التاريخ','ServiceCode','ServiceName','ItemCode','ItemName','IssuedQty','UnchargedQty','Store','القسم','الموظف'])}
+  ];
+  $$('#modalBody').innerHTML=parts.map(p=>`<div class="section"><h3>${p.title}</h3>${p.html}</div>`).join(''); $$('#modal').classList.add('show'); }
+function closeModal(){ $$('#modal').classList.remove('show'); }
+function exportPatientToExcel(){ const {dateStr,patient}=CURRENT_MODAL; if(!patient) return; const {meds,supplies,services}=groupByType(patient); const freeAll=STATE.freeByMed.get(patient.medno)||[]; const freeSame=(patient.free&&patient.free.length)? patient.free : freeAll.filter(f=> f.dateStr===dateStr); const freeOther=freeAll.filter(f=> f.dateStr!==dateStr);
+  const wb=XLSX.utils.book_new(); const mk=a=>XLSX.utils.json_to_sheet(a);
+  const medsRows=meds.map(x=>({Date:x.dateStr,Code:x.code,Name:x.name,Qty:x.qty,Section:x.section}));
+  const supRows =supplies.map(x=>({Date:x.dateStr,Code:x.code,Name:x.name,Qty:x.qty,Section:x.section}));
+  const srvRows =services.map(x=>({Date:x.dateStr,Code:x.code,Name:x.name,Qty:x.qty,Section:x.section}));
+  const freeRowsSame=freeSame.map(f=>({Date:(f.dateStr||''),ServiceCode:f.serviceCode,ServiceName:f.serviceName,ItemCode:f.itemCode,ItemName:f.itemName,IssuedQty:f.issuedQty,UnchargedQty:f.unchargedQty,Store:(f.storeName||'')+(f.storeCode?` (#${f.storeCode})`:''),Section:f.sectionName,Staff:(f.empName||'')+(f.staffCode?` (#${f.staffCode})`:'')}));
+  const freeRowsOther=freeOther.map(f=>({Date:(f.dateStr||''),ServiceCode:f.serviceCode,ServiceName:f.serviceName,ItemCode:f.itemCode,ItemName:f.itemName,IssuedQty:f.issuedQty,UnchargedQty:f.unchargedQty,Store:(f.storeName||'')+(f.storeCode?` (#${f.storeCode})`:''),Section:f.sectionName,Staff:(f.empName||'')+(f.staffCode?` (#${f.staffCode})`:'')}));
+  if(medsRows.length) XLSX.utils.book_append_sheet(wb, mk(medsRows), 'Meds'); if(supRows.length) XLSX.utils.book_append_sheet(wb, mk(supRows),'Supplies'); if(srvRows.length) XLSX.utils.book_append_sheet(wb, mk(srvRows),'Services'); if(freeRowsSame.length) XLSX.utils.book_append_sheet(wb, mk(freeRowsSame),'Free_SameDate'); if(freeRowsOther.length) XLSX.utils.book_append_sheet(wb, mk(freeRowsOther),'Free_OtherDates');
+  const safeName=(patient.patname||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,'_'); const fname=`Patient_${patient.medno}_${safeName}_${dateStr}.xlsx`; XLSX.writeFile(wb,fname); }
+function exportCurrentView(){ if(!STATE.map){alert('لا يوجد بيانات');return;} const opts={ q: $$('#q').value, from: fromInputDate($$('#from').value), to: fromInputDate($$('#to').value), sort: $$('#sort').value };
+  let dates=Array.from(STATE.map.keys()); dates.sort((a,b)=>{const pa=a.split('-').reverse().join('-'); const pb=b.split('-').reverse().join('-'); return (opts.sort==='asc'?1:-1)*(pa>pb?1:pa<pb?-1:0)});
+  if(opts.from||opts.to){ const dFrom=opts.from? toDDMMYYYY(opts.from):null; const dTo=opts.to? toDDMMYYYY(opts.to):null; dates=dates.filter(d=>{const as=d.split('-').reverse().join('-'); if(dFrom){const fs=dFrom.split('-').reverse().join('-'); if(as<fs) return false;} if(dTo){const ts=dTo.split('-').reverse().join('-'); if(as>ts) return false;} return true;}); }
+  const meds=[],sups=[],srvs=[],free=[]; const seenFree=new Set();
+  for(const dateStr of dates){ const pm=STATE.map.get(dateStr); let patients=Array.from(pm.values()); if(opts.q){ patients=patients.filter(p=> norm(p.patname).includes(norm(opts.q))||norm(p.medno).includes(norm(opts.q))); }
+    for(const p of patients){ for(const s of p.services){ const row={Date:s.dateStr, Medno:p.medno, Name:p.patname, Code:s.code, Service:s.name, Qty:s.qty, Section:s.section, Type:s.type}; if(s.type==='med') meds.push(row); else if(s.type==='supply') sups.push(row); else srvs.push(row);} const allFree=STATE.freeByMed.get(p.medno)||[]; for(const f of allFree){ const key=[p.medno,f.serviceCode,f.itemCode,f.issuedQty,f.storeCode,f.dateStr].join('|'); if(seenFree.has(key)) continue; seenFree.add(key); free.push({Date:(f.dateStr||''), Medno:p.medno, Name:p.patname, ServiceCode:f.serviceCode, ServiceName:f.serviceName, ItemCode:f.itemCode, ItemName:f.itemName, IssuedQty:f.issuedQty, UnchargedQty:f.unchargedQty, Store:(f.storeName||'')+(f.storeCode?` (#${f.storeCode})`:''), Section:f.sectionName, Staff:(f.empName||'')+(f.staffCode?` (#${f.staffCode})`:'')}); }
     }
+  }
+  const wb=XLSX.utils.book_new(); const mk=a=>XLSX.utils.json_to_sheet(a); if(meds.length) XLSX.utils.book_append_sheet(wb,mk(meds),'Meds'); if(sups.length) XLSX.utils.book_append_sheet(wb,mk(sups),'Supplies'); if(srvs.length) XLSX.utils.book_append_sheet(wb,mk(srvs),'Services'); if(free.length) XLSX.utils.book_append_sheet(wb,mk(free),'Free_AllForVisiblePatients'); if(!wb.SheetNames.length){ alert('لا يوجد نتائج لتصديرها وفقًا للفلاتر الحالية'); return; } XLSX.writeFile(wb,'Current_View.xlsx'); }
 
-    // ---------- State ----------
-    let mainRows = [];  // normalized keys
-    let freeRows = [];  // normalized keys
+// Events
+$$('#btnParse').addEventListener('click',handleParse); $$('#applyFilters').addEventListener('click',applyFilters); $$('#btnReset').addEventListener('click',resetAll); $$('#q').addEventListener('input',()=>{ if(STATE.map) applyFilters(); }); $$('#from').addEventListener('change',applyFilters); $$('#to').addEventListener('change',applyFilters); $$('#sort').addEventListener('change',applyFilters); $$('#btnExportView').addEventListener('click',exportCurrentView); $$('#btnModalClose').addEventListener('click',()=> $$('#modal').classList.remove('show')); $$('#btnModalExport').addEventListener('click',exportPatientToExcel); $$('#modal').addEventListener('click',(e)=>{ if(e.target.id==='modal') closeModal(); }); window.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closeModal(); });
 
-    // ---------- File Inputs ----------
-    const fileMain = document.getElementById("fileMain");
-    const fileFree = document.getElementById("fileFree");
-    const btnRender = document.getElementById("btnRender");
-
-    async function readFileAsRowsNormalized(file){
-      if (!file) return [];
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(new Uint8Array(buf), {type:"array"});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      return sheetToRowsNormalized(ws);
-    }
-
-    fileMain.addEventListener("change", async (e)=>{ mainRows = await readFileAsRowsNormalized(e.target.files[0]); });
-    fileFree.addEventListener("change", async (e)=>{ freeRows = await readFileAsRowsNormalized(e.target.files[0]); });
-    btnRender.addEventListener("click", ()=> renderAll(mainRows, freeRows));
-
-    // ---------- Classification ----------
-    function classify(rec){
-      const sec = (rec.sectiondesc||"").toString().toLowerCase();
-      const code = (rec.proc||"").toString();
-      if (sec.includes("pharm")) return "med";
-      if (sec.includes("supply")) return "sup";
-      if (code.startsWith("12")) return "med";
-      if (code.startsWith("02") || code.startsWith("2")) return "sup";
-      return "serv";
-    }
-
-    // ✅ يحدد مكان السجل (ER/ICU) من sectiondesc
-    function detectUnits(records){
-      let hasER = false, hasICU = false;
-      for (const r of records) {
-        const s = (r.sectiondesc || r.section || "").toString().toLowerCase();
-        if (/emerg|emergency\s*department|\ber\b/.test(s)) hasER = true;
-        if (/\bicu\b|cmh-icu|intensive/.test(s)) hasICU = true;
-        if (hasER && hasICU) break;
-      }
-      return { hasER, hasICU };
-    }
-
-    // ---------- Rendering ----------
-    function renderAll(main, free){
-      const container = document.getElementById("records");
-      container.innerHTML = "";
-
-      if (!main || main.length===0) {
-        container.innerHTML = "<div style='text-align:center;color:#fca5a5'>من فضلك ارفع ملف الخدمات/الكاش أولاً.</div>";
-        return;
-      }
-
-      // Build an index for FREE by (Patient Code, Service Date)
-      const freeIndex = {};
-      free.forEach(r=>{
-        const patientCode = get(r, ["Patient Code","patientcode","medno"], "").toString();
-        const dateRaw = get(r, ["Service Date","servicedate","service"], "");
-        const date = excelSerialToDDMMYYYY(dateRaw);
-        const key = patientCode + "||" + date;
-        (freeIndex[key] ||= []).push(r);
-      });
-
-      // Group main by date → patient(Medno)
-      const grouped = {}; // {date: {mrn: {info, records:[], free:[]}}}
-      main.forEach(r=>{
-        const date = excelSerialToDDMMYYYY( get(r, ["Service","service","Service Date","servicedate"]) );
-        const mrn = get(r, ["Medno","medno","Patient Code","patientcode"], "Unknown").toString();
-        const name = get(r, ["Patname","patname","Pat Name","PatientEname","patientename"], "Unknown");
-        const key = date || "No Date";
-        (grouped[key] ||= {});
-        if (!grouped[key][mrn]) grouped[key][mrn] = { info: {medno: mrn, patname: name, date: key}, records: [], free: [] };
-        grouped[key][mrn].records.push(r);
-      });
-
-      // Attach FREE disposables by (MRN/Patient Code, date)
-      Object.keys(grouped).forEach(date=>{
-        Object.keys(grouped[date]).forEach(mrn=>{
-          const fr = freeIndex[mrn + "||" + date] || [];
-          grouped[date][mrn].free = fr;
-        });
-      });
-
-      // Render by date
-      Object.keys(grouped).sort().forEach(date=>{
-        const patients = Object.values(grouped[date]);
-
-        const dateBlock = document.createElement("div");
-        dateBlock.className = "date-block";
-
-        const dateTitle = document.createElement("div");
-        dateTitle.className = "date-title";
-        dateTitle.textContent = `📅 ${date} — ${patients.length} Cases`;
-
-        const list = document.createElement("div");
-        list.className = "patient-list";
-        dateTitle.onclick = ()=> { list.style.display = list.style.display === "none" ? "block" : "none"; };
-
-        patients.forEach(p=>{
-          const card = document.createElement("div");
-          card.className = "patient-card";
-
-          // Split into categories
-          const meds = [], sups = [], servs = [];
-          p.records.forEach(rec=>{
-            const c = classify(rec);
-            if (c==="med") meds.push(rec);
-            else if (c==="sup") sups.push(rec);
-            else servs.push(rec);
-          });
-
-          // Totals (Pat Part / Comp Part)
-          const sumPat = arr => arr.reduce((s,r)=> s + asNumber( get(r, ["Pat Part","pat part","patpart"]) ), 0);
-          const sumComp = arr => arr.reduce((s,r)=> s + asNumber( get(r, ["Comp Part","comp part","comppart"]) ), 0);
-
-          const patAll = sumPat(p.records);
-          const compAll = sumComp(p.records);
-          const medPat = sumPat(meds), supPat = sumPat(sups), serPat = sumPat(servs);
-
-          const medCount = meds.length, supCount = sups.length, serCount = servs.length;
-          const hasFree = (p.free && p.free.length>0);
-
-          // Get display name & MRN from MAIN file (first record of this patient)
-          const dispName = get(p.records[0],["Patname","Pat Name","PatientEname","patientename"],"Unknown");
-          const dispMrn  = get(p.records[0],["Medno","Patient Code","patientcode"],"Unknown");
-
-          // ✅ تحديد ER/ICU من سجلات هذا المريض
-          const { hasER, hasICU } = detectUnits(p.records);
-          const unitBadgesHTML = `
-            ${hasER  ? '<span class="badge b-er">ER</span>'  : ''}
-            ${hasICU ? '<span class="badge b-icu">ICU</span>': ''}
-          `;
-
-          // Header line: NAME + MRN first, then icons, then Export
-          const header = document.createElement("div");
-          header.className = "header-line";
-
-          const left = document.createElement("div");
-          left.className = "left";
-          left.innerHTML = `
-            <strong>${dispName}</strong> (MRN: ${dispMrn})
-            <span class="badge b-pat">👤 ${patAll.toFixed(2)}</span>
-            <span class="badge b-comp">🏥 ${compAll.toFixed(2)}</span>
-            ${unitBadgesHTML}
-          `;
-
-          const badges = document.createElement("div");
-          badges.className = "badges";
-          if (medCount) badges.innerHTML += `<span class="badge b-med">💊 ${medPat.toFixed(2)} (${medCount})</span>`;
-          if (supCount) badges.innerHTML += `<span class="badge b-sup">📦 ${supPat.toFixed(2)} (${supCount})</span>`;
-          if (serCount) badges.innerHTML += `<span class="badge b-serv">🛠 ${serPat.toFixed(2)} (${serCount})</span>`;
-          if (hasFree)  badges.innerHTML += `<span class="badge b-free">🆓 ${p.free.length}</span>`;
-
-          const exportBtn = document.createElement("button");
-          exportBtn.textContent = "⬇ Export";
-          exportBtn.className = "export-btn";
-          exportBtn.addEventListener("click", (ev)=>{
-            ev.stopPropagation();
-            exportPatientWorkbook(dispName, dispMrn, meds, sups, servs, p.free);
-          });
-
-          header.appendChild(left);
-          header.appendChild(badges);
-          header.appendChild(exportBtn);
-
-          const details = document.createElement("div");
-          details.className = "details";
-          if (meds.length) details.innerHTML += renderTable("💊 Medications", meds);
-          if (sups.length) details.innerHTML += renderTable("📦 Supplies", sups);
-          if (servs.length) details.innerHTML += renderTable("🛠 Services", servs);
-          if (hasFree)   details.innerHTML += renderTable("🆓 Free Disposables (لا تُحتسب في الإجماليات)", p.free);
-
-          card.appendChild(header);
-          card.appendChild(details);
-
-          card.addEventListener("click", (ev)=>{
-            if (ev.target.closest("button")) return;
-            details.style.display = (details.style.display==="none" || details.style.display==="") ? "block" : "none";
-          });
-
-          list.appendChild(card);
-        });
-
-        dateBlock.appendChild(dateTitle);
-        dateBlock.appendChild(list);
-        container.appendChild(dateBlock);
-      });
-    }
-
-    function renderTable(title, rows){
-      if (!rows || rows.length===0) return "";
-      const cols = Object.keys(rows[0]);
-      let html = `<h3>${title}</h3><table><tr>`;
-      cols.forEach(c=> html += `<th>${c}</th>`);
-      html += `</tr>`;
-      rows.forEach(r=>{
-        html += `<tr>`;
-        cols.forEach(c=> html += `<td>${r[c]??""}</td>`);
-        html += `</tr>`;
-      });
-      html += `</table>`;
-      return html;
-    }
-
-    // ---------- Export ----------
-    function exportPatientWorkbook(patName, mrn, meds, sups, servs, free){
-      const wb = XLSX.utils.book_new();
-      if (meds && meds.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meds), "Medications");
-      if (sups && sups.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sups), "Supplies");
-      if (servs && servs.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(servs), "Services");
-      if (free && free.length)  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(free),  "Free Disposables");
-
-      const safeName = String(patName||"Patient").replace(/[^a-zA-Z0-9\u0600-\u06FF]+/g,"_");
-      const safeMrn  = String(mrn||"Unknown").replace(/[^a-zA-Z0-9]+/g,"");
-      XLSX.writeFile(wb, `${safeName}_MRN_${safeMrn}.xlsx`);
-    }
-  </script>
+// ===== Tests =====
+(function runTests(){ const assert=(c,m)=>{ if(!c) throw new Error('Test failed: '+m); };
+  const d=new Date(2025,8,15); assert(toDDMMYYYY(d)==='15-09-2025','toDDMMYYYY');
+  const mainRows=[ {dateStr:'01-09-2025',date:new Date(2025,8,1),medno:'100',patname:'A',ins:'Cash',code:'12001',sname:'Med X',qty:1,sectionDesc:'ER',bucket:'med'}, {dateStr:'01-09-2025',date:new Date(2025,8,1),medno:'200',patname:'B',ins:'Cash',code:'20001',sname:'Sup Y',qty:1,sectionDesc:'ER',bucket:'supply'} ];
+  const freeRows=[ {dateStr:'01-09-2025',date:new Date(2025,8,1),medno:'100',patname:'A',serviceCode:'S1',serviceName:'Kit',sectionName:'ER',itemCode:'I1',itemName:'Gauze',issuedQty:1,unchargedQty:1,storeCode:'SC',storeName:'Main',staffCode:'ST',empName:'N1'}, {dateStr:'',date:null,medno:'100',patname:'A',serviceCode:'S2',serviceName:'Tape',sectionName:'ER',itemCode:'I2',itemName:'Tape',issuedQty:1,unchargedQty:1,storeCode:'SC',storeName:'Main',staffCode:'ST',empName:'N1'} ];
+  const mp=buildGroups(mainRows,freeRows); assert(mp.has('01-09-2025'),'has day'); const g=mp.get('01-09-2025'); assert(g.get('100').hasFree===true,'free attached for same date'); const ix=groupFreeByMed(freeRows); assert(ix.get('100').length===2,'freeByMed keeps missing-date rows'); console.log('%cAll tests passed','color:#10b981;font-weight:bold'); })();
+</script>
 </body>
 </html>
