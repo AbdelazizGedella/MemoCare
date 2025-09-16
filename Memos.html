@@ -10,15 +10,15 @@
   <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- App Logic -->
-  <script defer src="./js/memos.js"></script>
+  <!-- Charts + SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <!-- Favicon -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
@@ -26,237 +26,266 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
   <link rel="manifest" href="/icon/site.webmanifest">
 
-<style>
-  @media (max-width: 768px) {
-    .sidebar {
-      position: fixed;
-      top: 4.5rem; /* adjust based on top navbar height */
-      left: 0;
-      width: 100%;
-      flex-direction: column;
-      background-color: #151F42;
-      z-index: 60;
-      display: none;
+  <style>
+    body{
+      background:
+        radial-gradient(1200px 600px at 10% 0%, rgba(32,58,107,.35), transparent),
+        radial-gradient(900px 500px at 80% 20%, rgba(19,41,89,.45), transparent),
+        linear-gradient(135deg, #0b1634, #0f1f4b);
+      min-height:100vh;
     }
+    .glass{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 25px rgba(0,0,0,.25);backdrop-filter:blur(14px)}
+    .glass-strong{background:rgba(21,31,66,.6);border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(16px)}
+    .page-wrap{padding:6rem 1rem 2rem}
+    @media(min-width:1024px){.page-wrap{padding:7rem 2rem 3rem}}
 
-    .sidebar.active {
-      display: flex;
+    /* جدول مريح و Responsive للعنوان */
+    table{width:100%; border-collapse:collapse;}
+    .memo-table{table-layout:fixed;}
+    @media(min-width:768px){.memo-table{table-layout:auto;}}
+
+    /* Title: لحد سطرين فقط مع ... */
+    .title-text{
+      font-size: .98rem;
+      display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
+      overflow:hidden; text-overflow:ellipsis;
+      white-space:normal; word-break:normal; overflow-wrap:break-word; hyphens:auto;
+      line-height:1.25rem;
     }
+    @media(max-width:480px){ .title-text{ font-size:.92rem; } }
 
-    .sidebar ul {
-      flex-direction: column;
-      gap: 0.75rem;
-      padding: 1rem 0;
-    }
-
-    .sidebar li span {
-      font-size: 0.75rem;
-    }
-
-    .main-content {
-      margin-left: 0 !important;
-      padding: 7rem 1rem 2rem 1rem !important;
-    }
-  }
-
-  @media (min-width: 768px) {
-    .sidebar {
-      display: flex !important;
-    }
-  }
-</style>
-
+    /* Space chip: سطر واحد ومقصوص */
+    .space-chip{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
+    @media(max-width:480px){ .space-chip{ max-width:120px; font-size:.85rem; } }
+  </style>
 </head>
 
-<body class="bg-gray-900 text-white">
-
-  <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center z-50">
-    <h1 class="text-2xl font-bold text-white">Memo Acknowledgment System</h1>
-    <span id="user-greeting" class="text-green-400 text-lg"></span>
-  </div>
-
-   <!-- Sidebar -->
-    <!-- Sidebar with Responsive Hamburger Menu -->
-<nav class="sidebar md:fixed md:top-20 md:left-4 md:w-32 w-full bg-[#151F42] p-4 md:p-6 shadow-lg rounded-lg flex md:flex-col flex-row items-center justify-around md:justify-start z-40">
-      <!-- Hamburger Button (Mobile Only) -->
-      <button id="sidebar-toggle" class="md:hidden absolute top-2 right-2 text-white focus:outline-none" aria-label="Open sidebar">
-      <i class="fas fa-bars text-2xl"></i>
-      </button>
-      <!-- Sidebar Menu -->
-      <ul id="sidebar-menu" class="space-y-4 md:space-y-6 flex md:flex-col flex-row flex-wrap gap-2 md:gap-0 md:static absolute top-12 left-0 w-full md:w-auto bg-[#151F42] md:bg-transparent rounded-lg md:rounded-none shadow-lg md:shadow-none transition-all duration-300 z-50 md:flex visible hidden">
-      <li><a href="Dashboard.html" class="flex flex-col items-center  hover:text-blue-500"><i class="fas fa-home text-2xl"></i><span class="text-xs">Home</span></a></li>
-      <li><a href="Profile" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-user-circle text-2xl"></i><span class="text-xs">Profile</span></a></li>
-      <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
-      <li><a href="certificate.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-certificate text-2xl"></i><span class="text-xs">Certificate</span></a></li>
-      <li><a href="medications.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-pills text-2xl"></i><span class="text-xs">Medications</span></a></li>
-      <li><a href="request.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-paper-plane text-2xl"></i><span class="text-xs">Request</span></a></li>
-      <li><a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-calendar-alt text-2xl"></i><span class="text-xs">Leave</span></a></li>
-      <li><a href="spaces.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-rocket text-2xl"></i><span class="text-xs">Spaces</span></a></li>
-      <li><a href="" class="flex flex-col items-center text-blue-500"><i class="fas fa-file-alt text-2xl"></i><span class="text-xs">Memos</span></a></li>
-      <li><a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-tablet-alt text-2xl"></i><span class="text-xs">Devices</span></a></li>
-      <li><a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-trophy text-2xl"></i><span class="text-xs">Leaderboard</span></a></li>
-      <li><a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-lock text-2xl"></i><span class="text-xs">Admin</span></a></li>
-   
-      <li>
-        <button id="logout-btn" class="flex flex-col items-center text-white hover:text-red-500">
-        <i class="fas fa-sign-out-alt text-2xl"></i>
-        <span class="text-xs">Logout</span>
+<body class="text-white">
+  <!-- Top Bar -->
+  <div class="fixed top-0 left-0 w-full z-50 glass-strong">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <button id="home-btn" class="btn btn-sm bg-blue-600 border-none hover:bg-blue-500">
+          <i class="fa-solid fa-arrow-left mr-2"></i> Home
         </button>
-      </li>
-      </ul>
-    </nav>
-   <script>
-  const sidebarToggle = document.getElementById('sidebar-toggle');
-  const sidebar = document.querySelector('.sidebar');
-
-  function handleResize() {
-    if (window.innerWidth >= 768) {
-      sidebar.classList.add('flex');
-      sidebar.classList.remove('active');
-    } else {
-      sidebar.classList.remove('flex');
-      sidebar.classList.remove('active');
-    }
-  }
-
-  sidebarToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('active');
-  });
-
-  window.addEventListener('resize', handleResize);
-  window.addEventListener('load', handleResize);
-</script>
-
-
-
-  <!-- Main Content Area -->
-  <div class="flex-1 overflow-y-auto p-20 ml-24 main-content">
-    
-<!-- Memo Details Modal -->
-<div id="memo-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center hidden overflow-y-auto p-4 z-50">
-  <div class="bg-[#151F42] p-6 rounded-lg shadow-md w-full max-w-lg mx-auto">
-    <h2 id="modal-title" class="text-xl md:text-2xl font-bold text-blue-300"></h2>
-    <p id="modal-postedBy" class="mt-2 text-sm md:text-base text-yellow-300"></p>
-    <p id="modal-timestamp" class="mt-2 text-sm md:text-base text-gray-400"></p>
-    <p id="modal-content" class="mt-2 text-sm md:text-base text-gray-300 break-words"></p>
-
-    <h3 class="mt-4 text-lg font-bold text-indigo-300">Attachments:</h3>
-    <div id="modal-attachments" class="mt-2 space-y-2"></div>
-
-    <!-- Acknowledgment Section -->
-    <div id="acknowledgment-info" class="mt-4 hidden">
-      <p class="bg-gray-700 text-white text-sm p-2 rounded text-center">
-        ✅ Acknowledged on <span id="acknowledgment-timestamp"></span>
-      </p>
-    </div>
-
-    <div class="mt-4 flex flex-col md:flex-row md:justify-between gap-3">
-      <button id="acknowledge-btn" class="bg-green-500 px-4 py-2 rounded w-full md:w-auto">✅ Acknowledge</button>
-<button id="report-modal" style="display: none;" class="bg-orange-500 px-4 py-2 rounded w-full md:w-auto">📊 Compliance Report</button>
-      <button id="close-modal" class="bg-red-500 px-4 py-2 rounded w-full md:w-auto">Close</button>
-    </div>
-
-    <!-- Report Section (hidden by default, toggled by report-modal button) -->
-    <div id="modal-acknowledgments-pending" class="mt-6 flex flex-wrap gap-4 max-h-96 overflow-y-auto hidden">
-      <!-- Pending Acknowledgment -->
-      <div class="flex-1 min-w-[250px] bg-[#1E274D] p-3 rounded shadow-lg">
-        <h3 class="font-semibold mb-3 text-indigo-300 text-center">Pending Acknowledgment</h3>
-        <button id="broadcast-btn" class="bg-green-600 text-white px-4 py-2 rounded mt-4">📤 Send WhatsApp Reminder</button>
-        <div id="pending-list" class="space-y-3 text-sm text-gray-100"></div>
+        <h1 class="text-xl md:text-2xl font-bold">Memo Acknowledgment System</h1>
       </div>
-      <!-- Acknowledged By -->
-      <div class="flex-1 min-w-[250px] bg-[#1E274D] p-3 rounded shadow-lg">
-        <h3 class="font-semibold mb-3 text-green-400 text-center">Acknowledged By</h3>
-        <div id="acknowledgment-list" class="space-y-3 text-sm text-gray-100"></div>
+      <span id="user-greeting" class="text-green-400 text-sm md:text-base"></span>
+    </div>
+  </div>
+
+  <main class="page-wrap max-w-7xl mx-auto">
+
+    <!-- KPIs (يظهر بعد الجدول) -->
+    <section id="kpis-top" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 hidden">
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">My Compliance</div>
+        <div id="kpi-my-compliance" class="text-2xl font-bold mt-1">--%</div>
+        <div class="text-xs text-gray-400 mt-1">Across joined spaces</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">My Pending</div>
+        <div id="kpi-my-pending" class="text-2xl font-bold mt-1">--</div>
+        <div class="text-xs text-gray-400 mt-1">Unacknowledged memos</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">Last Acknowledgment</div>
+        <div id="kpi-last-ack" class="text-lg font-semibold mt-1">—</div>
+        <div class="text-xs text-gray-400 mt-1">Local time</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">Total Memos</div>
+        <div id="kpi-total-memos" class="text-2xl font-bold mt-1">--</div>
+        <div class="text-xs text-gray-400 mt-1">In your spaces</div>
+      </div>
+    </section>
+
+    <!-- Staff Performance -->
+    <section id="kpis-perf" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 hidden">
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">Avg Response Time</div>
+        <div id="kpi-avg-rt" class="text-2xl font-bold mt-1">--</div>
+        <div class="text-xs text-gray-400 mt-1">From post → your ack</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">Median Response</div>
+        <div id="kpi-med-rt" class="text-2xl font-bold mt-1">--</div>
+        <div class="text-xs text-gray-400 mt-1">Robust central tendency</div>
+      </div>
+
+      <!-- Mini Pie داخل الكرت -->
+      <div class="glass p-4 rounded-2xl flex items-center gap-4">
+        <div class="flex-1">
+          <div class="text-sm text-gray-300">On-Time &lt;24h</div>
+          <div id="kpi-ontime-24" class="text-2xl font-bold mt-1">--%</div>
+          <div class="text-xs text-gray-400 mt-1">Acknowledged within 24h</div>
+        </div>
+        <canvas id="pie-24" width="90" height="90"></canvas>
+      </div>
+
+      <div class="glass p-4 rounded-2xl flex items-center gap-4">
+        <div class="flex-1">
+          <div class="text-sm text-gray-300">Within 48h</div>
+          <div id="kpi-ontime-48" class="text-2xl font-bold mt-1">--%</div>
+          <div class="text-xs text-gray-400 mt-1">Acknowledged within 48h</div>
+        </div>
+        <canvas id="pie-48" width="90" height="90"></canvas>
+      </div>
+    </section>
+
+    <!-- Admin KPIs -->
+    <section id="admin-kpis" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">Team Avg Compliance</div>
+        <div id="kpi-team-avg" class="text-2xl font-bold mt-1">--%</div>
+        <div class="text-xs text-gray-400 mt-1">Excludes [Admin] accounts</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">Lowest Compliance User</div>
+        <div id="kpi-lowest" class="text-lg font-semibold mt-1">—</div>
+        <div class="text-xs text-gray-400 mt-1">Excludes [Admin] accounts</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm text-gray-300">Unacknowledged (Last 7d)</div>
+        <div id="kpi-unacked-7d" class="text-2xl font-bold mt-1">--</div>
+        <div class="text-xs text-gray-400 mt-1">New memos needing follow-up</div>
+      </div>
+    </section>
+
+    <!-- Activity + Trend -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div class="glass p-4 rounded-2xl">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h2 class="text-lg font-semibold">🛎️ Latest Memo Activity</h2>
+          <div class="flex items-center gap-2">
+            <button id="backup-excel" style="display:none" class="btn btn-xs bg-amber-600 border-none hover:bg-amber-500">
+              <i class="fa-solid fa-file-excel mr-1"></i> Backup (Excel)
+            </button>
+            <button id="export-csv" class="btn btn-xs bg-emerald-600 border-none hover:bg-emerald-500">
+              <i class="fa-solid fa-file-export mr-1"></i> Export CSV
+            </button>
+            <button id="show-all-notifications" class="btn btn-xs bg-blue-600 border-none hover:bg-blue-500">
+              <i class="fa-regular fa-rectangle-list mr-1"></i> Show All
+            </button>
+          </div>
+        </div>
+        <ul id="notification-list" class="space-y-1 text-sm mt-3"></ul>
+      </div>
+
+      <div class="glass p-4 rounded-2xl">
+        <h2 class="text-lg font-semibold mb-2">📈 Acknowledgment Trend (7 days)</h2>
+        <canvas id="ack-trend-chart" class="w-full"></canvas>
+      </div>
+    </section>
+
+    <!-- Rankings -->
+    <section class="glass p-4 rounded-2xl mb-4">
+      <h2 class="text-lg font-semibold mb-2">🏅 Rankings</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h3 class="text-sm font-semibold text-emerald-300 mb-2">⚡ Fastest Responders</h3>
+          <ul id="rank-fastest" class="space-y-2"></ul>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-blue-300 mb-2">🏆 Elite (Up-to-date)</h3>
+          <ul id="rank-elite" class="space-y-2"></ul>
+        </div>
+      </div>
+      <div class="mt-4">
+        <h3 class="text-sm font-semibold text-yellow-300 mb-2">🐢 Lazy</h3>
+        <ul id="rank-lazy" class="space-y-2"></ul>
+      </div>
+    </section>
+
+    <!-- Search + Filters -->
+    <section class="glass rounded-2xl p-4 mb-4">
+      <div class="text-center mb-2">
+        <div class="relative max-w-xl mx-auto">
+          <input id="search-box" type="text" placeholder="🔎 Search by Title"
+                 class="input input-bordered w-full text-center pr-10 bg-gray-800/70 text-sm md:text-base" />
+          <button id="clear-search" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">❌</button>
+        </div>
+      </div>
+      <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <button id="filter-timestamp" class="btn btn-sm bg-blue-600 border-none hover:bg-blue-500">📅 Timestamp</button>
+        <button id="filter-status" class="btn btn-sm bg-gray-600 border-none hover:bg-gray-500">❔ Not Acknowledged</button>
+        <button id="reset-filters" class="btn btn-sm bg-red-600 border-none hover:bg-red-500">🔄 Reset</button>
+        <button id="check-overall-btn" style="display:none" class="btn btn-sm bg-yellow-600 border-none hover:bg-yellow-500">📊 Check Overall Compliance</button>
+      </div>
+    </section>
+
+    <!-- Memos Table -->
+    <section class="glass rounded-2xl p-2 md:p-4">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left memo-table">
+          <caption class="caption-top text-lg font-semibold text-white mb-3">🔹 Memos</caption>
+          <thead class="bg-gray-700 text-white text-sm md:text-base">
+            <tr>
+              <th class="p-3 w-[90px] md:w-[110px]">Actions</th>
+              <th class="p-3 w-[88px] md:w-[100px]">Status</th>
+              <th class="p-3">Title</th>
+              <th class="p-3 w-[160px] md:w-[220px]">Space</th>
+              <th class="p-3 w-[150px] md:w-[200px]">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="memo-table" class="text-white text-sm md:text-base"></tbody>
+        </table>
+      </div>
+      <div id="loading-indicator" class="text-center text-blue-400 mt-4 hidden">Loading more memos...</div>
+    </section>
+  </main>
+
+  <!-- Toasts -->
+  <div class="toast toast-top toast-end z-[60]" id="toasts"></div>
+
+  <!-- Memo Modal -->
+  <div id="memo-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center hidden overflow-y-auto p-4 z-50">
+    <div class="glass-strong p-6 rounded-lg shadow-md w-full max-w-lg mx-auto">
+      <h2 id="modal-title" class="text-xl md:text-2xl font-bold text-blue-300"></h2>
+      <p id="modal-timestamp" class="mt-2 text-sm md:text-base text-gray-300"></p>
+      <p id="modal-content" class="mt-2 text-sm md:text-base text-gray-200 break-words"></p>
+
+      <h3 class="mt-4 text-lg font-bold text-indigo-300">Attachments:</h3>
+      <div id="modal-attachments" class="mt-2 space-y-2"></div>
+
+      <div id="acknowledgment-info" class="mt-4 hidden">
+        <p class="bg-gray-700 text-white text-sm p-2 rounded text-center">
+          ✅ Acknowledged on <span id="acknowledgment-timestamp"></span>
+        </p>
+      </div>
+
+      <div class="mt-4 flex flex-col md:flex-row md:justify-between gap-3">
+        <button id="acknowledge-btn" class="bg-green-500 px-4 py-2 rounded w-full md:w-auto">✅ Acknowledge</button>
+        <button id="report-modal" style="display:none" class="bg-orange-500 px-4 py-2 rounded w-full md:w-auto">📊 Compliance Report</button>
+        <button id="close-modal" class="bg-red-500 px-4 py-2 rounded w-full md:w-auto">Close</button>
+      </div>
+
+      <div id="modal-acknowledgments-pending" class="mt-6 flex flex-wrap gap-4 max-h-96 overflow-y-auto hidden">
+        <div class="flex-1 min-w-[250px] glass p-3 rounded shadow-lg">
+          <h3 class="font-semibold mb-3 text-indigo-300 text-center">Pending Acknowledgment</h3>
+          <button id="broadcast-btn" class="bg-green-600 text-white px-4 py-2 rounded mt-2">📤 Send WhatsApp Reminder</button>
+          <div id="pending-list" class="space-y-3 text-sm text-gray-100 mt-2"></div>
+        </div>
+        <div class="flex-1 min-w-[250px] glass p-3 rounded shadow-lg">
+          <h3 class="font-semibold mb-3 text-green-400 text-center">Acknowledged By</h3>
+          <div id="acknowledgment-list" class="space-y-3 text-sm text-gray-100"></div>
+        </div>
       </div>
     </div>
-    <script>
-      // Toggle report section on button click
-      document.addEventListener('DOMContentLoaded', function () {
-        const reportBtn = document.getElementById('report-modal');
-        const reportSection = document.getElementById('modal-acknowledgments-pending');
-        if (reportBtn && reportSection) {
-          reportBtn.addEventListener('click', function () {
-            reportSection.classList.toggle('hidden');
-          });
-        }
-      });
-    </script>
   </div>
-</div>
 
-  <!-- Compliance Button: يظهر فقط للأدمن عبر JS -->
-<div class="text-center my-4">
-  <button id="check-overall-btn" style="display: none;" class="bg-yellow-500 px-4 py-2 rounded text-white font-semibold">
-    📊 Check Overall Compliance
-  </button>
-</div>
-
-<!-- Compliance Modal -->
-<div id="overall-compliance-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 hidden z-50 flex justify-center items-center p-4">
-  <div class="bg-[#1E274D] p-6 rounded-lg max-w-4xl w-full overflow-y-auto max-h-[90vh]">
-    <h2 class="text-xl font-bold text-blue-300 mb-4">📊 Overall Space Compliance</h2>
-    <div id="overall-compliance-content" class="space-y-6"></div>
-    <div class="mt-4 text-right">
-      <button class="bg-red-500 px-4 py-2 rounded text-white" onclick="document.getElementById('overall-compliance-modal').classList.add('hidden')">Close</button>
+  <!-- Overall Compliance Modal -->
+  <div id="overall-compliance-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 hidden z-50 flex justify-center items-center p-4">
+    <div class="glass-strong p-6 rounded-lg max-w-4xl w-full overflow-y-auto max-h-[90vh]">
+      <h2 class="text-xl font-bold text-blue-300 mb-4">📊 Overall Space Compliance</h2>
+      <div id="overall-compliance-content" class="space-y-6"></div>
+      <div class="mt-4 text-right">
+        <button class="bg-red-500 px-4 py-2 rounded text-white" onclick="document.getElementById('overall-compliance-modal').classList.add('hidden')">Close</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- 📦 Notification Bar HTML (Place inside <body>) -->
-<div id="notification-bar" class="bg-[#1E274D] text-white p-3 rounded-lg shadow mb-4 w-full max-w-4xl mx-auto">
-  <h2 class="text-lg font-semibold mb-2">🛎️ Latest Memo Activity</h2>
-  <ul id="notification-list" class="space-y-1 text-sm"></ul>
-  <button id="show-all-notifications" class="mt-3 bg-blue-600 px-3 py-1 rounded text-white text-sm">📄 Show All Notifications</button>
-</div>
-
-<!-- Search Box -->
-<div class="text-center text-white mb-4 relative w-1/2 mx-auto">
-  <div class="relative">
-      <input type="text" id="search-box" placeholder="🔎 Search by Title"
-             class="bg-gray-700 text-white p-2 rounded w-full text-center pr-12" />
-      <button id="clear-search" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500">
-          ❌
-      </button>
-  </div>
-
-  <!-- Small Filter Buttons -->
-  <div class="mt-2 flex justify-center gap-2">
-      <button id="filter-timestamp" class="bg-blue-500 px-3 py-1 text-sm rounded">📅 Timestamp</button>
-      <button id="filter-status" class="bg-gray-500 px-3 py-1 text-sm rounded">❔ Not Acknowledged</button>
-      <button id="reset-filters" class="bg-red-500 px-3 py-1 text-sm rounded">🔄 Reset</button>
-  </div>
-</div>
-
-
-<!-- Clickable Spoiler Header -->
-<!-- Responsive Table Wrapper -->
-<div class="overflow-x-auto">
-  <table class="min-w-[900px] text-left border-collapse">
-  <caption class="caption-top text-lg font-semibold text-white mb-4">
-    🔹 Memos
-  </caption>
-<thead class="bg-gray-700 text-white">
-    <tr>
-        <th class="p-2">Title</th>
-        <th class="p-2">Space</th> <!-- New Column -->
-        <th class="p-2">Timestamp</th>
-        <th class="p-2">Posted By</th>
-        <th class="p-2">Acknowledgments</th>
-        <th class="p-2">Status</th>
-        <th class="p-2">Actions</th>
-    </tr>
-</thead>
-
-  <tbody id="memo-table" class="text-white"></tbody>
-</table>
-</div>
-
-
-<div id="loading-indicator" class="text-center text-blue-400 mt-4 hidden">Loading more memos...</div>
-
-  </div>
-
+  <!-- App Logic -->
+  <script defer src="./js/memos.js"></script>
 </body>
 </html>
