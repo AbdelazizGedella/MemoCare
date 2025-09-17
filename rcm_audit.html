@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>بحث استخدام المريض — أدوية + مستلزمات + FREE</title>
+  <title>RCM AUDIT</title>
   <meta name="color-scheme" content="dark light" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -53,15 +53,15 @@
     <div class="wrap">
       <div class="row" style="justify-content:space-between;align-items:flex-start;gap:14px">
         <div>
-          <h1>بحث استخدام المريض</h1>
+          <h1>RCM AUDIT</h1>
           <div class="sub">ارفع ملف الخدمات + ملف المستلزمات (FREE). ابحث باسم المريض أو رقم الملف؛ ثم اعرض التفاصيل. تجميع FREE حسب <b>Generic Code</b> تلقائيًا (مع بدائل ذكية لو العمود غير موجود).</div>
         </div>
         <div class="loader" id="loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>جارٍ التحليل…</span></div>
       </div>
 
       <div class="row" style="margin-top:12px">
-        <label class="field">الملف (1): Patient Services (XLS/XLSX)<br><input id="fileMain" type="file" accept=".xls,.xlsx"/></label>
-        <label class="field">الملف (2): Disposables (XLS/XLSX)<br><input id="fileFree" type="file" accept=".xls,.xlsx"/></label>
+        <label class="field">الملف (1): Patient Services by Doctor (Inc-Pkg) Excel.xls<br><input id="fileMain" type="file" accept=".xls,.xlsx"/></label>
+        <label class="field">الملف (2): Disposables Consumables Quantity Deduction Services.xlsx<br><input id="fileFree" type="file" accept=".xls,.xlsx"/></label>
         <button class="btn primary" id="btnParse">تحليل</button>
         <button class="btn ghost" id="btnReset" title="مسح وتحميل جديد">مسح</button>
         <button class="btn ghost" id="btnExportView" title="تصدير النتائج الظاهرة">تصدير النتائج الظاهرة (Excel)</button>
