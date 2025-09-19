@@ -476,23 +476,35 @@
             <input type="time" class="input input-bordered" name="int_departTime" step="60">
           </label>
 
-          <label class="form-control">
-            <span class="label-text">وقت طلب الاستشارة</span>
-            <input type="time" class="input input-bordered" name="int_consultReqTime" step="60">
-          </label>
-          <label class="form-control">
-            <span class="label-text">وقت رد الاستشارة</span>
-            <input type="time" class="input input-bordered" name="int_consultRespTime" step="60">
-          </label>
+     <!-- تاريخ/وقت طلب الاستشارة -->
+<label class="form-control">
+  <span class="label-text">تاريخ طلب الاستشارة</span>
+  <input type="date" class="input input-bordered" name="int_consultReqDate">
+</label>
+<label class="form-control">
+  <span class="label-text">وقت طلب الاستشارة</span>
+  <input type="time" class="input input-bordered" name="int_consultReqTime" step="60">
+</label>
+
+<!-- تاريخ/وقت رد الاستشارة -->
+<label class="form-control">
+  <span class="label-text">تاريخ رد الاستشارة</span>
+  <input type="date" class="input input-bordered" name="int_consultRespDate">
+</label>
+<label class="form-control">
+  <span class="label-text">وقت رد الاستشارة</span>
+  <input type="time" class="input input-bordered" name="int_consultRespTime" step="60">
+</label>
+
 
           <label class="form-control">
             <span class="label-text">تاريخ الدخول للقسم الثاني</span>
             <input type="date" class="input input-bordered" name="int_admitDate">
           </label>
-          <label class="form-control">
-            <span class="label-text">وقت الدخول للقسم الثاني</span>
-            <input type="time" class="input input-bordered" name="int_admitTime" step="60">
-          </label>
+      <label class="form-control">
+  <span class="label-text">وقت الدخول للقسم الثاني (physically)</span>
+  <input type="time" class="input input-bordered" name="int_admitTime" step="60">
+</label>
 
           <label class="form-control col-span-2">
             <span class="label-text">القسم (داخل مستشفانا)</span>
@@ -511,6 +523,16 @@
             <span class="label-text">الاستقبال (القسم الثاني)</span>
             <input type="text" class="input input-bordered" name="int_recvReception">
           </label>
+
+          <label class="form-control">
+  <span class="label-text">تاريخ فتح الملف (الاستقبال)</span>
+  <input type="date" class="input input-bordered" name="int_fileOpenDate">
+</label>
+<label class="form-control">
+  <span class="label-text">وقت فتح الملف (الاستقبال)</span>
+  <input type="time" class="input input-bordered" name="int_fileOpenTime" step="60">
+</label>
+
           <label class="form-control">
             <span class="label-text">طبيب القسم الثاني</span>
             <input type="text" class="input input-bordered" name="int_recvPhysician">
@@ -527,6 +549,17 @@
             <span class="label-text">المستشفى القابل</span>
             <input type="text" class="input input-bordered" name="ext_recvHospital" placeholder="اسم المستشفى">
           </label>
+
+          <label class="form-control">
+  <span class="label-text">القسم المُحَوِّل من طرفنا</span>
+  <select class="select select-bordered" name="ext_fromDept">
+    <option value="ER">ER</option>
+    <option value="ICU">ICU</option>
+    <option value="Other">Other</option>
+  </select>
+</label>
+
+
           <label class="form-control">
             <span class="label-text">القسم بالمستشفى القابل</span>
             <input type="text" class="input input-bordered" name="ext_recvDept" placeholder="ICU / ER / Ward...">
@@ -598,7 +631,10 @@
           <div id="trIntStats" class="stats shadow w-full"></div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="card bg-base-200 p-3"><canvas id="trIntChartConsult" height="160"></canvas></div>
-            <div class="card bg-base-200 p-3"><canvas id="trIntChartDepartAdmit" height="160"></canvas></div>
+              <div class="card bg-base-200 p-3"><canvas id="trIntChartRespAdmit" height="160"></canvas></div>
+
+              <div class="card bg-base-200 p-3"><canvas id="trIntChartDepartAdmit" height="160"></canvas></div>
+
           </div>
           <div class="overflow-x-auto">
             <table id="trIntKPITable" class="table table-sm w-full"></table>
@@ -634,20 +670,28 @@
               <th>وقت تسجيل الطوارئ</th>
 
               <!-- داخلي -->
-              <th>تاريخ التحويل</th>
-              <th>وقت مغادرتنا</th>
-              <th>طلب الاستشارة</th>
-              <th>رد الاستشارة</th>
-              <th>تاريخ الدخول (داخلي)</th>
-              <th>وقت الدخول (داخلي)</th>
-              <th>القسم الداخلي</th>
-              <th>الطبيب المُحيل</th>
-              <th>تمريضنا</th>
-              <th>الاستقبال (القسم الثاني)</th>
-              <th>طبيب القسم الثاني</th>
-              <th>تمريض القسم الثاني</th>
+<th>تاريخ التحويل</th>
+<th>وقت مغادرتنا</th>
+<th>تاريخ طلب الاستشارة</th>
+<th>وقت طلب الاستشارة</th>
+<th>تاريخ رد الاستشارة</th>
+<th>وقت رد الاستشارة</th>
+<th>تاريخ الدخول (داخلي)</th>
+<th>وقت الدخول (داخلي)</th>
+<th>فتح الملف (التاريخ)</th>
+<th>فتح الملف (الوقت)</th>
+<th>القسم الداخلي</th>
+<th>الطبيب المُحيل</th>
+<th>تمريضنا</th>
+<th>الاستقبال (القسم الثاني)</th>
+<th>طبيب القسم الثاني</th>
+<th>تمريض القسم الثاني</th>
+<th>مدخل السجل</th>
+
 
               <!-- خارجي -->
+               <th>القسم المُحَوِّل</th>
+
               <th>المستشفى القابل</th>
               <th>القسم هناك</th>
               <th>تاريخ المغادرة</th>
@@ -661,6 +705,7 @@
               <th>ملف المستشفى القابل</th>
               <th>السبب</th>
               <th>ورقة القبول</th>
+<th>مدخل السجل</th>
 
               <th>تحكم</th>
             </tr>
