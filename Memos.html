@@ -10,17 +10,19 @@
   <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-  <!-- Firebase -->
+  <!-- Firebase (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
-  <!-- Charts + SheetJS -->
+  <!-- Chart.js (للـ donut في تقرير الـ Overall فقط) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- Favicon -->
+  <!-- Icons -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
@@ -39,24 +41,23 @@
     .page-wrap{padding:6rem 1rem 2rem}
     @media(min-width:1024px){.page-wrap{padding:7rem 2rem 3rem}}
 
-    /* جدول مريح و Responsive للعنوان */
     table{width:100%; border-collapse:collapse;}
     .memo-table{table-layout:fixed;}
     @media(min-width:768px){.memo-table{table-layout:auto;}}
 
-    /* Title: لحد سطرين فقط مع ... */
+    /* عنوان التعميم: يظهر بوضوح على الموبايل (3 سطور) وعلى الديسكتوب (سطرين) */
     .title-text{
-      font-size: .98rem;
+      font-size:.98rem; line-height:1.25rem;
       display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2;
-      overflow:hidden; text-overflow:ellipsis;
-      white-space:normal; word-break:normal; overflow-wrap:break-word; hyphens:auto;
-      line-height:1.25rem;
+      overflow:hidden; text-overflow:ellipsis; white-space:normal; word-break:normal; hyphens:auto;
     }
-    @media(max-width:480px){ .title-text{ font-size:.92rem; } }
+    @media(max-width:640px){ .title-text{ -webkit-line-clamp:3; } } /* موبايل: 3 سطور */
 
-    /* Space chip: سطر واحد ومقصوص */
     .space-chip{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
     @media(max-width:480px){ .space-chip{ max-width:120px; font-size:.85rem; } }
+
+    /* بانر المساحة */
+    .space-banner{ letter-spacing:.5px; text-shadow:0 6px 24px rgba(0,0,0,.6); }
   </style>
 </head>
 
@@ -76,85 +77,90 @@
 
   <main class="page-wrap max-w-7xl mx-auto">
 
-    <!-- KPIs (يظهر بعد الجدول) -->
-    <section id="kpis-top" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 hidden">
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">My Compliance</div>
-        <div id="kpi-my-compliance" class="text-2xl font-bold mt-1">--%</div>
-        <div class="text-xs text-gray-400 mt-1">Across joined spaces</div>
-      </div>
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">My Pending</div>
-        <div id="kpi-my-pending" class="text-2xl font-bold mt-1">--</div>
-        <div class="text-xs text-gray-400 mt-1">Unacknowledged memos</div>
-      </div>
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">Last Acknowledgment</div>
-        <div id="kpi-last-ack" class="text-lg font-semibold mt-1">—</div>
-        <div class="text-xs text-gray-400 mt-1">Local time</div>
-      </div>
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">Total Memos</div>
-        <div id="kpi-total-memos" class="text-2xl font-bold mt-1">--</div>
-        <div class="text-xs text-gray-400 mt-1">In your spaces</div>
-      </div>
-    </section>
-
-    <!-- Staff Performance -->
-    <section id="kpis-perf" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 hidden">
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">Avg Response Time</div>
-        <div id="kpi-avg-rt" class="text-2xl font-bold mt-1">--</div>
-        <div class="text-xs text-gray-400 mt-1">From post → your ack</div>
-      </div>
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">Median Response</div>
-        <div id="kpi-med-rt" class="text-2xl font-bold mt-1">--</div>
-        <div class="text-xs text-gray-400 mt-1">Robust central tendency</div>
-      </div>
-
-      <!-- Mini Pie داخل الكرت -->
-      <div class="glass p-4 rounded-2xl flex items-center gap-4">
-        <div class="flex-1">
-          <div class="text-sm text-gray-300">On-Time &lt;24h</div>
-          <div id="kpi-ontime-24" class="text-2xl font-bold mt-1">--%</div>
-          <div class="text-xs text-gray-400 mt-1">Acknowledged within 24h</div>
+    <!-- بانر باسم الـ Space -->
+    <section class="mb-4">
+      <div id="space-banner" class="space-banner text-center">
+        <div class="inline-block px-6 py-4 rounded-2xl glass">
+          <h2 id="space-banner-title" class="text-2xl sm:text-3xl md:text-4xl font-extrabold"></h2>
+          <p id="space-banner-sub" class="text-sm md:text-base text-gray-300 mt-1"></p>
         </div>
-        <canvas id="pie-24" width="90" height="90"></canvas>
       </div>
+    </section>
 
-      <div class="glass p-4 rounded-2xl flex items-center gap-4">
-        <div class="flex-1">
-          <div class="text-sm text-gray-300">Within 48h</div>
-          <div id="kpi-ontime-48" class="text-2xl font-bold mt-1">--%</div>
-          <div class="text-xs text-gray-400 mt-1">Acknowledged within 48h</div>
+    <!-- زر Insights لعرض المؤشرات عند الطلب فقط -->
+    <section class="mb-6 text-center">
+      <button id="open-insights" class="btn bg-indigo-600 border-none hover:bg-indigo-500">
+        <i class="fa-solid fa-chart-line mr-2"></i> Insights
+      </button>
+      <span id="insights-hint" class="block text-gray-300 text-sm mt-1">Click to load KPIs & Rankings on demand.</span>
+    </section>
+
+    <!-- 🔎 Search + Filters (خفيف – دائمًا ظاهر ولا يعمل كول للسيرفر) -->
+    <section class="glass rounded-2xl p-4 mb-4">
+      <div class="text-center mb-2">
+        <div class="relative max-w-xl mx-auto">
+          <input id="search-box" type="text" placeholder="🔎 Search by Title"
+                 class="input input-bordered w-full text-center pr-10 bg-gray-800/70 text-sm md:text-base" />
+          <button id="clear-search" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">❌</button>
         </div>
-        <canvas id="pie-48" width="90" height="90"></canvas>
+      </div>
+      <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <button id="filter-timestamp" class="btn btn-sm bg-blue-600 border-none hover:bg-blue-500">📅 Timestamp</button>
+        <button id="filter-status" class="btn btn-sm bg-gray-600 border-none hover:bg-gray-500">❔ Not Acknowledged</button>
+        <button id="reset-filters" class="btn btn-sm bg-red-600 border-none hover:bg-red-500">🔄 Reset</button>
+        <!-- زر الـ Overall Compliance موجود دائمًا لكن يتفعل فقط لأصحاب المساحات -->
+        <button id="check-overall-btn" style="display:none" class="btn btn-sm bg-yellow-600 border-none hover:bg-yellow-500">📊 Check Overall Compliance</button>
       </div>
     </section>
 
-    <!-- Admin KPIs -->
-    <section id="admin-kpis" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">Team Avg Compliance</div>
-        <div id="kpi-team-avg" class="text-2xl font-bold mt-1">--%</div>
-        <div class="text-xs text-gray-400 mt-1">Excludes [Admin] accounts</div>
-      </div>
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">Lowest Compliance User</div>
-        <div id="kpi-lowest" class="text-lg font-semibold mt-1">—</div>
-        <div class="text-xs text-gray-400 mt-1">Excludes [Admin] accounts</div>
-      </div>
-      <div class="glass p-4 rounded-2xl">
-        <div class="text-sm text-gray-300">Unacknowledged (Last 7d)</div>
-        <div id="kpi-unacked-7d" class="text-2xl font-bold mt-1">--</div>
-        <div class="text-xs text-gray-400 mt-1">New memos needing follow-up</div>
-      </div>
-    </section>
+    <!-- كل ما قبل جدول التعاميم (يُحمَّل عند الضغط على Insights) -->
+    <div id="insights-wrap" class="hidden">
 
-    <!-- Activity + Trend -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-      <div class="glass p-4 rounded-2xl">
+      <!-- KPIs خفيفة فقط -->
+      <section id="kpis-top" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div class="glass p-4 rounded-2xl">
+          <div class="text-sm text-gray-300">My Compliance</div>
+          <div id="kpi-my-compliance" class="text-2xl font-bold mt-1">--%</div>
+          <div class="text-xs text-gray-400 mt-1">Across joined spaces</div>
+        </div>
+        <div class="glass p-4 rounded-2xl">
+          <div class="text-sm text-gray-300">My Pending</div>
+          <div id="kpi-my-pending" class="text-2xl font-bold mt-1">--</div>
+          <div class="text-xs text-gray-400 mt-1">Unacknowledged memos</div>
+        </div>
+        <div class="glass p-4 rounded-2xl">
+          <div class="text-sm text-gray-300">Last Acknowledgment</div>
+          <div id="kpi-last-ack" class="text-lg font-semibold mt-1">—</div>
+          <div class="text-xs text-gray-400 mt-1">Local time</div>
+        </div>
+        <div class="glass p-4 rounded-2xl">
+          <div class="text-sm text-gray-300">Total Memos</div>
+          <div id="kpi-total-memos" class="text-2xl font-bold mt-1">--</div>
+          <div class="text-xs text-gray-400 mt-1">In your spaces</div>
+        </div>
+      </section>
+
+      <!-- Admin KPIs -->
+      <section id="admin-kpis" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <div class="glass p-4 rounded-2xl">
+          <div class="text-sm text-gray-300">Team Avg Compliance</div>
+          <div id="kpi-team-avg" class="text-2xl font-bold mt-1">--%</div>
+          <div class="text-xs text-gray-400 mt-1">Excludes [Admin] accounts</div>
+        </div>
+        <div class="glass p-4 rounded-2xl">
+          <div class="text-sm text-gray-300">Lowest Compliance User</div>
+          <div id="kpi-lowest" class="text-lg font-semibold mt-1">—</div>
+          <div class="text-xs text-gray-400 mt-1">Excludes [Admin] accounts</div>
+        </div>
+        <div class="glass p-4 rounded-2xl">
+          <div class="text-sm text-gray-300">Unacknowledged (Last 7d)</div>
+          <div id="kpi-unacked-7d" class="text-2xl font-bold mt-1">--</div>
+          <div class="text-xs text-gray-400 mt-1">New memos needing follow-up</div>
+        </div>
+      </section>
+
+      <!-- Activity (بدون Trend) -->
+      <section class="glass p-4 rounded-2xl mb-4">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <h2 class="text-lg font-semibold">🛎️ Latest Memo Activity</h2>
           <div class="flex items-center gap-2">
@@ -170,49 +176,27 @@
           </div>
         </div>
         <ul id="notification-list" class="space-y-1 text-sm mt-3"></ul>
-      </div>
+      </section>
 
-      <div class="glass p-4 rounded-2xl">
-        <h2 class="text-lg font-semibold mb-2">📈 Acknowledgment Trend (7 days)</h2>
-        <canvas id="ack-trend-chart" class="w-full"></canvas>
-      </div>
-    </section>
-
-    <!-- Rankings -->
-    <section class="glass p-4 rounded-2xl mb-4">
-      <h2 class="text-lg font-semibold mb-2">🏅 Rankings</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h3 class="text-sm font-semibold text-emerald-300 mb-2">⚡ Fastest Responders</h3>
-          <ul id="rank-fastest" class="space-y-2"></ul>
+      <!-- Rankings -->
+      <section class="glass p-4 rounded-2xl mb-4">
+        <h2 class="text-lg font-semibold mb-2">🏅 Rankings</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h3 class="text-sm font-semibold text-emerald-300 mb-2">⚡ Fastest Responders</h3>
+            <ul id="rank-fastest" class="space-y-2"></ul>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-blue-300 mb-2">🏆 Elite (Up-to-date)</h3>
+            <ul id="rank-elite" class="space-y-2"></ul>
+          </div>
         </div>
-        <div>
-          <h3 class="text-sm font-semibold text-blue-300 mb-2">🏆 Elite (Up-to-date)</h3>
-          <ul id="rank-elite" class="space-y-2"></ul>
+        <div class="mt-4">
+          <h3 class="text-sm font-semibold text-yellow-300 mb-2">🐢 Lazy</h3>
+          <ul id="rank-lazy" class="space-y-2"></ul>
         </div>
-      </div>
-      <div class="mt-4">
-        <h3 class="text-sm font-semibold text-yellow-300 mb-2">🐢 Lazy</h3>
-        <ul id="rank-lazy" class="space-y-2"></ul>
-      </div>
-    </section>
-
-    <!-- Search + Filters -->
-    <section class="glass rounded-2xl p-4 mb-4">
-      <div class="text-center mb-2">
-        <div class="relative max-w-xl mx-auto">
-          <input id="search-box" type="text" placeholder="🔎 Search by Title"
-                 class="input input-bordered w-full text-center pr-10 bg-gray-800/70 text-sm md:text-base" />
-          <button id="clear-search" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">❌</button>
-        </div>
-      </div>
-      <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
-        <button id="filter-timestamp" class="btn btn-sm bg-blue-600 border-none hover:bg-blue-500">📅 Timestamp</button>
-        <button id="filter-status" class="btn btn-sm bg-gray-600 border-none hover:bg-gray-500">❔ Not Acknowledged</button>
-        <button id="reset-filters" class="btn btn-sm bg-red-600 border-none hover:bg-red-500">🔄 Reset</button>
-        <button id="check-overall-btn" style="display:none" class="btn btn-sm bg-yellow-600 border-none hover:bg-yellow-500">📊 Check Overall Compliance</button>
-      </div>
-    </section>
+      </section>
+    </div><!-- /insights-wrap -->
 
     <!-- Memos Table -->
     <section class="glass rounded-2xl p-2 md:p-4">
@@ -224,7 +208,8 @@
               <th class="p-3 w-[90px] md:w-[110px]">Actions</th>
               <th class="p-3 w-[88px] md:w-[100px]">Status</th>
               <th class="p-3">Title</th>
-              <th class="p-3 w-[160px] md:w-[220px]">Space</th>
+              <!-- نخفي عمود الـ Space على الشاشات الصغيرة علشان العنوان يظهر -->
+              <th class="p-3 w-[160px] md:w-[220px] hidden sm:table-cell">Space</th>
               <th class="p-3 w-[150px] md:w-[200px]">Timestamp</th>
             </tr>
           </thead>
@@ -286,6 +271,6 @@
   </div>
 
   <!-- App Logic -->
-  <script defer src="./js/memos.js"></script>
+  <script defer src="js/memos.js"></script>
 </body>
 </html>
