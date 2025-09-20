@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Early Warning (NEWS2) — Neon Pipelines</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <style>
+    :root{
+      --bg:#081227;
+      --card:#0b1834;
+      --ink:#E8F0FF;
+      --cyan:#00E6FF;
+      --vio:#7C4DFF;
+      --pink:#FF2D75;
+      --lime:#6CFF8D;
+      --amber:#FFC857;
+      --danger:#FF4D4D;
+      --ok:#1ED760;
+    }
+    html,body{height:100%}
+    body{
+      background: radial-gradient(1200px 700px at 15% 10%, rgba(0,255,255,.08), transparent),
+                  radial-gradient(900px 600px at 85% 20%, rgba(124,77,255,.08), transparent),
+                  linear-gradient(160deg, #06102a 0%, #040915 60%);
+      color:var(--ink);
+      font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      overflow-x:hidden;
+    }
+    /* Neon pipelines background */
+    .pipes{position:fixed; inset:0; pointer-events:none; z-index:-1;}
+    .pipes svg{width:100%; height:100%; filter:drop-shadow(0 0 6px rgba(0,230,255,.5)); opacity:.28}
+    .pipes .flow{stroke-dasharray:6 10; animation:flow 6s linear infinite;}
+    .pipes .pulse{stroke-linecap:round; stroke-dasharray:1 60; animation:pulse 2.4s ease-in-out infinite;}
+    @keyframes flow{to{stroke-dashoffset:-160}}
+    @keyframes pulse{50%{stroke-width:3; opacity:.9} 100%{stroke-dashoffset:-120}}
+
+    /* Glass / 3D tilt card */
+    .glass{
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: 0 20px 60px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.02);
+      backdrop-filter: blur(8px);
+      transform-style: preserve-3d;
+    }
+    .tilt{transform:perspective(1200px) rotateX(var(--rx,0)) rotateY(var(--ry,0)) translateZ(0); transition: transform .15s ease}
+
+    /* Gauge */
+    .gauge{ --val:0; --max:20; width:170px; height:170px; border-radius:999px; position:relative; display:grid; place-items:center;}
+    .gauge::before{
+      content:""; position:absolute; inset:0; border-radius:inherit; padding:12px; background:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.15), transparent 60%),
+      conic-gradient(from 270deg, var(--ok) calc((var(--val)/var(--max))*360deg), rgba(255,255,255,.06) 0);
+      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 59%, #000 60%);
+              mask: radial-gradient(circle at 50% 50%, transparent 59%, #000 60%);
+      filter: drop-shadow(0 0 12px rgba(0,255,170,.3));
+    }
+    .gauge .center{z-index:3; text-align:center}
+    .badge-chip{border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.04)}
+
+    /* Score dot colors */
+    .score-0{background:rgba(255,255,255,.06)}
+    .score-1{background:linear-gradient(120deg, #233a6b, #1a2b53)}
+    .score-2{background:linear-gradient(120deg, #3d2e68, #2b2050)}
+    .score-3{background:linear-gradient(120deg, #4b1e1e, #2c0f0f); box-shadow:0 0 24px rgba(255,0,55,.35) inset}
+
+    /* Floating helper */
+    .helper{position:fixed; right:16px; bottom:16px; backdrop-filter: blur(8px); background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.08)}
+
+    .ring-anim{box-shadow:0 0 0 0 rgba(0,230,255,.6); animation:ring 2s infinite}
+    @keyframes ring{to{box-shadow:0 0 0 24px rgba(0,230,255,0)}}
+
+    /* Tiny tooltip */
+    .hint{border-bottom:1px dashed rgba(255,255,255,.5); cursor:help}
+
+    .risk-low{background:linear-gradient(135deg, rgba(30,215,96,.25), rgba(30,215,96,.05)); border-color:rgba(30,215,96,.35)}
+    .risk-med{background:linear-gradient(135deg, rgba(255,200,70,.25), rgba(255,200,70,.05)); border-color:rgba(255,200,70,.35)}
+    .risk-high{background:linear-gradient(135deg, rgba(255,77,77,.3), rgba(255,77,77,.06)); border-color:rgba(255,77,77,.35)}
+
+    .shadow-brand{box-shadow: 0 10px 30px rgba(0,230,255,.15), 0 4px 14px rgba(124,77,255,.12)}
+  </style>
+</head>
+<body>
+  <!-- Decorative neon pipelines -->
+  <div class="pipes" aria-hidden="true">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="var(--cyan)"/>
+          <stop offset="100%" stop-color="var(--vio)"/>
+        </linearGradient>
+      </defs>
+      <path d="M0,20 C20,25 20,45 40,50 S60,55 80,60 S100,70 110,75" stroke="url(#grad)" stroke-width="1" fill="none" class="flow"/>
+      <path d="M0,70 C15,66 25,62 40,58 S70,52 100,50" stroke="url(#grad)" stroke-width="1.2" fill="none" class="pulse"/>
+      <path d="M-10,40 C10,44 30,48 50,52 S80,60 120,68" stroke="url(#grad)" stroke-width="0.8" fill="none" class="flow" style="animation-duration:9s"/>
+    </svg>
+  </div>
+
+  <!-- Header -->
+  <header class="max-w-7xl mx-auto px-4 pt-10 pb-6">
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="p-3 rounded-2xl glass shadow-brand ring-anim">
+        <i class="fa-solid fa-heart-pulse text-cyan-300 text-2xl"></i>
+      </div>
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">AI Early Warning — <span class="text-cyan-300">NEWS2</span></h1>
+        <p class="opacity-80 text-sm">Auto-score from vitals & neuro status. Neon, animated UI. <span class="hint" title="NEWS2 risk bands: 0 or 1–4 (no single 3) = Low; any single 3 or total 5–6 = Medium; total ≥7 = High.">Hover for rule</span>.</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main card -->
+  <main class="max-w-7xl mx-auto px-4 pb-24">
+    <section id="card" class="glass tilt rounded-3xl p-6 md:p-8 shadow-brand">
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Left: Inputs -->
+        <div class="md:col-span-2 space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xl font-bold">Patient Entries</h2>
+              <p class="text-xs opacity-70">Type values — scoring updates live.</p>
+            </div>
+            <div class="flex gap-2">
+              <button id="btnReset" class="btn btn-sm rounded-xl bg-[#0e1a3a] border border-white/10">Reset</button>
+              <button id="btnDemo" class="btn btn-sm rounded-xl bg-gradient-to-r from-cyan-600 to-violet-600 text-white">Demo</button>
+            </div>
+          </div>
+
+          <!-- Grid of inputs -->
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Resp Rate -->
+            <div class="p-4 rounded-2xl glass score-0" id="wrap-rr">
+              <label class="text-xs opacity-75">Respiration Rate (per min)</label>
+              <div class="mt-2 flex items-center gap-2">
+                <input id="rr" type="number" min="0" step="1" class="input input-bordered w-full rounded-xl bg-[#09132a]/60" placeholder="e.g. 18"/>
+                <span class="badge badge-chip" id="badge-rr">0</span>
+              </div>
+            </div>
+
+            <!-- SpO2 % -->
+            <div class="p-4 rounded-2xl glass score-0" id="wrap-spo2">
+              <label class="text-xs opacity-75 flex items-center gap-2">SpO₂ (%) <span class="hint" title="Use Scale 2 for chronic hypercapnic respiratory failure (target 88–92%).">(Scale <span id=scaleLabel>1</span>)</span></label>
+              <div class="mt-2 flex items-center gap-2">
+                <input id="spo2" type="number" min="0" max="100" step="1" class="input input-bordered w-full rounded-xl bg-[#09132a]/60" placeholder="e.g. 97"/>
+                <span class="badge badge-chip" id="badge-spo2">0</span>
+              </div>
+              <div class="mt-3 flex items-center justify-between gap-2">
+                <label class="label cursor-pointer flex-1">
+                  <span class="label-text text-xs">SpO₂ Scale 2</span>
+                  <input id="scale2" type="checkbox" class="toggle toggle-info"/>
+                </label>
+                <label class="label cursor-pointer">
+                  <span class="label-text text-xs">On Oxygen</span>
+                  <input id="oxy" type="checkbox" class="toggle toggle-warning"/>
+                </label>
+                <span class="badge badge-chip" id="badge-oxy">+0</span>
+              </div>
+            </div>
+
+            <!-- Systolic BP -->
+            <div class="p-4 rounded-2xl glass score-0" id="wrap-sbp">
+              <label class="text-xs opacity-75">Systolic BP (mmHg)</label>
+              <div class="mt-2 flex items-center gap-2">
+                <input id="sbp" type="number" min="0" step="1" class="input input-bordered w-full rounded-xl bg-[#09132a]/60" placeholder="e.g. 128"/>
+                <span class="badge badge-chip" id="badge-sbp">0</span>
+              </div>
+            </div>
+
+            <!-- Pulse -->
+            <div class="p-4 rounded-2xl glass score-0" id="wrap-pulse">
+              <label class="text-xs opacity-75">Pulse (per min)</label>
+              <div class="mt-2 flex items-center gap-2">
+                <input id="pulse" type="number" min="0" step="1" class="input input-bordered w-full rounded-xl bg-[#09132a]/60" placeholder="e.g. 86"/>
+                <span class="badge badge-chip" id="badge-pulse">0</span>
+              </div>
+            </div>
+
+            <!-- Consciousness -->
+            <div class="p-4 rounded-2xl glass score-0" id="wrap-consc">
+              <label class="text-xs opacity-75">Consciousness (ACVPU)</label>
+              <div class="mt-2 flex items-center gap-2">
+                <select id="consc" class="select select-bordered w-full rounded-xl bg-[#09132a]/60">
+                  <option value="A" selected>Alert / No change</option>
+                  <option value="C">New Confusion (C)</option>
+                  <option value="V">Responds to Voice (V)</option>
+                  <option value="P">Responds to Pain (P)</option>
+                  <option value="U">Unresponsive (U)</option>
+                </select>
+                <span class="badge badge-chip" id="badge-consc">0</span>
+              </div>
+            </div>
+
+            <!-- Temperature -->
+            <div class="p-4 rounded-2xl glass score-0" id="wrap-temp">
+              <label class="text-xs opacity-75">Temperature (°C)</label>
+              <div class="mt-2 flex items-center gap-2">
+                <input id="temp" type="number" step="0.1" class="input input-bordered w-full rounded-xl bg-[#09132a]/60" placeholder="e.g. 37.0"/>
+                <span class="badge badge-chip" id="badge-temp">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Per-parameter chips -->
+          <div class="grid sm:grid-cols-3 lg:grid-cols-7 gap-2 pt-2">
+            <div class="badge badge-lg badge-chip w-full justify-between"><span>RR</span><span id="chip-rr">0</span></div>
+            <div class="badge badge-lg badge-chip w-full justify-between"><span>SpO₂</span><span id="chip-spo2">0</span></div>
+            <div class="badge badge-lg badge-chip w-full justify-between"><span>O₂</span><span id="chip-oxy">0</span></div>
+            <div class="badge badge-lg badge-chip w-full justify-between"><span>SBP</span><span id="chip-sbp">0</span></div>
+            <div class="badge badge-lg badge-chip w-full justify-between"><span>Pulse</span><span id="chip-pulse">0</span></div>
+            <div class="badge badge-lg badge-chip w-full justify-between"><span>ACVPU</span><span id="chip-consc">0</span></div>
+            <div class="badge badge-lg badge-chip w-full justify-between"><span>Temp</span><span id="chip-temp">0</span></div>
+          </div>
+        </div>
+
+        <!-- Right: Score & Risk -->
+        <div class="space-y-6">
+          <div class="p-6 rounded-3xl glass">
+            <div class="flex items-center gap-5">
+              <div class="gauge" id="gauge" aria-label="Aggregate NEWS score">
+                <div class="center">
+                  <div class="text-xs opacity-70">NEWS</div>
+                  <div id="total" class="text-4xl font-extrabold">0</div>
+                  <div class="text-[10px] opacity-60">/ 20</div>
+                </div>
+              </div>
+              <div class="flex-1">
+                <h3 class="text-lg font-bold">Risk</h3>
+                <div id="riskBox" class="mt-2 p-3 rounded-2xl border risk-low">
+                  <div class="flex items-center justify-between">
+                    <div class="font-semibold" id="riskText">LOW</div>
+                    <div class="text-sm opacity-80" id="bandText">0 (or 1–4 with no single 3)</div>
+                  </div>
+                  <p class="text-xs opacity-80 mt-2" id="advice">Routine monitoring (≥12‑hourly); consider clinical context.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Explain & Export -->
+          <div class="p-6 rounded-3xl glass">
+            <h3 class="text-lg font-bold mb-2">Explain</h3>
+            <div id="explain" class="text-sm opacity-85 space-y-1"></div>
+            <div class="mt-4 flex gap-2">
+              <button id="btnCopy" class="btn btn-sm rounded-xl bg-[#0e1a3a] border border-white/10"><i class="fa-regular fa-copy mr-2"></i>Copy summary</button>
+              <button id="btnShare" class="btn btn-sm rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 text-white"><i class="fa-solid fa-share-nodes mr-2"></i>Share (local)</button>
+            </div>
+          </div>
+
+          <!-- Disclaimer -->
+          <div class="text-[11px] opacity-60 leading-relaxed">
+            Designed for educational/support use. Follow local policy and clinical judgement. NEWS2® is owned by the RCP; mappings reproduced from published guidance.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Helper bubble -->
+  <div class="helper p-3 rounded-2xl glass text-xs shadow-brand">
+    <div class="font-semibold mb-1">Tips</div>
+    <ul class="list-disc ml-4 space-y-1 opacity-80">
+      <li>Toggle <b>Scale 2</b> for COPD / hypercapnic targets (88–92%).</li>
+      <li><b>On Oxygen</b> adds +2 points, independent of SpO₂.</li>
+      <li>A single parameter scoring <b>3</b> creates a <span class="text-amber-300">RED score</span>.</li>
+    </ul>
+  </div>
+
+  <script>
+    // ====== Utility ======
+    const clamp = (n, a, b) => Math.min(Math.max(n, a), b);
+    const byId = id => document.getElementById(id);
+    const fmt = n => (Number.isFinite(n) ? n : 0);
+
+    const els = {
+      rr: byId('rr'),
+      spo2: byId('spo2'),
+      scale2: byId('scale2'),
+      oxy: byId('oxy'),
+      sbp: byId('sbp'),
+      pulse: byId('pulse'),
+      consc: byId('consc'),
+      temp: byId('temp'),
+      scaleLabel: byId('scaleLabel'),
+      // badges
+      bRR: byId('badge-rr'),
+      bSPO2: byId('badge-spo2'),
+      bOxy: byId('badge-oxy'),
+      bSBP: byId('badge-sbp'),
+      bPulse: byId('badge-pulse'),
+      bConsc: byId('badge-consc'),
+      bTemp: byId('badge-temp'),
+      // chips
+      cRR: byId('chip-rr'),
+      cSPO2: byId('chip-spo2'),
+      cOxy: byId('chip-oxy'),
+      cSBP: byId('chip-sbp'),
+      cPulse: byId('chip-pulse'),
+      cConsc: byId('chip-consc'),
+      cTemp: byId('chip-temp'),
+      // wrap cards for color feedback
+      wRR: byId('wrap-rr'),
+      wSPO2: byId('wrap-spo2'),
+      wSBP: byId('wrap-sbp'),
+      wPulse: byId('wrap-pulse'),
+      wConsc: byId('wrap-consc'),
+      wTemp: byId('wrap-temp'),
+      // totals
+      total: byId('total'),
+      gauge: byId('gauge'),
+      riskBox: byId('riskBox'),
+      riskText: byId('riskText'),
+      bandText: byId('bandText'),
+      advice: byId('advice'),
+      explain: byId('explain'),
+      // buttons
+      btnReset: byId('btnReset'),
+      btnDemo: byId('btnDemo'),
+      btnCopy: byId('btnCopy'),
+      btnShare: byId('btnShare'),
+    };
+
+    // ====== Scoring (NEWS2) ======
+    function scoreRR(v){
+      if(!isFinite(v)) return 0;
+      if(v <= 8) return 3;
+      if(v >= 9 && v <= 11) return 1;
+      if(v >= 12 && v <= 20) return 0;
+      if(v >= 21 && v <= 24) return 2;
+      if(v >= 25) return 3;
+      return 0;
+    }
+
+    function scoreSPO2(v, scale2){
+      if(!isFinite(v)) return 0;
+      if(!scale2){ // Scale 1
+        if(v <= 91) return 3;
+        if(v <= 93) return 2;   // 92-93
+        if(v <= 95) return 1;   // 94-95
+        return 0;               // >=96
+      } else { // Scale 2 (target 88-92)
+        if(v <= 83) return 3;
+        if(v <= 85) return 2;   // 84-85
+        if(v <= 87) return 1;   // 86-87
+        if(v <= 92) return 0;   // 88-92
+        if(v <= 94) return 1;   // 93-94
+        if(v <= 96) return 2;   // 95-96
+        return 3;               // >=97
+      }
+    }
+
+    function scoreOxy(onO2){ return onO2 ? 2 : 0; }
+
+    function scoreSBP(v){
+      if(!isFinite(v)) return 0;
+      if(v <= 90) return 3;
+      if(v <= 100) return 2;   // 91-100
+      if(v <= 110) return 1;   // 101-110
+      if(v <= 219) return 0;   // 111-219
+      return 3;                // >=220
+    }
+
+    function scorePulse(v){
+      if(!isFinite(v)) return 0;
+      if(v <= 40) return 3;
+      if(v <= 50) return 1;    // 41-50
+      if(v <= 90) return 0;    // 51-90
+      if(v <= 110) return 1;   // 91-110
+      if(v <= 130) return 2;   // 111-130
+      return 3;                // >=131
+    }
+
+    function scoreConsc(val){
+      return (val === 'A') ? 0 : 3; // New confusion C, or V/P/U => 3
+    }
+
+    function scoreTemp(v){
+      if(!isFinite(v)) return 0;
+      if(v <= 35.0) return 3;
+      if(v < 36.1) return 1;      // 35.1-36.0
+      if(v <= 38.0) return 0;     // 36.1-38.0
+      if(v <= 39.0) return 1;     // 38.1-39.0
+      return 2;                   // >=39.1
+    }
+
+    // ====== Risk band per NEWS2 ======
+    function classify(total, hasRed){
+      // Low: 0, or 1–4 with no single 3
+      // Medium: any single 3 ("red") OR total 5–6
+      // High: total >=7
+      if(total >= 7) return {band:'HIGH', cls:'risk-high', text:'Aggregate ≥7', advice:'Emergency response; consider critical care and continuous monitoring.'};
+      if(total >= 5) return {band:'MEDIUM', cls:'risk-med', text:'Aggregate 5–6', advice:'Urgent review by clinician/MD; increase monitoring frequency.'};
+      if(hasRed) return {band:'MEDIUM', cls:'risk-med', text:'RED score (single parameter = 3)', advice:'Urgent review; address the deranged parameter and escalate per policy.'};
+      return {band:'LOW', cls:'risk-low', text:'0 (or 1–4 with no single 3)', advice:'Routine monitoring (≥12‑hourly); consider clinical context.'};
+    }
+
+    function updateWrapColor(el, score){
+      el.classList.remove('score-0','score-1','score-2','score-3');
+      el.classList.add('score-'+clamp(score,0,3));
+    }
+
+    function render(){
+      const vals = {
+        rr: parseFloat(els.rr.value),
+        spo2: parseFloat(els.spo2.value),
+        scale2: els.scale2.checked,
+        oxy: els.oxy.checked,
+        sbp: parseFloat(els.sbp.value),
+        pulse: parseFloat(els.pulse.value),
+        consc: els.consc.value,
+        temp: parseFloat(els.temp.value),
+      };
+
+      const s = {
+        rr: scoreRR(vals.rr),
+        spo2: scoreSPO2(vals.spo2, vals.scale2),
+        oxy: scoreOxy(vals.oxy),
+        sbp: scoreSBP(vals.sbp),
+        pulse: scorePulse(vals.pulse),
+        consc: scoreConsc(vals.consc),
+        temp: scoreTemp(vals.temp),
+      };
+
+      // totals
+      const scoresArr = Object.values(s);
+      const total = scoresArr.reduce((a,b)=>a+b,0);
+      const hasRed = scoresArr.includes(3);
+
+      // UI badges & wraps
+      els.bRR.textContent = s.rr; updateWrapColor(els.wRR, s.rr); els.cRR.textContent=s.rr;
+      els.bSPO2.textContent = s.spo2; updateWrapColor(els.wSPO2, s.spo2); els.cSPO2.textContent=s.spo2;
+      els.bOxy.textContent = '+'+s.oxy; els.cOxy.textContent=s.oxy;
+      els.bSBP.textContent = s.sbp; updateWrapColor(els.wSBP, s.sbp); els.cSBP.textContent=s.sbp;
+      els.bPulse.textContent = s.pulse; updateWrapColor(els.wPulse, s.pulse); els.cPulse.textContent=s.pulse;
+      els.bConsc.textContent = s.consc; updateWrapColor(els.wConsc, s.consc); els.cConsc.textContent=s.consc;
+      els.bTemp.textContent = s.temp; updateWrapColor(els.wTemp, s.temp); els.cTemp.textContent=s.temp;
+
+      // totals
+      els.total.textContent = total;
+      els.gauge.style.setProperty('--val', total);
+
+      // risk box
+      const R = classify(total, hasRed);
+      els.riskBox.classList.remove('risk-low','risk-med','risk-high');
+      els.riskBox.classList.add(R.cls);
+      els.riskText.textContent = R.band;
+      els.bandText.textContent = R.text;
+      els.advice.textContent = R.advice;
+
+      // explain
+      const lines = [];
+      if(Number.isFinite(vals.rr)) lines.push(`RR ${vals.rr}/min → ${s.rr}`);
+      if(Number.isFinite(vals.spo2)) lines.push(`SpO₂ ${vals.spo2}% (Scale ${vals.scale2?2:1}) → ${s.spo2}`);
+      if(vals.oxy) lines.push(`Supplemental O₂ → +${s.oxy}`);
+      if(Number.isFinite(vals.sbp)) lines.push(`SBP ${vals.sbp} mmHg → ${s.sbp}`);
+      if(Number.isFinite(vals.pulse)) lines.push(`Pulse ${vals.pulse}/min → ${s.pulse}`);
+      lines.push(`ACVPU ${vals.consc} → ${s.consc}`);
+      if(Number.isFinite(vals.temp)) lines.push(`Temp ${vals.temp.toFixed(1)}°C → ${s.temp}`);
+      lines.push(`<b>Total NEWS = ${total}</b>${hasRed? ' (includes RED score)': ''}`);
+      els.explain.innerHTML = '<ul class="list-disc ml-5 space-y-1">'+lines.map(x=>`<li>${x}</li>`).join('')+'</ul>';
+
+      return {vals, s, total, hasRed};
+    }
+
+    // ====== Listeners ======
+    ['input','change'].forEach(ev=>{
+      ['rr','spo2','scale2','oxy','sbp','pulse','consc','temp'].forEach(id=>{
+        els[id].addEventListener(ev, ()=>{
+          if(id==='scale2') els.scaleLabel.textContent = els.scale2.checked? '2':'1';
+          render();
+        });
+      });
+    });
+
+    els.btnReset.addEventListener('click', ()=>{
+      Object.assign(els, {}); // no-op, just to please linters
+      ['rr','spo2','sbp','pulse','temp'].forEach(id=> els[id].value='');
+      els.consc.value = 'A';
+      els.scale2.checked = false; els.scaleLabel.textContent='1';
+      els.oxy.checked = false;
+      render();
+    });
+
+    els.btnDemo.addEventListener('click', ()=>{
+      els.rr.value = 28;
+      els.spo2.value = 90;
+      els.scale2.checked = false; els.scaleLabel.textContent='1';
+      els.oxy.checked = true;
+      els.sbp.value = 95;
+      els.pulse.value = 128;
+      els.consc.value = 'V';
+      els.temp.value = 39.3;
+      render();
+    });
+
+    els.btnCopy.addEventListener('click', ()=>{
+      const {vals, s, total, hasRed} = render();
+      const txt = `NEWS2 Summary\n`+
+        `RR: ${vals.rr ?? ''} -> ${s.rr}\n`+
+        `SpO2: ${vals.spo2 ?? ''}% (Scale ${vals.scale2?2:1}) -> ${s.spo2}${vals.oxy?` + O2(${s.oxy})`:''}\n`+
+        `SBP: ${vals.sbp ?? ''} -> ${s.sbp}\n`+
+        `Pulse: ${vals.pulse ?? ''} -> ${s.pulse}\n`+
+        `ACVPU: ${vals.consc} -> ${s.consc}\n`+
+        `Temp: ${Number.isFinite(vals.temp)? vals.temp.toFixed(1):''} -> ${s.temp}\n`+
+        `Total NEWS = ${total}${hasRed?' (RED score)':''}`;
+      navigator.clipboard.writeText(txt).then(()=>{
+        els.btnCopy.classList.add('btn-success');
+        setTimeout(()=>els.btnCopy.classList.remove('btn-success'),900);
+      });
+    });
+
+    els.btnShare.addEventListener('click', ()=>{
+      const payload = {created: new Date().toISOString(), ...render()};
+      const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `news2-${Date.now()}.json`; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+    });
+
+    // 3D tilt interaction
+    (function addTilt(){
+      const card = document.getElementById('card');
+      const max = 10; // deg
+      function move(e){
+        const r = card.getBoundingClientRect();
+        const px = (e.clientX - r.left)/r.width; // 0..1
+        const py = (e.clientY - r.top)/r.height;
+        const ry = (px - .5) * (max*2);
+        const rx = - (py - .5) * (max*2);
+        card.style.setProperty('--rx', rx+'deg');
+        card.style.setProperty('--ry', ry+'deg');
+      }
+      card.addEventListener('pointermove', move);
+      card.addEventListener('pointerleave', ()=>{
+        card.style.setProperty('--rx','0deg');
+        card.style.setProperty('--ry','0deg');
+      });
+    })();
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
