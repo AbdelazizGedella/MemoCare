@@ -86,6 +86,11 @@
       </div>
       <div class="flex items-center gap-2 md:gap-3">
         <button id="reloadBtn" class="btn btn-sm btn-ghost btn-ico" title="Reload">🔄 <span>Reload</span></button>
+
+        <!-- Sign in/out -->
+        <button id="signInBtn" class="btn btn-sm btn-ghost btn-ico" title="Sign in">🔑 <span>Sign in</span></button>
+        <button id="signOutBtn" class="btn btn-sm btn-ghost btn-ico hidden" title="Sign out">🚪 <span>Sign out</span></button>
+
         <!-- Hidden by default; shown only if admin -->
         <button id="toggleAdminPanel" class="btn btn-sm btn-ico hidden" title="Admin Panel">🛠️ <span>Admin Panel</span></button>
         <div id="adminChip" class="hidden text-xs bg-emerald-500/20 text-emerald-200 px-3 py-1 rounded-full border border-emerald-400/30">
@@ -138,7 +143,7 @@
     <div class="glass p-4 md:p-6 mb-4">
       <h2 class="text-xl font-bold mb-3">Admin Panel</h2>
 
-      <!-- NEW: Header / Data source controls -->
+      <!-- Header / Data source controls -->
       <div class="glass p-4 mb-4">
         <h3 class="font-semibold mb-2">🪪 Header Display (Data source line)</h3>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -360,7 +365,6 @@
     const label = meta.sourceLabel || sheetName || "Sheet";
     const when  = meta.updatedAt ? fmtLocal(meta.updatedAt) : new Date().toLocaleString();
     $("#etag").textContent = `${label} — CSV (Google Sheets) — ${when}`;
-    // preview (admin)
     const prev = $("#admHeaderPreview"); if (prev) prev.textContent = $("#etag").textContent;
   }
 
@@ -414,43 +418,89 @@
     updateHeaderLine();
   }
 
-  // ========= Firestore / Admin gating =========
+  // ========= Firestore / Auth =========
+  function updateAuthUI(){
+    const inBtn  = $("#signInBtn");
+    const outBtn = $("#signOutBtn");
+
+    if (auth?.currentUser){
+      inBtn?.classList.add("hidden");
+      outBtn?.classList.remove("hidden");
+    } else {
+      inBtn?.classList.remove("hidden");
+      outBtn?.classList.add("hidden");
+    }
+
+    if (isAdmin){
+      $("#adminChip")?.classList.remove("hidden");
+      $("#toggleAdminPanel")?.classList.remove("hidden");
+      $("#adminExtras")?.classList.remove("hidden");
+    } else {
+      $("#adminChip")?.classList.add("hidden");
+      $("#toggleAdminPanel")?.classList.add("hidden");
+      $("#adminExtras")?.classList.add("hidden");
+    }
+  }
+
+  async function googleSignIn(){
+    try{
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+      toast("Signed in.");
+    }catch(e){
+      showError("Sign-in failed: " + (e?.message||e));
+    }
+  }
+
+  async function doSignOut(){
+    try{
+      await auth.signOut();
+      toast("Signed out.");
+    }catch(e){
+      showError("Sign-out failed: " + (e?.message||e));
+    }
+  }
+
   async function safeInitFirebase(){
     try{
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       db   = firebase.firestore();
       auth = firebase.auth();
 
-      try { await auth.signInAnonymously(); } catch(e){ console.warn("Anon auth failed:", e?.message||e); }
+      try { await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(_) {}
 
-      const uid = auth.currentUser?.uid || null;
-      try{
-        const rolesDoc = uid ? await db.collection("userRoles").doc(uid).get() : null;
-        isAdmin = !!uid && (ADMINS.has(uid) || rolesDoc?.data()?.admin === true);
-      }catch(e){
-        isAdmin = !!uid && ADMINS.has(uid);
-      }
+      auth.onAuthStateChanged(async (user)=>{
+        try{
+          const uid = user?.uid || null;
 
-      // Load everything (including new meta)
-      await Promise.allSettled([ loadGroups(), loadDisabled(), loadReports(), loadMeta() ]);
+          // detect admin
+          if (uid) {
+            try{
+              const rolesDoc = await db.collection("userRoles").doc(uid).get();
+              isAdmin = (ADMINS.has(uid) || rolesDoc?.data()?.admin === true);
+            }catch{
+              isAdmin = ADMINS.has(uid);
+            }
+          } else {
+            isAdmin = false;
+          }
 
-      if (isAdmin){
-        $("#adminChip")?.classList.remove("hidden");
-        $("#adminPanel")?.classList.remove("hidden");
-        $("#adminExtras")?.classList.remove("hidden");
-        $("#toggleAdminPanel")?.classList.remove("hidden");
-        initAdminUI(); // only if admin
-      }else{
-        $("#adminChip")?.classList.add("hidden");
-        $("#adminPanel")?.classList.add("hidden");
-        $("#adminExtras")?.classList.add("hidden");
-        $("#toggleAdminPanel")?.classList.add("hidden");
-      }
+          updateAuthUI();
 
-      buildCategoriesBar();
-      render();
+          // load everything (meta/reports depend on auth)
+          await Promise.allSettled([ loadGroups(), loadDisabled(), loadMeta(), loadReports() ]);
+
+          buildCategoriesBar();
+          render();
+
+          // init admin panel bindings once user known
+          if (isAdmin) initAdminUI();
+        }catch(e){
+          console.warn("Auth state handler:", e?.message||e);
+        }
+      });
     }catch(e){
-      console.warn("Firebase not available:", e?.message || e);
+      console.warn("Firebase init error:", e?.message || e);
       $("#adminChip")?.classList.add("hidden");
       $("#adminPanel")?.classList.add("hidden");
       $("#adminExtras")?.classList.add("hidden");
@@ -481,7 +531,6 @@
         : null;
     }
     await db.collection("inventory_meta").doc("header").set(payload, { merge:true });
-    // reflect locally
     if ('sourceLabel' in newMeta) meta.sourceLabel = newMeta.sourceLabel || null;
     if ('updatedAt' in newMeta)   meta.updatedAt   = newMeta.updatedAt || null;
     updateHeaderLine();
@@ -520,12 +569,21 @@
   }
 
   async function loadReports(){
+    $("#reportsCount").textContent = "0";
     if(!db) return;
-    const snap=await db.collection("inventory_reports").orderBy("ts","desc").limit(100).get();
-    reports=[];
-    snap.forEach(doc=>reports.push({id:doc.id,...doc.data()}));
-    $("#reportsCount").textContent = reports.filter(r=>!r.resolved).length;
-    if (isAdmin) renderReports();
+
+    try{
+      const snap=await db.collection("inventory_reports").orderBy("ts","desc").limit(100).get();
+      reports=[];
+      snap.forEach(doc=>reports.push({id:doc.id,...doc.data()}));
+      const unresolved = reports.filter(r=>!r.resolved).length;
+      $("#reportsCount").textContent = String(unresolved);
+      if (isAdmin) renderReports();
+    }catch(e){
+      console.warn("loadReports:", e?.message||e);
+      reports = [];
+      $("#reportsCount").textContent = "0";
+    }
   }
 
   function renderReports(){
@@ -648,7 +706,6 @@
     const srcInput = $("#admSourceLabel");
     const dtInput  = $("#admUpdatedAt");
 
-    // populate from meta
     srcInput.value = meta.sourceLabel || "";
     if (meta.updatedAt){
       const d = new Date(meta.updatedAt);
@@ -680,7 +737,7 @@
       }
     });
 
-    // ----- Groups controls (existing) -----
+    // ----- Groups controls -----
     const typeRadios = () => document.querySelector('input[name="admType"]:checked').value;
     const admParentSel = $("#admParent");
     const admSubSel    = $("#admSub");
@@ -821,6 +878,7 @@
       buildCategoriesBar();
       render();
       toast("Group saved.");
+
       // keep selection
       populateParents();
       $("#admParent").value = parent; populateSubs();
@@ -844,6 +902,19 @@
 
     // panel toggle (button visible only if admin)
     $("#toggleAdminPanel").addEventListener("click", ()=>{ $("#adminPanel").classList.toggle("hidden"); });
+
+    // Disable / Enable buttons
+    $("#disableBtn").addEventListener("click", async ()=>{
+      const code = $("#disableCode").value.trim();
+      const reason = $("#disableReason").value.trim();
+      if (!code) return alert("Enter code");
+      try{ await disableCodeFn(code, reason); toast("Code disabled"); }catch(e){ showError(e?.message||e); }
+    });
+    $("#enableBtn").addEventListener("click", async ()=>{
+      const code = $("#disableCode").value.trim();
+      if (!code) return alert("Enter code");
+      try{ await enableCodeFn(code); toast("Code enabled"); }catch(e){ showError(e?.message||e); }
+    });
 
     populateParents();
   }
@@ -895,6 +966,10 @@
     $("#showSuppliesBtn").addEventListener("click", ()=>{ viewMode="supply"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
     $("#showAllBtn").addEventListener("click", ()=>{ viewMode="all"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
     $("#toggleShowDisabled")?.addEventListener("change", (e)=>{ showDisabledInside = !!e.target.checked; render(); });
+
+    // auth buttons
+    $("#signInBtn")?.addEventListener("click", googleSignIn);
+    $("#signOutBtn")?.addEventListener("click", doSignOut);
   }
 
   function findItemGroupName(it){
@@ -1016,31 +1091,26 @@
         flatBlock.classList.add("hidden");
         renderSuppressLabels = true;
 
-// جمع الأكواد اللي اتعرضت داخل الجروبات
-const coveredCodes = new Set();
-groupNames.sort().forEach(name => {
-  const codeMap = groupsByName[name]?.codes || {};
-  const list = poolByType.filter(it => codeMap[it.code]);
-  if (list.length){
-    list.forEach(it => coveredCodes.add(it.code));
-    renderTableFor(list, name);
-    shownCount += list.length;
-  }
-});
+        // collect codes covered by groups
+        const coveredCodes = new Set();
+        groupNames.sort().forEach(name => {
+          const codeMap = groupsByName[name]?.codes || {};
+          const list = poolByType.filter(it => codeMap[it.code]);
+          if (list.length){
+            list.forEach(it => coveredCodes.add(it.code));
+            renderTableFor(list, name);
+            shownCount += list.length;
+          }
+        });
 
-// لو واقف على "All categories" (يعني مفيش parent مختار)
-// اعرض الأصناف اللي ملهاش أي تصنيف تحت عنوان "Ungrouped"
-if (SHOW_UNGROUPED && !selectedParent){
-  const ungrouped = poolByType.filter(it => !coveredCodes.has(it.code));
-  if (ungrouped.length){
-    renderTableFor(ungrouped, "Ungrouped");
-    shownCount += ungrouped.length;
-  }
-}
-
-
-
-        // Ungrouped hidden by design
+        // show Ungrouped if no parent selected
+        if (SHOW_UNGROUPED && !selectedParent){
+          const ungrouped = poolByType.filter(it => !coveredCodes.has(it.code));
+          if (ungrouped.length){
+            renderTableFor(ungrouped, "Ungrouped");
+            shownCount += ungrouped.length;
+          }
+        }
 
       } else {
         flatBlock.classList.remove("hidden");
