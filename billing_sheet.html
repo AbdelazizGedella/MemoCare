@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Billing Sheet — Google Sheets (CSV)</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet"/>
+
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Firebase (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+  <style>
+    :root { color-scheme: dark; }
+    body{
+      background:
+        radial-gradient(1200px 600px at 10% 0%, rgba(92,148,255,.12), transparent),
+        radial-gradient(900px 500px at 90% 20%, rgba(0,255,224,.10), transparent),
+        linear-gradient(135deg, #071022 0%, #0b1026 100%);
+      min-height: 100vh;
+      font-family: system-ui, "Segoe UI", Tahoma, Arial;
+    }
+    .glass {
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      backdrop-filter: blur(12px) saturate(120%);
+      -webkit-backdrop-filter: blur(12px) saturate(120%);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 1rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.05);
+    }
+
+    /* clearer inputs/selects on dark */
+    .select, .input, .textarea { color:#e5e7eb !important; background-color: rgba(255,255,255,.06) !important; }
+    .select:focus, .input:focus, .textarea:focus { outline: 2px solid rgba(255,255,255,.25); }
+    .select option { color:#e5e7eb; background-color:#0b1026; }
+    ::placeholder { color: #9ca3af; opacity:1; }
+
+    .chip{
+      display:inline-flex; align-items:center; gap:.35rem;
+      font-size:.65rem; padding:.1rem .35rem; border-radius:999px;
+      border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06);
+      text-transform: none; font-variant-caps: normal;
+    }
+    .name-one-line{
+      display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      max-width: clamp(220px, 60vw, 1200px);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: .6rem .75rem; vertical-align: middle; }
+    th { position: sticky; top: 0; background: rgba(0,0,0,.2); backdrop-filter: blur(6px); z-index:1; }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+    .strike { text-decoration: line-through; opacity:.6 }
+    .pill {
+      display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .7rem; border-radius:999px;
+      border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); cursor:pointer; user-select:none
+    }
+    .pill.active { outline:2px solid rgba(255,255,255,.35) }
+    .pill .dot{ width:.6rem; height:.6rem; border-radius:999px; }
+    .pill.btnlike { padding:.45rem .8rem; }
+    .muted { color:#9ca3af; }
+    .btn-ico { display:inline-flex; align-items:center; gap:.45rem; }
+  </style>
+</head>
+<body class="text-white">
+
+  <!-- Error Bar -->
+  <div id="errBar" class="hidden bg-red-500/20 border border-red-400/40 text-red-200 px-4 py-2 text-sm"></div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 glass p-4 md:p-5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-xl">📄</div>
+        <div>
+          <h1 class="text-lg md:text-2xl font-bold">Billing Sheet</h1>
+          <p class="text-xs md:text-sm text-white/70"><span id="etag">—</span></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 md:gap-3">
+        <button id="reloadBtn" class="btn btn-sm btn-ghost btn-ico" title="Reload">🔄 <span>Reload</span></button>
+        <!-- Hidden by default; shown only if admin -->
+        <button id="toggleAdminPanel" class="btn btn-sm btn-ico hidden" title="Admin Panel">🛠️ <span>Admin Panel</span></button>
+        <div id="adminChip" class="hidden text-xs bg-emerald-500/20 text-emerald-200 px-3 py-1 rounded-full border border-emerald-400/30">
+          admin mode
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Row #1: Type filter + search -->
+  <section class="max-w-7xl mx-auto p-4 md:p-6">
+    <div class="glass p-4 md:p-5">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex gap-2">
+          <button id="showDrugsBtn" class="btn btn-sm glass btn-ico">💊 <span>Drugs</span></button>
+          <button id="showSuppliesBtn" class="btn btn-sm glass btn-ico">🧰 <span>Supplies</span></button>
+          <button id="showAllBtn" class="btn btn-sm glass btn-ico">📋 <span>All</span></button>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-sm mb-0 inline-block">Search (name/code)</label>
+          <input id="searchInput" type="text" class="input input-sm w-56 glass" placeholder="e.g. 1200.. or Normal Saline"/>
+          <div class="text-sm text-white/70">
+            <span id="totalCounter">0</span> items — reports: <span id="reportsCount" class="font-semibold">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories bar -->
+      <div id="categoriesBar" class="mt-4 hidden">
+        <div class="text-xs text-white/60 mb-2">Categories:</div>
+        <div id="parentGroupsChips" class="flex flex-wrap gap-2"></div>
+        <div id="subGroupsChipsWrap" class="mt-3 hidden">
+          <div class="text-xs text-white/60 mb-2">Sub-categories:</div>
+          <div id="subGroupsChips" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+
+      <!-- (admin only) show disabled inside table -->
+      <div id="adminExtras" class="hidden mt-4">
+        <label class="label cursor-pointer gap-2">
+          <span class="label-text text-sm text-white/80">Show disabled codes inside table</span>
+          <input id="toggleShowDisabled" type="checkbox" class="toggle toggle-sm"/>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- Admin Panel -->
+  <section id="adminPanel" class="max-w-7xl mx-auto px-4 md:px-6 hidden">
+    <div class="glass p-4 md:p-6 mb-4">
+      <h2 class="text-xl font-bold mb-3">Admin Panel</h2>
+
+      <!-- NEW: Header / Data source controls -->
+      <div class="glass p-4 mb-4">
+        <h3 class="font-semibold mb-2">🪪 Header Display (Data source line)</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs text-white/60">Source label (e.g. your sheet name)</label>
+            <input id="admSourceLabel" class="input input-sm glass mt-1" placeholder="e.g. Pharmacy Sheet">
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Updated at (datetime)</label>
+            <input id="admUpdatedAt" type="datetime-local" class="input input-sm glass mt-1">
+            <div class="flex gap-2 mt-2">
+              <button id="admSetNow" class="btn btn-xs">Set to now</button>
+              <button id="admUseSheet" class="btn btn-xs">Use CSV sheet name</button>
+            </div>
+          </div>
+          <div class="flex items-end">
+            <button id="admSaveHeader" class="btn btn-sm btn-primary w-full">💾 Save header</button>
+          </div>
+        </div>
+        <div class="text-xs muted mt-2">Shown as: <code id="admHeaderPreview">—</code></div>
+      </div>
+
+      <!-- Manage Groups -->
+      <div class="glass p-4 mb-4">
+        <h3 class="font-semibold mb-2">🗂️ Manage Groups — Parent/Sub & Bulk Codes</h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+          <div>
+            <label class="text-xs text-white/60">Type</label>
+            <div class="mt-1">
+              <label class="pill btnlike mr-2"><input type="radio" name="admType" value="drug" checked class="mr-2">Drug</label>
+              <label class="pill btnlike"><input type="radio" name="admType" value="supply" class="mr-2">Supply</label>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs text-white/60">Parent</label>
+            <input id="admParentFilter" class="input input-xs glass mt-1" placeholder="Filter parents...">
+            <select id="admParent" class="select select-sm w-full glass text-white mt-1"></select>
+            <input id="admParentNew" class="input input-sm glass mt-2" placeholder="or type a new parent">
+          </div>
+
+          <div>
+            <label class="text-xs text-white/60">Sub-group</label>
+            <input id="admSubFilter" class="input input-xs glass mt-1" placeholder="Filter sub-groups...">
+            <select id="admSub" class="select select-sm w-full glass text-white mt-1"></select>
+            <input id="admSubNew" class="input input-sm glass mt-2" placeholder="or type a new sub-group">
+          </div>
+
+          <div>
+            <label class="text-xs text-white/60">Group color</label>
+            <div class="flex items-center gap-2 mt-1">
+              <input id="admColor" type="color" class="input input-sm glass" value="#60a5fa" style="width:48px;padding:0;">
+              <input id="admColorHex" class="input input-sm glass" placeholder="#60a5fa"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 mt-3">
+          <div class="lg:col-span-3">
+            <label class="text-xs text-white/60">Item codes (one per line)</label>
+            <textarea id="admCodes" class="textarea textarea-sm w-full glass mt-1" rows="6" placeholder="e.g.
+12001
+12002
+20010"></textarea>
+            <div class="text-xs text-white/60 mt-1">Codes not found in the catalog will be ignored on save.</div>
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Quick actions</label>
+            <div class="flex flex-col gap-2 mt-1">
+              <button id="admSave" class="btn btn-sm btn-primary">💾 Save/Update</button>
+              <button id="admMerge" class="btn btn-sm">➕ Merge (add only)</button>
+              <button id="admRemove" class="btn btn-sm btn-warning">➖ Remove (subtract)</button>
+              <button id="admDelete" class="btn btn-sm btn-error btn-outline">🗑️ Delete group</button>
+              <div class="text-xs text-white/70 mt-1">
+                Valid codes: <b id="admValidCount">0</b> / <span id="admTotalCount">0</span>
+              </div>
+              <div class="text-xs muted mt-1" id="admCurrent">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Disable/Enable + Reports + Disabled list -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="glass p-4">
+          <h3 class="font-semibold mb-2">⛔ Disable / Enable code</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <input id="disableCode" class="input input-sm glass" placeholder="Item Code"/>
+            <input id="disableReason" class="input input-sm glass" placeholder="Reason (optional)"/>
+          </div>
+          <div class="mt-2 flex gap-2">
+            <button id="disableBtn" class="btn btn-sm btn-warning">Disable</button>
+            <button id="enableBtn" class="btn btn-sm btn-success btn-outline">Enable</button>
+          </div>
+        </div>
+
+        <div class="glass p-4">
+          <h3 class="font-semibold mb-2">🚩 Reports</h3>
+          <div id="reportsList" class="space-y-2 max-h-56 overflow-auto text-sm"></div>
+        </div>
+
+        <div class="glass p-4">
+          <h3 class="font-semibold mb-2">🚫 Disabled codes</h3>
+          <div id="disabledList" class="space-y-2 text-sm max-h-56 overflow-auto"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grouped sections container -->
+  <main class="max-w-7xl mx-auto p-4 md:p-6">
+    <div id="groupsContainer" class="grid gap-6 md:grid-cols-2"></div>
+
+    <!-- Fallback flat table -->
+    <div id="flatBlock" class="glass p-3 md:p-4 overflow-auto">
+      <table class="text-sm">
+        <thead>
+          <tr>
+            <th style="min-width:140px;">Item Code</th>
+            <th>Item Name</th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+      <div id="emptyMsg" class="text-center text-white/60 mt-4 hidden">No matching items.</div>
+    </div>
+  </main>
+
+  <script>
+  // ========= Settings =========
+  const SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAuW0hRVeyJeXeox1OsMjUYTDUai4fp7a2KO9mO4kTYUG4NQgMMsTnXQfql9xRdQ/pub?output=csv";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+    authDomain: "ctwo-eee79.firebaseapp.com",
+    projectId: "ctwo-eee79",
+    storageBucket: "ctwo-eee79.appspot.com",
+    messagingSenderId: "788657051205",
+    appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+  };
+  const ADMINS = new Set(["VEPPHo0YHvcIGA0hsqxBmAAkDRK2"]);
+  const EMOJI = { drug: "", supply: "" };
+  const SHOW_UNGROUPED = true;
+
+  // ========= State =========
+  let db = null, auth = null, isAdmin = false;
+  let rawItems = []; // {code,name,qty,sell,type}
+  let itemCodeSet = new Set();
+  let groupsByName = {};  // name -> {type,codes,color}
+  let hierarchy = { drug: {}, supply: {} };
+  let disabled = {}; // code -> doc
+  let reports = [];
+  let viewMode = "all"; // all | drug | supply
+  let selectedParent = null;
+  let selectedSub = null;
+  let showDisabledInside = false;
+  let renderSuppressLabels = false;
+
+  // Header (data-source) meta
+  let sheetName = "Sheet";
+  let meta = { sourceLabel: null, updatedAt: null }; // updatedAt: ISO string or null
+
+  // ========= Utils =========
+  const $ = (s,p=document)=>p.querySelector(s);
+  function showError(msg){ const el=$("#errBar"); el.textContent=msg; el.classList.remove("hidden"); }
+  function clearError(){ $("#errBar").classList.add("hidden"); }
+  function toast(msg){ const el=document.createElement("div"); el.className="fixed bottom-4 right-4 glass px-4 py-2 z-50"; el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),2000); }
+  let _deb; function debounce(fn,ms){ return()=>{ clearTimeout(_deb); _deb=setTimeout(fn,ms); }; }
+  function sentenceCase(s){ if(!s) return ""; s=String(s).trim(); return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
+  const PALETTE = ["#60a5fa","#34d399","#f59e0b","#a78bfa","#f43f5e","#22c55e","#f97316","#38bdf8","#f472b6","#84cc16"];
+  function colorFor(name){
+    if (!name) return "#94a3b8";
+    let h=0; for (let i=0;i<name.length;i++) h=(h*31 + name.charCodeAt(i))>>>0;
+    return PALETTE[h % PALETTE.length];
+  }
+  function splitNameToParentSub(name){
+    if (!name) return {parent:name, sub:null};
+    const t = String(name);
+    const s = t.includes("::") ? t.split("::") : (t.includes("/") ? t.split("/") : [t]);
+    const parent = s[0].trim();
+    const sub = s.length>1 ? s.slice(1).join(s.includes("::")?"::":"/").trim() : null;
+    return { parent, sub };
+  }
+  function fmtLocal(dt){
+    try{ return new Date(dt).toLocaleString(); }catch{ return String(dt||""); }
+  }
+
+  // ========= CSV → Items =========
+  function normalizeHeader(h){ return String(h||"").toLowerCase().trim(); }
+  function findColByAliases(headers, aliases){
+    const lowered = headers.map(normalizeHeader);
+    for (const a of aliases){ const i = lowered.indexOf(a.toLowerCase()); if (i>=0) return i; }
+    for (let i=0;i<lowered.length;i++){ if (aliases.some(a => lowered[i].includes(a.toLowerCase()))) return i; }
+    return -1;
+  }
+  function guessCols(headers, rows){
+    const H = headers.length;
+    const stats = Array.from({length:H}, (_,c)=>{
+      let nonEmpty=0, numeric=0, starts12=0, starts2=0, avgLen=0, samples=0;
+      for (let r=0;r<rows.length;r++){
+        const v=rows[r][c]; if (v==null || v==="") continue;
+        nonEmpty++; const s=String(v).trim(); samples++; avgLen+=s.length;
+        const n=Number(s); if(!isNaN(n) && s!=="") numeric++;
+        if (/^\s*12\d+/.test(s)) starts12++; if (/^\s*2\d+/.test(s)) starts2++;
+      }
+      return {nonEmpty, numr: nonEmpty? numeric/nonEmpty:0, codeHint: nonEmpty? Math.max(starts12/nonEmpty,starts2/nonEmpty):0, avg: samples? avgLen/samples:0};
+    });
+    let codeIdx=-1, best=-1;
+    for(let i=0;i<H;i++){ const s=stats[i]; const sc=s.numr*0.55+s.codeHint*0.4+(1-Math.min(s.avg/30,1))*0.05;
+      if (s.nonEmpty>0 && sc>best){ best=sc; codeIdx=i; } }
+    let nameIdx=-1, bestN=-1;
+    for(let i=0;i<H;i++){ const s=stats[i]; const sc=(1-s.numr)*0.7+Math.min(s.avg/30,1)*0.3;
+      if (s.nonEmpty>0 && sc>bestN && i!==codeIdx){ bestN=sc; nameIdx=i; } }
+    return {codeIdx, nameIdx};
+  }
+
+  function updateHeaderLine(){
+    const label = meta.sourceLabel || sheetName || "Sheet";
+    const when  = meta.updatedAt ? fmtLocal(meta.updatedAt) : new Date().toLocaleString();
+    $("#etag").textContent = `${label} — CSV (Google Sheets) — ${when}`;
+    // preview (admin)
+    const prev = $("#admHeaderPreview"); if (prev) prev.textContent = $("#etag").textContent;
+  }
+
+  async function loadFromGoogleSheetsCSV(){
+    clearError();
+    const res = await fetch(SHEETS_CSV_URL, { cache:"no-store" });
+    if (!res.ok) throw new Error("Failed to download CSV from Google Sheets.");
+    const csvText = await res.text();
+
+    const wb = XLSX.read(csvText, { type:"string" });
+    const ws = wb.Sheets[ wb.SheetNames[0] ];
+    let data = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
+    data = data.filter((row, idx) => idx===0 || (row && row.some(c => c!==null && c!==undefined && c!== "")));
+
+    // keep sheet name for header fallback / admin quick button
+    sheetName = (wb.SheetNames && wb.SheetNames[0]) ? wb.SheetNames[0] : "Sheet";
+
+    const headers = (data[0] || []).map(h=>String(h??""));
+    const rows = data.slice(1);
+
+    let codeIdx = findColByAliases(headers, ["item code","code","الكود","كود","رقم الصنف","itemcode","barcode","sku"]);
+    let nameIdx = findColByAliases(headers, ["item name","name","الاسم","اسم","اسم الصنف","itemname","description","desc","product name"]);
+    if (codeIdx<0 || nameIdx<0){ const g=guessCols(headers,rows); if(codeIdx<0) codeIdx=g.codeIdx; if(nameIdx<0) nameIdx=g.nameIdx; }
+
+    const qtyIdx  = 8;   // I = PackQty
+    const sellIdx = 18;  // S = Sell. Price (not shown)
+
+    const map = new Map();
+    for (const r of rows){
+      const code = String((codeIdx>=0? r[codeIdx] : "") ?? "").trim();
+      const name = String((nameIdx>=0? r[nameIdx] : "") ?? "").trim();
+      if (!code || !name) continue;
+
+      let qty = r[qtyIdx]; qty = (qty==null || qty==="") ? 0 : Number(qty); if (isNaN(qty)) qty=0;
+      let sell = r[sellIdx]; sell = (sell==null || sell==="") ? 0 : Number(sell); if (isNaN(sell)) sell=0;
+
+      const type = code.startsWith("12") ? "drug" : "supply";
+      if (!map.has(code)){
+        map.set(code, { code, name, qty, sell, type });
+      } else {
+        const cur = map.get(code);
+        if (name.length > cur.name.length) cur.name = name;
+        if (qty  > cur.qty)  cur.qty = qty;
+        if (sell > cur.sell) cur.sell = sell;
+      }
+    }
+    rawItems = Array.from(map.values());
+    itemCodeSet = new Set(rawItems.map(it => it.code));
+
+    // refresh header line using current meta (if any)
+    updateHeaderLine();
+  }
+
+  // ========= Firestore / Admin gating =========
+  async function safeInitFirebase(){
+    try{
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      db   = firebase.firestore();
+      auth = firebase.auth();
+
+      try { await auth.signInAnonymously(); } catch(e){ console.warn("Anon auth failed:", e?.message||e); }
+
+      const uid = auth.currentUser?.uid || null;
+      try{
+        const rolesDoc = uid ? await db.collection("userRoles").doc(uid).get() : null;
+        isAdmin = !!uid && (ADMINS.has(uid) || rolesDoc?.data()?.admin === true);
+      }catch(e){
+        isAdmin = !!uid && ADMINS.has(uid);
+      }
+
+      // Load everything (including new meta)
+      await Promise.allSettled([ loadGroups(), loadDisabled(), loadReports(), loadMeta() ]);
+
+      if (isAdmin){
+        $("#adminChip")?.classList.remove("hidden");
+        $("#adminPanel")?.classList.remove("hidden");
+        $("#adminExtras")?.classList.remove("hidden");
+        $("#toggleAdminPanel")?.classList.remove("hidden");
+        initAdminUI(); // only if admin
+      }else{
+        $("#adminChip")?.classList.add("hidden");
+        $("#adminPanel")?.classList.add("hidden");
+        $("#adminExtras")?.classList.add("hidden");
+        $("#toggleAdminPanel")?.classList.add("hidden");
+      }
+
+      buildCategoriesBar();
+      render();
+    }catch(e){
+      console.warn("Firebase not available:", e?.message || e);
+      $("#adminChip")?.classList.add("hidden");
+      $("#adminPanel")?.classList.add("hidden");
+      $("#adminExtras")?.classList.add("hidden");
+      $("#toggleAdminPanel")?.classList.add("hidden");
+    }
+  }
+
+  async function loadMeta(){
+    if(!db) { updateHeaderLine(); return; }
+    try{
+      const snap = await db.collection("inventory_meta").doc("header").get();
+      if (snap.exists){
+        const d = snap.data() || {};
+        meta.sourceLabel = d.sourceLabel || null;
+        meta.updatedAt = d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.updatedAt || null);
+      }
+    }catch(e){ console.warn("meta load:", e?.message||e); }
+    updateHeaderLine();
+  }
+
+  async function saveMeta(newMeta){
+    if(!db || !isAdmin) throw new Error("Not authorized");
+    const payload = {};
+    if ('sourceLabel' in newMeta) payload.sourceLabel = newMeta.sourceLabel || null;
+    if ('updatedAt' in newMeta){
+      payload.updatedAt = newMeta.updatedAt
+        ? firebase.firestore.Timestamp.fromDate(new Date(newMeta.updatedAt))
+        : null;
+    }
+    await db.collection("inventory_meta").doc("header").set(payload, { merge:true });
+    // reflect locally
+    if ('sourceLabel' in newMeta) meta.sourceLabel = newMeta.sourceLabel || null;
+    if ('updatedAt' in newMeta)   meta.updatedAt   = newMeta.updatedAt || null;
+    updateHeaderLine();
+  }
+
+  function rebuildHierarchy(){
+    hierarchy = { drug: {}, supply: {} };
+    for (const [name, g] of Object.entries(groupsByName)){
+      const { parent, sub } = splitNameToParentSub(name);
+      const type = g?.type === "supply" ? "supply" : "drug";
+      const hasAnyMatch = Object.keys(g.codes||{}).some(c => itemCodeSet.has(c));
+      if (!hasAnyMatch) continue;
+      const parentColor = g?.color || colorFor(parent);
+      if (!hierarchy[type][parent]) hierarchy[type][parent] = { color: parentColor, children: new Set() };
+      if (sub) hierarchy[type][parent].children.add(sub);
+    }
+  }
+
+  async function loadGroups(){
+    if(!db) return;
+    const snap = await db.collection("inventory_groups").get();
+    groupsByName = {};
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      groupsByName[doc.id] = { type: d.type || "drug", codes: d.codes || {}, color: d.color || null };
+    });
+    rebuildHierarchy();
+  }
+
+  async function loadDisabled(){
+    if(!db) return;
+    const snap = await db.collection("inventory_disabled").get();
+    disabled = {};
+    snap.forEach(doc => disabled[doc.id] = doc.data());
+    renderDisabledList();
+  }
+
+  async function loadReports(){
+    if(!db) return;
+    const snap=await db.collection("inventory_reports").orderBy("ts","desc").limit(100).get();
+    reports=[];
+    snap.forEach(doc=>reports.push({id:doc.id,...doc.data()}));
+    $("#reportsCount").textContent = reports.filter(r=>!r.resolved).length;
+    if (isAdmin) renderReports();
+  }
+
+  function renderReports(){
+    const container=$("#reportsList"); if(!container) return;
+    container.innerHTML="";
+    reports.forEach(r=>{
+      const wrap=document.createElement("div");
+      wrap.className="glass p-2 flex items-center justify-between";
+      const ts=r.ts?.toDate? r.ts.toDate().toLocaleString():"";
+      wrap.innerHTML=`
+        <div>
+          <div class="text-xs text-white/60">Code</div>
+          <div class="font-mono">${r.code||'-'}</div>
+          <div class="text-xs text-white/50 mt-1">${ts}</div>
+        </div>
+        <div>${r.resolved?'<span class="badge badge-success">Resolved</span>':'<button class="btn btn-xs btn-primary">Resolve</button>'}</div>`;
+      if(!r.resolved) wrap.querySelector("button").addEventListener("click",()=>resolveReport(r.id));
+      container.appendChild(wrap);
+    });
+  }
+
+  function renderDisabledList(){
+    const box = $("#disabledList"); if(!box) return;
+    box.innerHTML = "";
+    Object.keys(disabled).sort().forEach(code=>{
+      const d = disabled[code] || {};
+      const row = document.createElement("div");
+      row.className = "glass p-2 flex items-center justify-between";
+      row.innerHTML = `
+        <div>
+          <div class="text-xs text-white/60">Code</div>
+          <div class="font-mono">${code}</div>
+          <div class="text-xs text-white/50 mt-1">${d.reason || ""}</div>
+        </div>
+        <button class="btn btn-xs btn-success">Enable</button>
+      `;
+      row.querySelector("button").addEventListener("click", ()=> enableCodeFn(code));
+      box.appendChild(row);
+    });
+  }
+
+  async function resolveReport(id){ if(!db) return alert("Admin feature not available now"); await db.collection("inventory_reports").doc(id).set({resolved:true},{merge:true}); await loadReports(); }
+
+  // ========= Categories bar =========
+  function buildCategoriesBar(){
+    const bar = $("#categoriesBar");
+    const parentWrap = $("#parentGroupsChips");
+    const subWrap = $("#subGroupsChips");
+    const subWrapOuter = $("#subGroupsChipsWrap");
+
+    if (viewMode === "drug" || viewMode === "supply"){
+      bar.classList.remove("hidden");
+      parentWrap.innerHTML = "";
+      subWrap.innerHTML = "";
+      subWrapOuter.classList.add("hidden");
+
+      const h = hierarchy[viewMode] || {};
+      const parents = Object.keys(h).sort();
+
+      const allChip = makeParentChip("All categories", null, "#94a3b8");
+      parentWrap.appendChild(allChip);
+
+      parents.forEach(p=>{
+        const chip = makeParentChip(sentenceCase(p), p, h[p].color || colorFor(p));
+        parentWrap.appendChild(chip);
+      });
+
+      if (selectedParent && h[selectedParent]){
+        const subs = Array.from(h[selectedParent].children || []);
+        if (subs.length){
+          subWrap.innerHTML = "";
+          subWrapOuter.classList.remove("hidden");
+          const allSub = makeSubChip("All", null, h[selectedParent].color || "#94a3b8");
+          subWrap.appendChild(allSub);
+          subs.sort().forEach(s=>{
+            const chip = makeSubChip(sentenceCase(s), s, colorFor(selectedParent + "::" + s));
+            subWrap.appendChild(chip);
+          });
+        } else {
+          subWrapOuter.classList.add("hidden");
+        }
+      }
+    } else {
+      bar.classList.add("hidden");
+      selectedParent = null;
+      selectedSub = null;
+    }
+  }
+
+  function makeParentChip(title, value, color){
+    const el = document.createElement("div");
+    el.className = "pill";
+    if (value === selectedParent) el.classList.add("active");
+    el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`;
+    el.addEventListener("click", ()=>{
+      selectedParent = value;
+      selectedSub = null;
+      buildCategoriesBar();
+      render();
+    });
+    return el;
+  }
+  function makeSubChip(title, value, color){
+    const el = document.createElement("div");
+    el.className = "pill";
+    if (value === selectedSub) el.classList.add("active");
+    el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`;
+    el.addEventListener("click", ()=>{
+      selectedSub = value;
+      render();
+    });
+    return el;
+  }
+
+  // ========= Admin UI =========
+  function initAdminUI(){
+    if (!isAdmin) return;
+
+    // ----- Header controls -----
+    const srcInput = $("#admSourceLabel");
+    const dtInput  = $("#admUpdatedAt");
+
+    // populate from meta
+    srcInput.value = meta.sourceLabel || "";
+    if (meta.updatedAt){
+      const d = new Date(meta.updatedAt);
+      const pad = n => String(n).padStart(2,"0");
+      const localISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      dtInput.value = localISO;
+    } else {
+      dtInput.value = "";
+    }
+    $("#admHeaderPreview").textContent = $("#etag").textContent;
+
+    $("#admSetNow").addEventListener("click", ()=>{
+      const d = new Date();
+      const pad = n => String(n).padStart(2,"0");
+      const localISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      dtInput.value = localISO;
+    });
+    $("#admUseSheet").addEventListener("click", ()=>{
+      srcInput.value = sheetName || "Sheet";
+    });
+    $("#admSaveHeader").addEventListener("click", async ()=>{
+      try{
+        const sourceLabel = srcInput.value.trim() || null;
+        const updatedAt   = dtInput.value ? new Date(dtInput.value).toISOString() : null;
+        await saveMeta({ sourceLabel, updatedAt });
+        toast("Header saved.");
+      }catch(e){
+        showError("Failed to save header. " + (e?.message||e));
+      }
+    });
+
+    // ----- Groups controls (existing) -----
+    const typeRadios = () => document.querySelector('input[name="admType"]:checked').value;
+    const admParentSel = $("#admParent");
+    const admSubSel    = $("#admSub");
+    const admParentNew = $("#admParentNew");
+    const admSubNew    = $("#admSubNew");
+
+    function setCurrentLabel(txt){ $("#admCurrent").textContent = txt || "—"; }
+
+    function populateParents(){
+      const type = typeRadios();
+      const sel  = admParentSel;
+      const keep = sel.value;
+      sel.innerHTML = "";
+      const opt0 = document.createElement("option");
+      opt0.value = ""; opt0.textContent = "— choose a parent —";
+      sel.appendChild(opt0);
+
+      const parents = Object.entries(groupsByName)
+        .filter(([name,g]) => (g?.type===type))
+        .map(([name]) => splitNameToParentSub(name).parent);
+
+      Array.from(new Set(parents).values()).sort().forEach(p=>{
+        const o = document.createElement("option");
+        o.value = p; o.textContent = p;
+        sel.appendChild(o);
+      });
+
+      sel.value = keep; if (sel.value !== keep) sel.value = "";
+      populateSubs();
+    }
+
+    function populateSubs(){
+      const type   = typeRadios();
+      const parent = admParentSel.value.trim() || admParentNew.value.trim();
+      const sel    = admSubSel;
+      const keep   = sel.value;
+
+      sel.innerHTML = `<option value="">— choose a sub-group —</option>`;
+      if (!parent){ loadGroupToEditor(parent); return; }
+
+      const subs = Object.entries(groupsByName)
+        .filter(([name,g]) => g?.type===type && splitNameToParentSub(name).parent===parent)
+        .map(([name]) => splitNameToParentSub(name).sub)
+        .filter(Boolean);
+
+      Array.from(new Set(subs).values()).sort().forEach(s=>{
+        const o = document.createElement("option");
+        o.value = s; o.textContent = s;
+        sel.appendChild(o);
+      });
+
+      sel.value = keep; if (sel.value !== keep) sel.value = "";
+
+      const full = sel.value ? `${parent} :: ${sel.value}` : parent;
+      loadGroupToEditor(full);
+    }
+
+    function loadGroupToEditor(fullName){
+      const colorInput = $("#admColor");
+      const colorHex   = $("#admColorHex");
+      const codesTA    = $("#admCodes");
+
+      if (!fullName || !groupsByName[fullName]){
+        colorHex.value = ""; colorInput.value = "#60a5fa";
+        codesTA.value = "";
+        setCurrentLabel("—");
+        updateValidCount();
+        return;
+      }
+      const grp = groupsByName[fullName];
+      const col = grp?.color || "";
+      colorHex.value = col;
+      if (col) colorInput.value = col.startsWith("#")? col : "#60a5fa";
+      const codesMap = grp?.codes || {};
+      codesTA.value = Object.keys(codesMap).join("\n");
+      setCurrentLabel(`Editing: ${fullName}`);
+      updateValidCount();
+    }
+
+    function updateValidCount(){
+      const all = ($("#admCodes").value || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      const valid = all.filter(c => itemCodeSet.has(c));
+      $("#admTotalCount").textContent = all.length;
+      $("#admValidCount").textContent = valid.length;
+    }
+
+    function filterOptions(selectEl, query){
+      const q = (query||"").toLowerCase().trim();
+      Array.from(selectEl.options).forEach((opt, idx)=>{
+        if(idx===0) { opt.hidden = false; return; }
+        const txt = (opt.textContent||"").toLowerCase();
+        opt.hidden = q && !txt.includes(q);
+      });
+      if(selectEl.selectedOptions[0]?.hidden){ selectEl.value = ""; }
+    }
+
+    document.querySelectorAll('input[name="admType"]').forEach(r=> r.addEventListener("change", ()=>{ populateParents(); }));
+    $("#admParent").addEventListener("change", ()=>{ admParentNew.value=""; populateSubs(); });
+    $("#admSub").addEventListener("change", ()=>{
+      admSubNew.value="";
+      const parent = admParentSel.value.trim() || admParentNew.value.trim();
+      const full   = $("#admSub").value ? `${parent} :: ${$("#admSub").value}` : parent;
+      loadGroupToEditor(full);
+    });
+    $("#admParentNew").addEventListener("input", ()=>{ admParentSel.value=""; populateSubs(); });
+    $("#admSubNew").addEventListener("input", ()=>{
+      admSubSel.value="";
+      const parent = admParentSel.value.trim() || admParentNew.value.trim();
+      const full   = $("#admSubNew").value ? `${parent} :: ${$("#admSubNew").value}` : parent;
+      loadGroupToEditor(full);
+    });
+
+    $("#admCodes").addEventListener("input", updateValidCount);
+    $("#admColor").addEventListener("input", ()=>{ $("#admColorHex").value = $("#admColor").value; });
+    $("#admColorHex").addEventListener("input", ()=>{ if(/^#?[0-9a-fA-F]{6}$/.test($("#admColorHex").value.trim())) $("#admColor").value = $("#admColorHex").value.startsWith("#")? $("#admColorHex").value : ("#"+$("#admColorHex").value); });
+    $("#admParentFilter").addEventListener("input", ()=> filterOptions($("#admParent"), $("#admParentFilter").value));
+    $("#admSubFilter").addEventListener("input", ()=> filterOptions($("#admSub"), $("#admSubFilter").value));
+
+    async function saveOrMerge(mode){
+      const type = document.querySelector('input[name="admType"]:checked').value;
+      const parent = $("#admParent").value.trim() || $("#admParentNew").value.trim();
+      const sub    = $("#admSub").value.trim()    || $("#admSubNew").value.trim();
+      if (!parent) return alert("Type/select a parent first.");
+
+      const name  = sub ? `${parent} :: ${sub}` : parent;
+      const color = $("#admColorHex").value.trim() || null;
+
+      const inputCodes = ($("#admCodes").value || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean).filter(c => itemCodeSet.has(c));
+      const current = groupsByName[name]?.codes || {};
+      let newMap = {...current};
+
+      if (mode === "save"){ newMap = {}; inputCodes.forEach(c=> newMap[c]=true); }
+      else if (mode === "merge"){ inputCodes.forEach(c=> newMap[c]=true); }
+      else if (mode === "remove"){ inputCodes.forEach(c=> delete newMap[c]); }
+
+      await db.collection("inventory_groups").doc(name).set({ type, color, codes: newMap }, { merge:true });
+      await loadGroups();
+      buildCategoriesBar();
+      render();
+      toast("Group saved.");
+      // keep selection
+      populateParents();
+      $("#admParent").value = parent; populateSubs();
+      if (sub){ $("#admSub").value = sub; loadGroupToEditor(`${parent} :: ${sub}`); }
+    }
+
+    $("#admSave").addEventListener("click", ()=> saveOrMerge("save"));
+    $("#admMerge").addEventListener("click", ()=> saveOrMerge("merge"));
+    $("#admRemove").addEventListener("click", ()=> saveOrMerge("remove"));
+    $("#admDelete").addEventListener("click", async ()=>{
+      const parent = $("#admParent").value.trim() || $("#admParentNew").value.trim();
+      const sub    = $("#admSub").value.trim()    || $("#admSubNew").value.trim();
+      if (!parent) return alert("Select a group first.");
+      const name = sub ? `${parent} :: ${sub}` : parent;
+      if (!confirm(`Delete group "${name}"?`)) return;
+      await db.collection("inventory_groups").doc(name).delete();
+      await loadGroups(); buildCategoriesBar(); render();
+      populateParents(); populateSubs();
+      toast("Group deleted.");
+    });
+
+    // panel toggle (button visible only if admin)
+    $("#toggleAdminPanel").addEventListener("click", ()=>{ $("#adminPanel").classList.toggle("hidden"); });
+
+    populateParents();
+  }
+
+  // ========= Disable / Enable / Report =========
+  async function disableCodeFn(code,reason=""){
+    if(!db||!isAdmin) return alert("Not authorized");
+    await db.collection("inventory_disabled").doc(code).set({
+      reason, by: auth?.currentUser?.uid || null, ts: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge:true });
+    await loadDisabled(); render();
+  }
+  async function enableCodeFn(code){
+    if(!db||!isAdmin) return alert("Not authorized");
+    await db.collection("inventory_disabled").doc(code).delete();
+    await loadDisabled(); render();
+  }
+  async function reportCode(code){
+    try{
+      if(!db){ throw new Error("Database not reachable right now."); }
+      await db.collection("inventory_reports").add({
+        code,
+        by: auth?.currentUser?.uid || null,
+        ts: firebase.firestore.FieldValue.serverTimestamp(),
+        resolved: false
+      });
+      await loadReports();
+      toast("Report submitted. Thank you.");
+    }catch(e){
+      console.error(e);
+      showError("Failed to submit report. " + (e?.message||e));
+    }
+  }
+
+  // ========= Labels (chips) =========
+  function groupBadgeHTML(name){
+    if (!name || renderSuppressLabels) return "";
+    const { parent, sub } = splitNameToParentSub(name);
+    const col = (groupsByName[name]?.color) || colorFor(parent);
+    const text = sub ? `${sentenceCase(parent)} / ${sentenceCase(sub)}` : sentenceCase(parent);
+    return `<span class="chip" style="border-color:${col}33;background:${col}1a">${text}</span>`;
+  }
+
+  // ========= UI Bindings =========
+  function bindUI(){
+    $("#searchInput").addEventListener("input", ()=>{ debounce(render,200)(); });
+    $("#reloadBtn").addEventListener("click", async ()=>{ try{ await loadFromGoogleSheetsCSV(); render(); buildCategoriesBar(); }catch(e){ showError(e.message||e); }});
+    $("#showDrugsBtn").addEventListener("click", ()=>{ viewMode="drug"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+    $("#showSuppliesBtn").addEventListener("click", ()=>{ viewMode="supply"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+    $("#showAllBtn").addEventListener("click", ()=>{ viewMode="all"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+    $("#toggleShowDisabled")?.addEventListener("change", (e)=>{ showDisabledInside = !!e.target.checked; render(); });
+  }
+
+  function findItemGroupName(it){
+    for (const [name, g] of Object.entries(groupsByName)){
+      if (g?.codes && g.codes[it.code]) return name;
+    }
+    return null;
+  }
+
+  // ========= Row render =========
+  function renderRow(tr, it){
+    const isDisabled = !!disabled[it.code];
+    if (isDisabled && !showDisabledInside && !isAdmin) tr.classList.add("hidden");
+
+    // Code cell
+    const tdCode = document.createElement("td");
+    tdCode.innerHTML = `
+      <div class="flex items-center gap-2 ${isDisabled ? 'strike' : ''}">
+        <span class="font-mono">${it.code}</span>
+        <button class="btn btn-xs btn-ico" title="Copy code">📋 <span></span></button>
+        <button class="btn btn-xs btn-warning btn-ico" title="Report not working">🚩 <span></span></button>
+        ${isDisabled && isAdmin ? `<button class="btn btn-xs btn-success btn-ico" title="Enable code">⚡ <span>Enable</span></button>` : ``}
+      </div>`;
+    tdCode.querySelector(".btn[title='Copy code']").addEventListener("click", async () => {
+      await navigator.clipboard.writeText(it.code); toast(`Copied: ${it.code}`);
+    });
+    tdCode.querySelector(".btn[title='Report not working']").addEventListener("click", () => { reportCode(it.code); });
+    if (isDisabled && isAdmin) tdCode.querySelector(".btn[title='Enable code']").addEventListener("click", ()=> enableCodeFn(it.code));
+
+    // Name cell
+    const tdName = document.createElement("td");
+    const labelName = findItemGroupName(it);
+    const qtyNum   = Number(it.qty) || 0;
+    const warnIcon = (qtyNum > 0 && qtyNum < 5) ? `<span title="Low stock">⚠️</span>` : "";
+
+    tdName.innerHTML = `
+      <div class="${isDisabled ? 'strike' : ''}">
+        <div class="flex items-center gap-2">
+          <span class="name-one-line" title="${it.name}">
+            ${EMOJI[it.type]} ${it.name}
+            ${qtyNum > 0 ? `<span class="text-xs text-white/60">(${qtyNum})</span>` : ``}
+          </span>
+          ${warnIcon}
+          ${groupBadgeHTML(labelName)}
+        </div>
+      </div>
+    `;
+    tr.appendChild(tdCode);
+    tr.appendChild(tdName);
+  }
+
+  // ========= Render =========
+  function render(){
+    const q = $("#searchInput").value.trim().toLowerCase();
+
+    let pool = rawItems.filter(it => (!q || it.code.toLowerCase().includes(q) || it.name.toLowerCase().includes(q)));
+    if (!isAdmin || !showDisabledInside) pool = pool.filter(it => !disabled[it.code]);
+
+    const groupsContainer = $("#groupsContainer");
+    const flatBlock = $("#flatBlock");
+    const body = $("#itemsBody");
+
+    groupsContainer.innerHTML = "";
+    body.innerHTML = "";
+
+    function renderTableFor(list, title){
+      const wrap = document.createElement("div");
+      wrap.className = "glass p-3 md:p-4 overflow-auto";
+
+      if (title){
+        const h = document.createElement("h3");
+        h.className = "text-base font-semibold mb-2";
+        h.textContent = title;
+        wrap.appendChild(h);
+      }
+
+      const tbl = document.createElement("table");
+      tbl.className = "text-sm w-full";
+      tbl.innerHTML = `
+        <thead>
+          <tr>
+            <th style="min-width:140px;">Item Code</th>
+            <th>Item Name</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tb = tbl.querySelector("tbody");
+
+      if (list.length === 0){
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 2;
+        td.className = "text-center text-white/60 py-3";
+        td.textContent = "No matching items.";
+        tr.appendChild(td);
+        tb.appendChild(tr);
+      } else {
+        list.forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); tb.appendChild(tr); });
+      }
+
+      wrap.appendChild(tbl);
+      groupsContainer.appendChild(wrap);
+    }
+
+    // layout
+    let shownCount = 0;
+    renderSuppressLabels = false;
+
+    if (viewMode === "drug" || viewMode === "supply"){
+      const mode = viewMode;
+      let poolByType = pool.filter(it => it.type === mode);
+
+      let groupNames = Object.keys(groupsByName).filter(n => (groupsByName[n]?.type === mode));
+      if (selectedParent) groupNames = groupNames.filter(n => splitNameToParentSub(n).parent === selectedParent);
+      if (selectedSub !== null && selectedParent) groupNames = groupNames.filter(n => splitNameToParentSub(n).sub === selectedSub);
+
+      if (groupNames.length){
+        flatBlock.classList.add("hidden");
+        renderSuppressLabels = true;
+
+// جمع الأكواد اللي اتعرضت داخل الجروبات
+const coveredCodes = new Set();
+groupNames.sort().forEach(name => {
+  const codeMap = groupsByName[name]?.codes || {};
+  const list = poolByType.filter(it => codeMap[it.code]);
+  if (list.length){
+    list.forEach(it => coveredCodes.add(it.code));
+    renderTableFor(list, name);
+    shownCount += list.length;
+  }
+});
+
+// لو واقف على "All categories" (يعني مفيش parent مختار)
+// اعرض الأصناف اللي ملهاش أي تصنيف تحت عنوان "Ungrouped"
+if (SHOW_UNGROUPED && !selectedParent){
+  const ungrouped = poolByType.filter(it => !coveredCodes.has(it.code));
+  if (ungrouped.length){
+    renderTableFor(ungrouped, "Ungrouped");
+    shownCount += ungrouped.length;
+  }
+}
+
+
+
+        // Ungrouped hidden by design
+
+      } else {
+        flatBlock.classList.remove("hidden");
+        $("#emptyMsg").classList.toggle("hidden", poolByType.length !== 0);
+        poolByType.forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
+        shownCount = poolByType.length;
+      }
+
+    } else {
+      flatBlock.classList.remove("hidden");
+      $("#emptyMsg").classList.toggle("hidden", pool.length !== 0);
+      pool.forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
+      shownCount = pool.length;
+    }
+
+    $("#totalCounter").textContent = shownCount;
+  }
+
+  // ========= Boot =========
+  (async function boot(){
+    try{
+      await loadFromGoogleSheetsCSV(); // sets sheetName
+      bindUI();
+      buildCategoriesBar();
+      render();
+      await safeInitFirebase(); // loads meta + shows admin UI if allowed
+    }catch(e){
+      console.error(e);
+      showError("Data load error: " + (e?.message || e));
+    }
+  })();
+  </script>
+</body>
+</html>
