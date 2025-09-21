@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ER ON-DUTY REPORT TOOLKIT</title>
+  <title>ER ON-DUTY REPORT</title>
 
   <!-- Tailwind + DaisyUI + Icons + Font -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -31,7 +31,7 @@
   <!-- Top Bar -->
   <header class="sticky top-0 z-50 bg-gradient-to-r from-[#0E2CFF] via-[#2653F6] to-[#0E2CFF] shadow-md">
     <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-      <h1 class="text-lg sm:text-2xl font-bold tracking-wide">ER ON-DUTY REPORT TOOLKIT</h1>
+      <h1 class="text-lg sm:text-2xl font-bold tracking-wide">ER ON-DUTY REPORT</h1>
       <div class="hidden sm:flex items-center gap-2 text-xs opacity-90">
         <i class="fa-solid fa-shield-heart"></i>
         <span>Quick-notify toolkit</span>
@@ -111,6 +111,35 @@
           <label class="form-control md:col-span-1"><span class="label-text">Location</span><input id="c_location" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control md:col-span-1"><span class="label-text">Date & Time</span><input id="c_datetime" type="datetime-local" class="input input-bordered bg-[#0f172a]"/></label>
         </div>
+        <!-- يظهر فقط مع Code Blue -->
+<div id="code_extras" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 hidden">
+  <label class="form-control md:col-span-1">
+    <span class="label-text">Patient Name</span>
+    <input id="c_pname" class="input input-bordered bg-[#0f172a]" />
+  </label>
+
+  <label class="form-control md:col-span-1">
+    <span class="label-text">MRN</span>
+    <input id="c_mrn" class="input input-bordered bg-[#0f172a]" />
+  </label>
+
+  <label class="form-control md:col-span-1">
+    <span class="label-text">Output of Code</span>
+    <select id="c_output" class="select select-bordered bg-[#0f172a]">
+      <option value="">Select Outcome</option>
+      <option>Transferred Outside for .........</option>
+      <option>Death</option>
+      <option>Transferred to ICU</option>
+      <option>Other</option>
+    </select>
+  </label>
+
+  <label class="form-control md:col-span-1">
+    <span class="label-text">Disposition</span>
+    <input id="c_disposition" class="input input-bordered bg-[#0f172a]" placeholder="ICU / Ward / Home / Morgue / Other" />
+  </label>
+</div>
+
         <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
           <button class="btn bg-purple-600" onclick="generateCode()"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Generate</button>
           <button class="btn bg-green-600 text-white" onclick="copyToWhatsapp('output_code')"><i class="fab fa-whatsapp mr-2"></i>Copy & WhatsApp</button>
@@ -254,6 +283,20 @@
     // default
     showForm('transfer');
 
+
+    // إظهار/إخفاء حقول Code Blue
+const ctype = document.getElementById('c_type');
+ctype?.addEventListener('change', toggleCodeExtras);
+
+function toggleCodeExtras(){
+  const ex = document.getElementById('code_extras');
+  if(!ex) return;
+  (ctype.value === 'Code Blue') ? ex.classList.remove('hidden') : ex.classList.add('hidden');
+}
+toggleCodeExtras();
+
+
+
     // ---- Helpers
     function line(label, value){ return `\`${label}\` : *${value ?? ''}*\n`; }
 
@@ -299,13 +342,24 @@
       output_death.innerText = msg; output_death.classList.remove('hidden');
     }
 
-    function generateCode(){
-      const msg = `**Code Activation Report**\n\n` +
-        line('Code Type', c_type.value) +
-        line('Location', c_location.value) +
-        line('Date & Time', c_datetime.value);
-      output_code.innerText = msg; output_code.classList.remove('hidden');
-    }
+   function generateCode(){
+  let msg = `**Code Activation Report**\n\n` +
+    line('Code Type', c_type.value) +
+    line('Location', c_location.value) +
+    line('Date & Time', c_datetime.value);
+
+  // لو Code Blue، أضف الديموغرافيا والنتيجة والتصرف
+  if (c_type.value === 'Code Blue') {
+    msg += line('Patient Name', c_pname.value) +
+           line('MRN', c_mrn.value) +
+           line('Output of Code', c_output.value) +
+           line('Disposition', c_disposition.value);
+  }
+
+  output_code.innerText = msg;
+  output_code.classList.remove('hidden');
+}
+
 
     function generatePower(){
       const msg = `**Power Outage / Fire Alarm**\n\n` +
