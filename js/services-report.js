@@ -191,6 +191,7 @@ const hoverDL = (formatter) => ({
 
 
 
+const EXTRA_LAB_CODES = new Set(['1680011']);
 
 async function handleFile(file){
   if(!file) return; els.loading.classList.remove('hidden');
@@ -218,8 +219,8 @@ async function handleFile(file){
       const data = [];
       const docNameByKey = new Map(); // key -> best display name
       for(const r of rowsRaw){
-        const svcCode = String(r.L ?? '').trim();
-        if(!svcCode || !svcCode.startsWith('4')) continue;
+const svcCode = String(r.L ?? '').trim();
+if (!svcCode || !(svcCode.startsWith('4') || EXTRA_LAB_CODES.has(svcCode))) continue;
 
         const docId   = (r.A ?? '').toString().trim();
         const docName = (r.B ?? '').toString().trim();
