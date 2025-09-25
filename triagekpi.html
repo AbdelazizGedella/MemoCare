@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة متابعة تغييرات الترياج (CTAS)</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Icons + Charts + CSV Parser -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{ --glass-bg: rgba(255,255,255,0.06); --glass-bd: rgba(255,255,255,0.12); }
+    html, body { background:#07102F; color:#fff; font-family:'Cairo', system-ui, sans-serif; }
+    .glass { background: var(--glass-bg); border: 1px solid var(--glass-bd); backdrop-filter: blur(8px); border-radius: 18px; }
+    .kpi { display:flex; align-items:center; gap:12px; padding:16px; }
+    .kpi .num { font-size: 28px; font-weight: 700; }
+    .kpi .lbl { font-size: 12px; opacity: .85; }
+    .card-title { font-weight:700; }
+    .table :where(th,td){ white-space:nowrap; }
+    .badge-ctas { border:1px solid var(--glass-bd); background: rgba(255,255,255,.08); }
+    .btn-glass { background: linear-gradient(135deg,#0b3af5 0%,#0f1c3c 100%); border:0; color:#fff; }
+    .btn-glass:hover{ filter: brightness(1.1); }
+  </style>
+</head>
+<body class="pb-24">
+  <!-- Header -->
+  <header class="sticky top-0 z-50 w-full glass">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-cyan-300 text-xl"></i>
+        <h1 class="text-lg sm:text-2xl font-bold">لوحة متابعة تغييرات الترياج (CTAS)</h1>
+      </div>
+      <div class="flex items-center gap-2 text-xs opacity-80">
+        <span id="lastUpdated">—</span>
+        <button id="btnRefresh" class="btn btn-xs sm:btn-sm btn-glass"><i class="fa-solid fa-rotate"></i> تحديث</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-3 sm:px-4 mt-4 space-y-4">
+    <!-- Controls -->
+    <section class="glass p-3 sm:p-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="form-control w-40">
+          <div class="label"><span class="label-text">من تاريخ</span></div>
+          <input id="dateFrom" type="date" class="input input-sm input-bordered" />
+        </label>
+        <label class="form-control w-40">
+          <div class="label"><span class="label-text">إلى تاريخ</span></div>
+          <input id="dateTo" type="date" class="input input-sm input-bordered" />
+        </label>
+        <label class="form-control w-56">
+          <div class="label"><span class="label-text">بحث (ملف/اسم/ممرضة/طبيب)</span></div>
+          <input id="qText" type="text" placeholder="ابحث.." class="input input-sm input-bordered" />
+        </label>
+        <button id="btnClear" class="btn btn-sm">مسح الفلاتر</button>
+        <div class="ms-auto text-xs opacity-80">تُحدّث تلقائياً كل 5 دقائق</div>
+      </div>
+    </section>
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="glass kpi"><i class="fa-solid fa-list text-cyan-300"></i><div><div class="num" id="kpiTotal">0</div><div class="lbl">إجمالي التغييرات</div></div></div>
+      <div class="glass kpi"><i class="fa-solid fa-arrow-trend-up text-amber-300"></i><div><div class="num" id="kpiUnder">0</div><div class="lbl">Under‑triage (زادت الخطورة)</div></div></div>
+      <div class="glass kpi"><i class="fa-solid fa-arrow-trend-down text-emerald-300"></i><div><div class="num" id="kpiOver">0</div><div class="lbl">Over‑triage (قلت الخطورة)</div></div></div>
+      <div class="glass kpi"><i class="fa-solid fa-minus text-slate-300"></i><div><div class="num" id="kpiNoChange">0</div><div class="lbl">بدون تغيير/بيانات ناقصة</div></div></div>
+    </section>
+
+    <!-- Charts Row 1 -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="glass p-4">
+        <div class="card-title mb-2">نِسَب Under/Over</div>
+        <canvas id="chUnderOver" height="220"></canvas>
+      </div>
+      <div class="glass p-4">
+        <div class="card-title mb-2">أسباب التغيير (Top 10)</div>
+        <canvas id="chReasons" height="220"></canvas>
+      </div>
+    </section>
+
+    <!-- Charts Row 2 -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="glass p-4">
+        <div class="card-title mb-2">أكثر الممرضين/ات حدوثاً للتغيير (Top 10)</div>
+        <canvas id="chNurses" height="220"></canvas>
+      </div>
+      <div class="glass p-4">
+        <div class="card-title mb-2">أكثر الأطباء ارتباطاً بالتغيير (Top 10)</div>
+        <canvas id="chDocs" height="220"></canvas>
+      </div>
+    </section>
+
+    <!-- Charts Row 3 -->
+    <section class="glass p-4">
+      <div class="card-title mb-2">اتجاه شهري للتغييرات</div>
+      <canvas id="chMonthly" height="260"></canvas>
+    </section>
+
+    <!-- Table -->
+    <section class="glass p-3 sm:p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="card-title">آخر الحالات</div>
+        <div class="text-xs opacity-70">اضغط لعرض التفاصيل</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table table-zebra table-sm" id="tbl">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>MRN</th>
+              <th>المريض</th>
+              <th>ممرضة الترياج</th>
+              <th>الطبيب</th>
+              <th>التغيير</th>
+              <th>السبب</th>
+              <th>نموذج Pre‑Reg</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Details Modal -->
+  <dialog id="dlgDetails" class="modal">
+    <div class="modal-box max-w-3xl glass">
+      <form method="dialog"><button class="btn btn-sm btn-circle absolute left-2 top-2">✕</button></form>
+      <h3 class="font-bold text-lg mb-2">تفاصيل الحالة</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <div><span class="opacity-80">التاريخ:</span> <span id="dDate"></span></div>
+        <div><span class="opacity-80">MRN:</span> <span id="dMRN"></span></div>
+        <div><span class="opacity-80">المريض:</span> <span id="dName"></span></div>
+        <div><span class="opacity-80">ممرضة الترياج:</span> <span id="dNurse"></span></div>
+        <div><span class="opacity-80">الطبيب:</span> <span id="dDoc"></span></div>
+        <div><span class="opacity-80">التغيير:</span> <span id="dChange"></span></div>
+        <div class="sm:col-span-2"><span class="opacity-80">السبب:</span> <span id="dReason"></span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btnOpenPre" class="btn btn-sm btn-glass" target="_blank"><i class="fa-regular fa-file-lines"></i> فتح النموذج في تبويب</button>
+        <button id="btnEmbedPre" class="btn btn-sm"><i class="fa-solid fa-eye"></i> عرض داخل الصفحة</button>
+      </div>
+      <div id="embedWrap" class="mt-3 hidden">
+        <iframe id="embedFrame" class="w-full h-[60vh] rounded-xl" loading="lazy"></iframe>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Loading -->
+  <div id="loading" class="toast toast-top toast-center">
+    <div class="alert alert-info glass"><span>جاري تحميل البيانات...</span></div>
+  </div>
+
+  <script>
+  // ===================== CONFIG =====================
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7M-mFoBFVT4e6gyhvCXCww9QwE520QWbDgc-rmIJ7dVnxejkVNyNmz8wwBe_ioW9d8TrfcOMXnhJc/pub?output=csv';
+  const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+
+  // ===================== UTILITIES =====================
+  const $ = (s,p=document)=>p.querySelector(s);
+  const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
+  const fmtDate = (d)=>{
+    if(!d) return '';
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = d.getFullYear();
+    return `${dd}-${mm}-${yy}`;
+  };
+  function parseDateFlexible(val){
+    if(!val) return null;
+    const s = String(val).trim();
+    // Try ISO or YYYY-MM-DD
+    let d = new Date(s);
+    if(!isNaN(d)) return d;
+    // Try DD-MM-YYYY or DD/MM/YYYY
+    const m1 = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+    if(m1){
+      const DD = parseInt(m1[1],10), MM = parseInt(m1[2],10), YYYY = parseInt(m1[3].length===2?('20'+m1[3]):m1[3],10);
+      d = new Date(YYYY, MM-1, DD);
+      if(!isNaN(d)) return d;
+    }
+    // Try MM-DD-YYYY
+    const m2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+    if(m2){
+      const MM = parseInt(m2[1],10), DD = parseInt(m2[2],10), YYYY = parseInt(m2[3].length===2?('20'+m2[3]):m2[3],10);
+      d = new Date(YYYY, MM-1, DD);
+      if(!isNaN(d)) return d;
+    }
+    return null;
+  }
+  function cleanStr(x){ return String(x||'').trim(); }
+  function parseCTAS(s){
+    const m = String(s||'').match(/([1-5])/);
+    return m? parseInt(m[1],10) : NaN;
+  }
+  function changeLabel(from,to){
+    const f = parseCTAS(from), t = parseCTAS(to);
+    if(!isFinite(f) || !isFinite(t)) return {label:'—', kind:'na'};
+    if(t < f) return {label:`Under (من ${f} ➜ ${t})`, kind:'under'};
+    if(t > f) return {label:`Over (من ${f} ➜ ${t})`, kind:'over'};
+    return {label:`No change (${f})`, kind:'same'};
+  }
+  function embedFromDriveUrl(url){
+    if(!url) return null;
+    try{
+      const u = new URL(url);
+      const host = u.hostname;
+      if(host.includes('drive.google.com')){
+        // Try to extract file id
+        const m = url.match(/\/d\/([A-Za-z0-9_-]{10,})/);
+        const id = m? m[1] : (u.searchParams.get('id') || null);
+        if(id){
+          // Preview works for many types (PDF, images, docs..)
+          return `https://drive.google.com/file/d/${id}/preview`;
+        }
+      }
+      if(host.includes('docs.google.com')){
+        return url; // Let Docs/Sheets/Slides render
+      }
+    }catch(e){ /* ignore */ }
+    return null;
+  }
+
+  // ===================== STATE =====================
+  let RAW_ROWS = []; // original rows
+  let ENTRIES = [];  // normalized entries
+  let charts = { underOver:null, reasons:null, nurses:null, docs:null, monthly:null };
+
+  // ===================== LOAD =====================
+  async function loadCSV(){
+    return new Promise((resolve, reject)=>{
+      Papa.parse(CSV_URL, {
+        download:true,
+        header:true,
+        skipEmptyLines:true,
+        complete: (res)=> resolve(res.data),
+        error: (err)=> reject(err)
+      });
+    });
+  }
+
+  function normalizeRows(rows){
+    return rows.map(r=>{
+      const date = parseDateFlexible(r['Date'] || r['التاريخ']);
+      const mrn = cleanStr(r['MRNo.'] || r['MRN'] || r['رقم الملف']);
+      const name = cleanStr(r['Patient Name'] || r['اسم المريض']);
+      const nurse = cleanStr(r['Responsible Triage Nurse'] || r['Responsible Nurse'] || r['ممرضة الترياج']);
+      const doc = cleanStr(r['Responsible Phyiscian'] || r['Responsible Physician'] || r['الطبيب']);
+      const from = cleanStr(r['Changed From'] || r['من']);
+      const to   = cleanStr(r['Changed To'] || r['إلى']);
+      const init = cleanStr(r['Initial Triage was'] || r['Initial Triage'] || r['الترياج المبدئي']);
+      const reason = cleanStr(r['Reason'] || r['السبب']);
+      const pre = cleanStr(r['Pre-Registration Form'] || r['Pre-Registeration Form'] || r['النموذج'] || r['Form']);
+      const c = changeLabel(from,to);
+      return { date, mrn, name, nurse, doc, from, to, init, reason, pre, changeKind:c.kind, changeText:c.label };
+    }).filter(x=> x.date || x.mrn || x.name);
+  }
+
+  function applyFilters(){
+    const q = cleanStr($('#qText').value).toLowerCase();
+    const df = $('#dateFrom').value? new Date($('#dateFrom').value) : null;
+    const dt = $('#dateTo').value? new Date($('#dateTo').value) : null;
+    return ENTRIES.filter(e=>{
+      if(df && e.date && e.date < df) return false;
+      if(dt && e.date && e.date > dt) return false;
+      if(q){
+        const blob = `${e.mrn} ${e.name} ${e.nurse} ${e.doc} ${e.reason}`.toLowerCase();
+        if(!blob.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function tallyBy(arr, key){
+    const m = new Map();
+    for(const a of arr){
+      const k = (typeof key==='function')? key(a) : (a[key]||'');
+      const kk = (k||'').trim();
+      if(!kk) continue;
+      m.set(kk, (m.get(kk)||0)+1);
+    }
+    return [...m.entries()].sort((a,b)=> b[1]-a[1]);
+  }
+
+  function groupMonthly(arr){
+    const m = new Map();
+    for(const a of arr){
+      if(!a.date) continue;
+      const k = `${a.date.getFullYear()}-${String(a.date.getMonth()+1).padStart(2,'0')}`;
+      m.set(k, (m.get(k)||0)+1);
+    }
+    const out = [...m.entries()].sort((a,b)=> a[0].localeCompare(b[0]));
+    return { labels: out.map(x=>x[0]), values: out.map(x=>x[1]) };
+  }
+
+  // ===================== RENDER =====================
+  function renderKPIs(view){
+    const total = view.length;
+    const under = view.filter(x=>x.changeKind==='under').length;
+    const over  = view.filter(x=>x.changeKind==='over').length;
+    const same  = total - under - over;
+    $('#kpiTotal').textContent = total;
+    $('#kpiUnder').textContent = under;
+    $('#kpiOver').textContent  = over;
+    $('#kpiNoChange').textContent = same;
+  }
+
+  function ensureChart(ctxRef){
+    const ctx = document.getElementById(ctxRef);
+    if(!ctx) return null;
+    return ctx.getContext('2d');
+  }
+
+  function drawCharts(view){
+    // Destroy old
+    for(const k of Object.keys(charts)){
+      if(charts[k]){ charts[k].destroy(); charts[k]=null; }
+    }
+
+    // Under/Over
+    {
+      const under = view.filter(x=>x.changeKind==='under').length;
+      const over  = view.filter(x=>x.changeKind==='over').length;
+      const same  = view.length - under - over;
+      const ctx = ensureChart('chUnderOver');
+      charts.underOver = new Chart(ctx, {
+        type:'doughnut',
+        data:{ labels:['Under','Over','No change'], datasets:[{ data:[under,over,same] }] },
+        options:{ plugins:{ legend:{ labels:{ color:'#fff' } } } }
+      });
+    }
+
+    // Reasons Top10
+    {
+      const top = tallyBy(view,'reason').slice(0,10);
+      const ctx = ensureChart('chReasons');
+      charts.reasons = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: top.map(x=>x[0]), datasets:[{ data: top.map(x=>x[1]) }] },
+        options:{
+          indexAxis:'y',
+          scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } },
+          plugins:{ legend:{ display:false } }
+        }
+      });
+    }
+
+    // Nurses Top10
+    {
+      const top = tallyBy(view,'nurse').slice(0,10);
+      const ctx = ensureChart('chNurses');
+      charts.nurses = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: top.map(x=>x[0]), datasets:[{ data: top.map(x=>x[1]) }] },
+        options:{ scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } }, plugins:{ legend:{ display:false } } }
+      });
+    }
+
+    // Doctors Top10
+    {
+      const top = tallyBy(view,'doc').slice(0,10);
+      const ctx = ensureChart('chDocs');
+      charts.docs = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: top.map(x=>x[0]), datasets:[{ data: top.map(x=>x[1]) }] },
+        options:{ scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } }, plugins:{ legend:{ display:false } } }
+      });
+    }
+
+    // Monthly
+    {
+      const g = groupMonthly(view);
+      const ctx = ensureChart('chMonthly');
+      charts.monthly = new Chart(ctx, {
+        type:'line',
+        data:{ labels: g.labels, datasets:[{ data: g.values, tension:.3, fill:false, pointRadius:3 }] },
+        options:{ scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } }, plugins:{ legend:{ display:false } } }
+      });
+    }
+  }
+
+  function renderTable(view){
+    const TB = $('#tbl tbody');
+    TB.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for(const e of view){
+      const tr = document.createElement('tr');
+      const changeBadge = e.changeKind==='under'? 'badge-warning' : (e.changeKind==='over'? 'badge-success' : '');
+      tr.innerHTML = `
+        <td>${fmtDate(e.date)}</td>
+        <td>${e.mrn||''}</td>
+        <td>${e.name||''}</td>
+        <td>${e.nurse||''}</td>
+        <td>${e.doc||''}</td>
+        <td><span class="badge badge-ctas ${changeBadge}">${e.changeText}</span></td>
+        <td title="${e.reason||''}">${(e.reason||'').slice(0,40)}${(e.reason||'').length>40?'…':''}</td>
+        <td>${e.pre? '<i class="fa-regular fa-file-lines"></i>':'—'}</td>`;
+      tr.className = 'hover:cursor-pointer';
+      tr.addEventListener('click', ()=> openDetails(e));
+      frag.appendChild(tr);
+    }
+    TB.appendChild(frag);
+  }
+
+  function openDetails(e){
+    $('#dDate').textContent = fmtDate(e.date);
+    $('#dMRN').textContent = e.mrn||'';
+    $('#dName').textContent = e.name||'';
+    $('#dNurse').textContent = e.nurse||'';
+    $('#dDoc').textContent = e.doc||'';
+    $('#dChange').textContent = e.changeText||'';
+    $('#dReason').textContent = e.reason||'';
+
+    const openBtn = $('#btnOpenPre');
+    const embedBtn = $('#btnEmbedPre');
+    const wrap = $('#embedWrap');
+    const frame = $('#embedFrame');
+
+    if(e.pre){
+      openBtn.disabled = false; embedBtn.disabled = false;
+      openBtn.onclick = ()=> window.open(e.pre, '_blank');
+      embedBtn.onclick = ()=>{
+        const preview = embedFromDriveUrl(e.pre);
+        if(preview){
+          frame.src = preview;
+          wrap.classList.remove('hidden');
+        } else {
+          wrap.classList.add('hidden');
+          window.open(e.pre, '_blank');
+        }
+      };
+    } else {
+      openBtn.disabled = true; embedBtn.disabled = true; $('#embedWrap').classList.add('hidden');
+    }
+
+    $('#dlgDetails').showModal();
+  }
+
+  function updateAll(){
+    const view = applyFilters();
+    renderKPIs(view);
+    drawCharts(view);
+    renderTable(view.slice().sort((a,b)=> (b.date||0)-(a.date||0)));
+  }
+
+  async function refresh(){
+    $('#loading').style.display='';
+    try{
+      RAW_ROWS = await loadCSV();
+      ENTRIES = normalizeRows(RAW_ROWS);
+      updateAll();
+      $('#lastUpdated').textContent = 'آخر تحديث: ' + new Date().toLocaleString('ar-EG');
+    } catch(e){
+      console.error(e);
+      alert('تعذر تحميل البيانات. تأكد من رابط Google Sheets (Share to web)');
+    } finally {
+      $('#loading').style.display='none';
+    }
+  }
+
+  // ===================== INIT =====================
+  document.addEventListener('DOMContentLoaded', ()=>{
+    refresh();
+    $('#btnRefresh').addEventListener('click', refresh);
+    $('#btnClear').addEventListener('click', ()=>{ $('#qText').value=''; $('#dateFrom').value=''; $('#dateTo').value=''; updateAll(); });
+    $('#qText').addEventListener('input', ()=> updateAll());
+    $('#dateFrom').addEventListener('change', ()=> updateAll());
+    $('#dateTo').addEventListener('change', ()=> updateAll());
+    setInterval(refresh, AUTO_REFRESH_MS);
+  });
+  </script>
+</body>
+</html>
