@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة مؤشرات تحويل الحالات — Dark Glass</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <!-- Chart.js & PapaParse -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --glass-bg: rgba(8, 22, 60, 0.55);   /* deep dark-blue */
+      --glass-br: rgba(255,255,255,0.08);
+      --glass-tx: #e7eefc;
+      --brand: #0a4fff;
+      --brand-2: #00a6ff;
+      --internal: #20e3b2; /* teal */
+      --external: #ff7aa2; /* pink */
+      --good: #18e07f;
+      --warn: #ffcf5a;
+      --bad:  #ff6b6b;
+    }
+    *{ font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'; }
+    body{
+      background: radial-gradient(1200px 600px at 80% -10%, rgba(10,79,255,0.25), transparent 60%),
+                  radial-gradient(900px 700px at -10% 110%, rgba(0,166,255,0.2), transparent 60%),
+                  linear-gradient(135deg, #020817 0%, #0b1739 60%, #08122a 100%);
+      color: var(--glass-tx);
+      min-height: 100dvh;
+    }
+    .glass{ background: var(--glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--glass-br); border-radius: 1.25rem; box-shadow: 0 10px 30px rgba(2, 20, 70, 0.35), inset 0 1px 0 rgba(255,255,255,0.04); }
+    .title-grad{ background: linear-gradient(90deg, #fff, #d3e3ff 40%, #9fd6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .chip{ border:1px solid var(--glass-br); background: rgba(255,255,255,0.05); }
+    .stat-num{ font-variant-numeric: tabular-nums; }
+    canvas{ max-height: 56vh; }
+    .btn-brand{ background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; border: none; }
+    .btn-brand:hover{ filter: brightness(1.08); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    table{ border-collapse: separate; border-spacing: 0 10px; }
+    thead th{ color:#bcd7ff; }
+    tbody tr{ background: rgba(255,255,255,0.04); border:1px solid var(--glass-br); cursor:pointer; }
+    tbody tr:hover{ outline:1px dashed rgba(255,255,255,0.15); }
+    tbody td{ padding: 0.5rem 0.75rem; }
+    .badge-soft{ background: rgba(255,255,255,0.06); border:1px solid var(--glass-br); color:#cfe6ff; }
+    .legend-dot{ display:inline-block; width:10px; height:10px; border-radius:9999px; margin-inline-start:6px; }
+    .sla{ padding:2px 8px; border-radius:9999px; font-weight:600; color:#001; }
+  </style>
+</head>
+<body class="pb-28">
+  <!-- Header -->
+  <header class="sticky top-0 z-50 glass">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
+      <i class="fa-solid fa-arrows-turn-to-dots text-2xl text-[#9fd6ff]"></i>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold title-grad">لوحة مؤشرات تحويل الحالات (KPI)</h1>
+        <p class="text-xs sm:text-sm opacity-80">مصدر البيانات: CSV — التواريخ بصيغة <span class="mono">DD-MM-YYYY</span></p>
+      </div>
+      <div class="ms-auto flex flex-wrap gap-2 items-center">
+        <input id="fileInput" type="file" accept=".csv" class="hidden" />
+        <button id="btnUpload" class="btn btn-sm"><i class="fa-solid fa-file-arrow-up"></i><span class="hidden sm:inline"> رفع CSV محلي</span></button>
+        <div class="join">
+          <input id="txtCsvUrl" class="input input-sm input-bordered join-item w-64" placeholder="رابط CSV (Drive export)" />
+          <button id="btnLoadUrl" class="btn btn-sm join-item">تحميل</button>
+        </div>
+        <button id="btnReload" class="btn btn-sm btn-brand"><i class="fa-solid fa-rotate"></i><span class="hidden sm:inline"> إعادة التحميل</span></button>
+        <button id="btnExport" class="btn btn-sm"><i class="fa-solid fa-file-arrow-down"></i><span class="hidden sm:inline"> تنزيل CSV (بعد التصفية)</span></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <section class="max-w-7xl mx-auto px-4 mt-6">
+    <div class="glass p-4 md:p-6">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-4 items-end">
+        <div>
+          <label class="label"><span class="label-text">الفترة من</span></label>
+          <input id="dateFrom" type="date" class="input input-bordered w-full" />
+        </div>
+        <div>
+          <label class="label"><span class="label-text">إلى</span></label>
+          <input id="dateTo" type="date" class="input input-bordered w-full" />
+        </div>
+        <div>
+          <label class="label"><span class="label-text">نوع التحويل</span></label>
+          <select id="selType" class="select select-bordered w-full">
+            <option value="all" selected>الكل</option>
+            <option value="internal">داخلي</option>
+            <option value="external">خارجي</option>
+          </select>
+        </div>
+        <div>
+          <label class="label"><span class="label-text">Destination</span></label>
+          <select id="selDest" class="select select-bordered w-full">
+            <option value="all" selected>الكل</option>
+            <option value="ICU">ICU</option>
+            <option value="ER">ER</option>
+          </select>
+        </div>
+        <div>
+          <label class="label"><span class="label-text">Referral By</span></label>
+          <select id="selRef" class="select select-bordered w-full">
+            <option value="all" selected>الكل</option>
+            <option value="ICU">ICU</option>
+            <option value="ER">ER</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2 items-center text-xs opacity-90">
+        <span class="badge badge-soft">تصنيف الألوان: <span class="legend-dot" style="background:var(--internal)"></span> داخلي | <span class="legend-dot" style="background:var(--external)"></span> خارجي</span>
+        <span class="badge badge-soft">SLA الاستشارة: ≤30د أخضر، 31–60د أصفر، &gt;60د أحمر</span>
+        <span id="prefMonthChip" class="badge badge-soft hidden"></span>
+        <span id="rowCountChip" class="badge badge-soft hidden"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="max-w-7xl mx-auto px-4 mt-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">إجمالي التحويلات</div>
+        <div id="statTotal" class="text-3xl font-bold stat-num">—</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">داخلي</div>
+        <div id="statInternal" class="text-3xl font-bold stat-num">—</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">خارجي</div>
+        <div id="statExternal" class="text-3xl font-bold stat-num">—</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">% اكتمال السجلات (كل التواقيت الرئيسية)</div>
+        <div id="statCompleteness" class="text-3xl font-bold stat-num">—</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPI Durations -->
+  <section class="max-w-7xl mx-auto px-4 mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">متوسط زمن من التسجيل → الخروج للتحويل</div>
+        <div id="kpiDoorToDep" class="text-2xl font-bold stat-num">—</div>
+        <div id="kpiDoorToDepP90" class="text-xs opacity-70">P90: —</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">متوسط زمن الاستشارة (طلب → رد)</div>
+        <div id="kpiConsult" class="text-2xl font-bold stat-num">—</div>
+        <div id="kpiConsultP90" class="text-xs opacity-70">P90: —</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">متوسط زمن الرحلة (الخروج → وصول المستشفى المستقبِل)</div>
+        <div id="kpiTravel" class="text-2xl font-bold stat-num">—</div>
+        <div id="kpiTravelP90" class="text-xs opacity-70">P90: —</div>
+      </div>
+      <div class="glass p-4">
+        <div class="text-sm opacity-80">متوسط زمن العودة (وصول المستشفى المستقبِل → العودة لمستشفانا)</div>
+        <div id="kpiReturn" class="text-2xl font-bold stat-num">—</div>
+        <div id="kpiReturnP90" class="text-xs opacity-70">P90: —</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section class="max-w-7xl mx-auto px-4 mt-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+      <div class="glass p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">الاتجاه الزمني (داخلي مقابل خارجي) — انقر لعرض الحالات</h3>
+        </div>
+        <canvas id="chartTrend"></canvas>
+      </div>
+      <div class="glass p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">Destination × نوع التحويل — موزعة حسب Referral By</h3>
+        </div>
+        <canvas id="chartDestType"></canvas>
+      </div>
+      <div class="glass p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">خريطة الأفراد — أطباء ICU</h3>
+          <div class="join">
+            <button id="btnDocSlow" class="btn btn-xs join-item">أبطأ 5</button>
+            <button id="btnDocFast" class="btn btn-xs join-item">أسرع 5</button>
+          </div>
+        </div>
+        <canvas id="chartDoc"></canvas>
+      </div>
+      <div class="glass p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">خريطة الأفراد — موظفو الاستقبال</h3>
+          <div class="join">
+            <button id="btnRecSlow" class="btn btn-xs join-item">أبطأ 5</button>
+            <button id="btnRecFast" class="btn btn-xs join-item">أسرع 5</button>
+          </div>
+        </div>
+        <canvas id="chartRec"></canvas>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- External Transfers Focus -->
+<section class="max-w-7xl mx-auto px-4 mt-6">
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 md:gap-4">
+    <div class="glass p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold">المستشفيات المُستقبلة (خارجي) — من <span class="mono">Referral for</span></h3>
+      </div>
+      <canvas id="chartHospitals"></canvas>
+    </div>
+    <div class="glass p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold">الأقسام المستقبِلة خارجياً — من <span class="mono">Department Which Send for</span></h3>
+      </div>
+      <canvas id="chartExtDepts"></canvas>
+    </div>
+    <div class="glass p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold">أسباب التحويل (خارجي) — من <span class="mono">Actual Reason for Transfer the case</span></h3>
+      </div>
+      <canvas id="chartExtReasons"></canvas>
+    </div>
+  </div>
+</section>
+
+
+  <!-- Table -->
+  <section class="max-w-7xl mx-auto px-4 mt-6 mb-24">
+    <div class="glass p-4 overflow-x-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold">أحدث 50 حالة (تفاعلي) — انقر لعرض التفاصيل</h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr>
+            <th class="text-right pe-2">MRNo.</th>
+            <th class="text-right pe-2">المريض</th>
+            <th class="text-right pe-2">نوع</th>
+            <th class="text-right pe-2">Destination</th>
+            <th class="text-right pe-2">Referral By</th>
+            <th class="text-right pe-2">تاريخ التسجيل</th>
+            <th class="text-right pe-2">تاريخ التحويل</th>
+            <th class="text-right pe-2">زمن: تسجيل→خروج</th>
+            <th class="text-right pe-2">زمن الاستشارة</th>
+            <th class="text-right pe-2">زمن الرحلة</th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Case Modal -->
+  <dialog id="caseModal" class="modal">
+    <div class="modal-box glass max-w-5xl">
+      <form method="dialog"><button class="btn btn-sm btn-circle absolute left-2 top-2">✕</button></form>
+      <h3 id="mTitle" class="font-bold text-lg mb-2">تفاصيل الحالة</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass p-3">
+          <h4 class="font-semibold mb-2">بيانات أساسية</h4>
+          <table class="w-full text-sm">
+            <tbody id="mBasic"></tbody>
+          </table>
+        </div>
+        <div class="glass p-3">
+          <h4 class="font-semibold mb-2">مرفقات</h4>
+          <div id="mFiles" class="text-sm space-y-2"></div>
+        </div>
+        <div class="glass p-3">
+          <h4 class="font-semibold mb-2">الأزمنة بين المراحل</h4>
+          <table class="w-full text-sm">
+            <tbody id="mTimes"></tbody>
+          </table>
+        </div>
+        <div class="glass p-3">
+          <h4 class="font-semibold mb-2">مقارنة بمتوسط الفترة</h4>
+          <table class="w-full text-sm"><tbody id="mVsAvg"></tbody></table>
+        </div>
+        <div class="glass p-3 md:col-span-2">
+          <h4 class="font-semibold mb-2">العاملون</h4>
+          <table class="w-full text-sm">
+            <tbody id="mStaff"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Day Modal (from Trend click) -->
+  <dialog id="dayModal" class="modal">
+    <div class="modal-box glass max-w-4xl">
+      <form method="dialog"><button class="btn btn-sm btn-circle absolute left-2 top-2">✕</button></form>
+      <h3 id="dTitle" class="font-bold text-lg mb-3">حالات اليوم</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr>
+              <th class="text-right pe-2">MRNo.</th>
+              <th class="text-right pe-2">النوع</th>
+              <th class="text-right pe-2">المريض</th>
+              <th class="text-right pe-2">Destination</th>
+              <th class="text-right pe-2">Referral By</th>
+              <th class="text-right pe-2">زمن الاستشارة</th>
+            </tr>
+          </thead>
+          <tbody id="dBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <script>
+    // ====== CONFIG ======
+    let CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT97py43y3VQ8klNhdFhkekfraBEOyBGVIjVD-lJWuD3x_L5_6AQ6Ec364Cz4v6dIfWh_GLNn9Luf-o/pub?gid=1881481693&single=true&output=csv";
+
+    // Column names (بعد التعديل)
+    const C = {
+      ts: 'Timestamp',
+      email: 'Email address',
+      dest: 'Destination',
+      refBy: 'Referral By',
+      mrn: 'MRNo.',
+      name: 'Patient Name',
+      regD: 'Date of Registration',
+      regT: 'Time of Registration',
+      trD: 'Date of Transfer',
+      trT: 'Time of Transfer (Physical Departure)',
+      cReqD: 'Date Consultation Request',
+      cReqT: 'Time Consultation Request',
+      cResD: 'Date Consultation Respond',
+      cResT: 'Time Consultation Respond',
+      icuOpenD: 'Date open ICU File',
+      icuOpenT: 'Time open ICU File',
+      ourRefPhysIn: 'Our Referral Physician In Hospital',
+      ourRefNurseIn: 'Our Referral Nurse In Hospital',
+      receptionIn: 'Reception Staff In Hospital',
+      recvPhysIn: 'Receiving Physician In Hospital',
+      recvNurseIn: 'Receiving Nurse In Hospital',
+      recvFor: 'Referral for ',
+      deptSend: 'Department Which Send for ',
+      wingNurseOut: 'Our Wing Nurse for Outside Transfer',
+      wingPhysOut: 'Our Wing Physician for Outside Transfer',
+      arriveRecvD: 'Date of Arrive Receiving Hospital',
+      arriveRecvT: 'Time of Arrive Receiving Hospital',
+      arriveBackD: 'Date of Arrive Back to our Hospital',
+      arriveBackT: 'Time of Arrive Back to our Hospital',
+      reason: 'Actual Reason for Transfer the case',
+      recvMRN: 'Receiving Hospital MRNo. (Not our CMH MRNo.)',
+      sticker: 'Attach Patient Sticker there'
+    };
+
+    const DATE_FIELDS = [C.regD, C.trD, C.cReqD, C.cResD, C.icuOpenD, C.arriveRecvD, C.arriveBackD];
+
+    const SLA = {
+      consult: { good: 30, warn: 60 }, // >60 أحمر
+      door:    { good: 60, warn: 180 },
+      travel:  { good: 120, warn: 240 },
+      back:    { good: 180, warn: 360 },
+      respOpen:{ good: 60, warn: 120 },
+    };
+
+    // ====== STATE ======
+    let RAW = [];
+    let DATA = [];
+    let PREF_MONTH = null; // 1..12 detected automatically
+    let AVG = {};
+
+    // ====== HELPERS ======
+
+    function drivePreviewUrl(u){
+  try{
+    const url = new URL(u);
+    if(!/drive\.google\.com$/.test(url.hostname)) return u;
+    const m1 = u.match(/\/file\/d\/([^/]+)\//);
+    const m2 = u.match(/[?&]id=([^&]+)/);
+    const id = (m1 && m1[1]) || (m2 && m2[1]);
+    return id ? `https://drive.google.com/file/d/${id}/preview` : u;
+  }catch{ return u; }
+}
+
+function renderAttachmentPreview(u){
+  if(!u) return '';
+  const url = u.trim();
+  const lower = url.toLowerCase();
+  const emb = drivePreviewUrl(url);
+
+  if(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(lower)){
+    return `<img src="${url}" alt="Attachment" class="rounded-md border border-white/10 max-h-60" />`;
+  }
+  if(/\.(pdf)$/.test(lower) || /drive\.google\.com/.test(url)){
+    return `<iframe src="${emb}" class="w-full h-64 rounded-md border border-white/10" loading="lazy" allow="autoplay"></iframe>`;
+  }
+  if(/\.(mp4|webm|ogg)$/.test(lower)){
+    return `<video src="${url}" class="w-full rounded-md border border-white/10" controls></video>`;
+  }
+  if(/\.(mp3|wav|m4a|ogg)$/.test(lower)){
+    return `<audio src="${url}" class="w-full" controls></audio>`;
+  }
+  return '';
+}
+
+
+
+    const $ = (s, p=document)=>p.querySelector(s);
+    const $$ = (s, p=document)=>Array.from(p.querySelectorAll(s));
+
+    function text(v){ return (v==null? '': String(v).trim()); }
+    function isEmpty(v){ return !v || String(v).trim()===''; }
+
+    function detectPreferredMonth(rows){
+      const cnt = Array(13).fill(0);
+      for(const r of rows){
+        for(const f of DATE_FIELDS){
+          const s = text(r[f]); if(!s) continue;
+          const m = s.replace(/[.\s]/g,'').replace(/[\/]/g,'-').match(/^(\d{1,4})-(\d{1,2})-(\d{1,4})$/);
+          if(!m) continue;
+          const a = +m[1], b = +m[2];
+          if(m[1].length === 4){ if(b>=1 && b<=12) cnt[b]++; continue; }
+          if(a>=1 && a<=12) cnt[a]++;
+          if(b>=1 && b<=12) cnt[b]++;
+        }
+      }
+      let imax = 1, vmax = 0;
+      for(let i=1;i<=12;i++){ if(cnt[i]>vmax){ vmax = cnt[i]; imax = i; } }
+      return vmax>0? imax : null;
+    }
+
+    function parseTime(t){
+      if(!t) return {h:0,m:0,s:0};
+      const parts = String(t).trim().split(':');
+      const h = parseInt(parts[0]||'0',10);
+      const m = parseInt(parts[1]||'0',10);
+      const s = parseInt(parts[2]||'0',10);
+      return {h: isFinite(h)?h:0, m: isFinite(m)?m:0, s: isFinite(s)?s:0};
+    }
+
+    function parseDateSmart(s){
+      if(!s) return null;
+      s = String(s).trim().replace(/[.\s]/g,'').replace(/[\/]/g,'-');
+      let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if(m){ const y=+m[1], mo=+m[2], d=+m[3]; return new Date(y, mo-1, d); }
+      m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+      if(m){
+        let a=+m[1], b=+m[2]; let y = +m[3]; if(y<100) y += 2000;
+        if(a>12 && b<=12){ return new Date(y, b-1, a); }
+        if(b>12 && a<=12){ return new Date(y, a-1, b); }
+        if(a>12 && b>12){ return null; }
+        if(PREF_MONTH){ if(a===PREF_MONTH) return new Date(y, a-1, b); if(b===PREF_MONTH) return new Date(y, b-1, a); }
+        return new Date(y, b-1, a);
+      }
+      const d = new Date(s);
+      return isNaN(d)? null : d;
+    }
+
+    function combineDateTime(dStr, tStr){
+      const d = parseDateSmart(dStr);
+      if(!d) return null;
+      const {h,m,s} = parseTime(tStr);
+      d.setHours(h||0, m||0, s||0, 0);
+      return d;
+    }
+
+    function fmtDDMMYYYY(d){
+      if(!(d instanceof Date) || isNaN(d)) return '';
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yy = d.getFullYear();
+      return `${dd}-${mm}-${yy}`;
+    }
+    function humanMinutes(mins){
+      if(mins==null || !isFinite(mins)) return '—';
+      mins = Math.round(mins);
+      const d = Math.floor(mins/1440); mins -= d*1440;
+      const h = Math.floor(mins/60); const m = mins%60;
+      if(d>0) return `${d}ي ${h}س ${m}د`;
+      if(h>0) return `${h}س ${m}د`;
+      return `${m}د`;
+    }
+    function diffMinutes(a,b){
+      if(!(a instanceof Date) || !(b instanceof Date)) return null;
+      const ms = b - a; if(!isFinite(ms) || ms < 0) return null; // لا نقبل السوالب
+      return ms / 60000;
+    }
+
+    function percentile(arr, p){
+      const v = arr.filter(x=>x!=null && isFinite(x)).sort((x,y)=>x-y);
+      if(v.length===0) return null;
+      if(p<=0) return v[0]; if(p>=100) return v[v.length-1];
+      const idx = (p/100)*(v.length-1);
+      const lo = Math.floor(idx), hi = Math.ceil(idx);
+      if(lo===hi) return v[lo];
+      const w = idx - lo;
+      return v[lo]*(1-w) + v[hi]*w;
+    }
+
+    function toCSV(rows){ return Papa.unparse(rows); }
+
+    function normUnit(x){
+      x = text(x).toUpperCase();
+      if(!x) return null;
+      if(/ICU|عناية/.test(x)) return 'ICU';
+      if(/ER|ED|طوارئ/.test(x)) return 'ER';
+      return null; // تجاهل غير محدد/أخرى
+    }
+
+    // ====== LOADING ======
+    async function loadCSVFromUrl(url){
+      return new Promise((resolve, reject)=>{
+        Papa.parse(url, { download: true, header: true, skipEmptyLines: true, complete: (res)=> resolve(res.data), error: (err)=> reject(err) });
+      });
+    }
+    async function loadCSVFromFile(file){
+      return new Promise((resolve, reject)=>{
+        Papa.parse(file, { header: true, skipEmptyLines: true, complete: (res)=> resolve(res.data), error: (err)=> reject(err) });
+      });
+    }
+
+    function normalizeRows(rows){
+      PREF_MONTH = detectPreferredMonth(rows);
+      if(PREF_MONTH){ const chip = $('#prefMonthChip'); chip.textContent = `تم اكتشاف الشهر الشائع: ${String(PREF_MONTH).padStart(2,'0')}`; chip.classList.remove('hidden'); }
+
+      return rows.map(r=>{
+        const reg = combineDateTime(r[C.regD], r[C.regT]);
+        const tr  = combineDateTime(r[C.trD], r[C.trT]);
+        const cRq = combineDateTime(r[C.cReqD], r[C.cReqT]);
+        const cRs = combineDateTime(r[C.cResD], r[C.cResT]);
+        const icu = combineDateTime(r[C.icuOpenD], r[C.icuOpenT]);
+        const arrRecv = combineDateTime(r[C.arriveRecvD], r[C.arriveRecvT]);
+        const arrBack = combineDateTime(r[C.arriveBackD], r[C.arriveBackT]);
+
+        const doorToDep = diffMinutes(reg, tr);
+        const consultRT = diffMinutes(cRq, cRs);
+        const travel     = diffMinutes(tr, arrRecv);
+        const backTime   = diffMinutes(arrRecv, arrBack);
+        const respToOpen = diffMinutes(cRs, icu);
+
+        const external = !isEmpty(r[C.recvMRN]);
+
+        return {
+          ...r,
+          __reg: reg, __tr: tr, __cRq: cRq, __cRs: cRs, __icu: icu, __arrRecv: arrRecv, __arrBack: arrBack,
+          __doorToDep: doorToDep, __consultRT: consultRT, __travel: travel, __backTime: backTime, __respToOpen: respToOpen,
+          __external: external,
+          __destUnit: normUnit(r[C.dest]),
+          __refUnit: normUnit(r[C.refBy]),
+          __recvPhys: text(r[C.recvPhysIn]),
+          __reception: text(r[C.receptionIn]),
+          __ourPhys: text(r[C.ourRefPhysIn]),
+          __ourNurse: text(r[C.ourRefNurseIn]),
+          __wingPhys: text(r[C.wingPhysOut]),
+          __wingNurse: text(r[C.wingNurseOut])
+        };
+      });
+    }
+
+    function applyFilters(rows){
+      const type = $('#selType').value; // all/internal/external
+      const selDest = $('#selDest').value; // all/ICU/ER
+      const selRef  = $('#selRef').value;  // all/ICU/ER
+
+      const dFrom = $('#dateFrom').value? new Date($('#dateFrom').value) : null; 
+      const dTo   = $('#dateTo').value? new Date($('#dateTo').value) : null;
+      if(dTo){ dTo.setHours(23,59,59,999); }
+
+      return rows.filter(r=>{
+        if(type==='internal' && r.__external) return false;
+        if(type==='external' && !r.__external) return false;
+        if(selDest!=='all' && r.__destUnit!==selDest) return false;
+        if(selRef!=='all' && r.__refUnit!==selRef) return false;
+        const d = r.__tr || r.__reg || r.__cRq; // نعتمد على تاريخ التحويل بشكل افتراضي
+        if(!d) return false;
+        if(dFrom && d < dFrom) return false;
+        if(dTo && d > dTo) return false;
+        return true;
+      });
+    }
+
+    function computeAverages(rows){
+      const col = (k)=> rows.map(r=>r[k]).filter(x=>x!=null);
+      const avg = (a)=> a.length? a.reduce((s,x)=>s+x,0)/a.length : null;
+      AVG = {
+        doorToDep: avg(col('__doorToDep')),
+        consultRT: avg(col('__consultRT')),
+        travel:    avg(col('__travel')),
+        backTime:  avg(col('__backTime')),
+        respToOpen:avg(col('__respToOpen')),
+      };
+    }
+
+    function slaClass(mins, kind){
+      if(mins==null || !isFinite(mins)) return 'bg-[rgba(255,255,255,0.06)] text-white';
+      const t = SLA[kind]||{good:0,warn:0};
+      if(mins <= t.good) return 'sla' + ' ' + 'bg-[var(--good)]';
+      if(mins <= t.warn) return 'sla' + ' ' + 'bg-[var(--warn)]';
+      return 'sla' + ' ' + 'bg-[var(--bad)]';
+    }
+
+    // ====== RENDER ======
+    function renderStats(rows){
+      $('#rowCountChip').textContent = `صفوف بعد التصفية: ${rows.length}`;
+      $('#rowCountChip').classList.remove('hidden');
+
+      const total = rows.length;
+      const internal = rows.filter(r=>!r.__external).length;
+      const external = total - internal;
+
+      $('#statTotal').textContent = total;
+      $('#statInternal').textContent = internal;
+      $('#statExternal').textContent = external;
+
+      const complete = rows.filter(r=> r.__reg && r.__tr && (!r.__external || r.__arrRecv)).length;
+      const pct = total? Math.round((complete/total)*100): 0;
+      $('#statCompleteness').textContent = pct + '%';
+
+      const door = rows.map(r=>r.__doorToDep).filter(x=>x!=null);
+      const cons = rows.map(r=>r.__consultRT).filter(x=>x!=null);
+      const trav = rows.map(r=>r.__travel).filter(x=>x!=null);
+      const back = rows.map(r=>r.__backTime).filter(x=>x!=null);
+
+      const avg = (arr)=> arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length): null;
+
+      $('#kpiDoorToDep').textContent = humanMinutes(avg(door));
+      $('#kpiDoorToDepP90').textContent = 'P90: ' + humanMinutes(percentile(door, 90));
+
+      $('#kpiConsult').textContent = humanMinutes(avg(cons));
+      $('#kpiConsultP90').textContent = 'P90: ' + humanMinutes(percentile(cons, 90));
+
+      $('#kpiTravel').textContent = humanMinutes(avg(trav));
+      $('#kpiTravelP90').textContent = 'P90: ' + humanMinutes(percentile(trav, 90));
+
+      $('#kpiReturn').textContent = humanMinutes(avg(back));
+      $('#kpiReturnP90').textContent = 'P90: ' + humanMinutes(percentile(back, 90));
+
+      computeAverages(rows);
+    }
+
+let trendChart, destTypeChart, docChart, recChart, hospitalsChart, extDeptChart, extReasonChart;
+
+function destroyCharts(){
+  for (const ch of [trendChart, destTypeChart, docChart, recChart, hospitalsChart, extDeptChart, extReasonChart]) {
+    if (ch) ch.destroy();
+  }
+}
+
+    function renderCharts(rows){
+      destroyCharts();
+      // === Trend: split internal/external and clickable ===
+      const byDayI = new Map();
+      const byDayE = new Map();
+      for(const r of rows){
+        const d = r.__tr || r.__reg || r.__cRq; if(!d) continue;
+        const key = fmtDDMMYYYY(d);
+        (r.__external? byDayE: byDayI).set(key, ((r.__external? byDayE: byDayI).get(key)||0)+1);
+      }
+      const allKeys = new Set([...byDayI.keys(), ...byDayE.keys()]);
+      const labels = Array.from(allKeys).sort((a,b)=>{
+        const [ad,am,ay] = a.split('-').map(Number);
+        const [bd,bm,by] = b.split('-').map(Number);
+        return new Date(ay,am-1,ad) - new Date(by,bm-1,bd);
+      });
+      const dataI = labels.map(k=>byDayI.get(k)||0);
+      const dataE = labels.map(k=>byDayE.get(k)||0);
+      trendChart = new Chart($('#chartTrend'), {
+        type: 'line',
+        data: { labels, datasets: [
+          { label: 'داخلي', data: dataI, tension:0.3, fill:true, borderColor: getComputedStyle(document.documentElement).getPropertyValue('--internal').trim(), backgroundColor: 'rgba(32,227,178,0.18)' },
+          { label: 'خارجي', data: dataE, tension:0.3, fill:true, borderColor: getComputedStyle(document.documentElement).getPropertyValue('--external').trim(), backgroundColor: 'rgba(255,122,162,0.18)' },
+        ]},
+        options: { responsive:true, plugins:{ tooltip:{enabled:true} }, scales:{ x:{ ticks:{ autoSkip:true } }, y:{ beginAtZero:true, precision:0 } }, onClick: (evt, els)=>{
+          if(!els.length) return; const idx = els[0].index; const day = labels[idx]; openDayModal(day, rows);
+        } }
+      });
+
+      // === Destination × Type, stacked by Referral By (ICU/ER only) ===
+      const dests = ['ICU','ER'];
+      const datasets = [
+        {label:'داخلي — إحالة ICU',  stack:'I', data:[0,0]},
+        {label:'داخلي — إحالة ER',   stack:'I', data:[0,0]},
+        {label:'خارجي — إحالة ICU',  stack:'E', data:[0,0]},
+        {label:'خارجي — إحالة ER',   stack:'E', data:[0,0]},
+      ];
+      for(const r of rows){
+        if(!r.__destUnit || !r.__refUnit) continue; // تجاهل غير محدد
+        const di = dests.indexOf(r.__destUnit); if(di<0) continue;
+        const isI = !r.__external; const isRefICU = r.__refUnit==='ICU';
+        if(isI && isRefICU) datasets[0].data[di]++;
+        else if(isI && !isRefICU) datasets[1].data[di]++;
+        else if(!isI && isRefICU) datasets[2].data[di]++;
+        else datasets[3].data[di]++;
+      }
+ // === Destination × نوع التحويل — موزعة حسب Referral By (ICU | ER في الصف) ===
+const groups = ['ICU','ICU','ER','ER'];
+const internal = [0,0,0,0];  // نفس ترتيب groups
+const external = [0,0,0,0];
+
+for (const r of rows) {
+  const destU = r.__destUnit;  // ICU/ER بعد التطبيع
+  const refU  = r.__refUnit;   // ICU/ER بعد التطبيع
+  if (!destU || !refU) continue; // تجاهل غير محدد
+
+  const idx =
+    (refU === 'ICU' && destU === 'ICU') ? 0 :
+    (refU === 'ICU' && destU === 'ER')  ? 1 :
+    (refU === 'ER'  && destU === 'ICU') ? 2 : 3;
+
+  if (r.__external) external[idx]++; else internal[idx]++;
+}
+
+destTypeChart = new Chart($('#chartDestType'), {
+  type: 'bar',
+  data: {
+    labels: groups,
+    datasets: [
+      { label: 'داخلي', data: internal, backgroundColor: 'rgba(32,227,178,0.85)' },
+      { label: 'خارجي', data: external, backgroundColor: 'rgba(255,122,162,0.85)' }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { tooltip: { enabled: true } },
+    scales: { x: { stacked: false }, y: { beginAtZero: true, precision: 0 } }
+  }
+});
+
+
+      // === People Maps ===
+      const docs = new Map(); // recvPhys avg consult
+      const recs = new Map(); // reception avg resp->open
+      const dcnt = new Map();
+      const rcnt = new Map();
+      for(const r of rows){
+        if(r.__recvPhys && r.__consultRT!=null){ docs.set(r.__recvPhys, (docs.get(r.__recvPhys)||0)+r.__consultRT); dcnt.set(r.__recvPhys, (dcnt.get(r.__recvPhys)||0)+1); }
+        if(r.__reception && r.__respToOpen!=null){ recs.set(r.__reception, (recs.get(r.__reception)||0)+r.__respToOpen); rcnt.set(r.__reception, (rcnt.get(r.__reception)||0)+1); }
+      }
+
+      // === External transfers focus (Hospitals / Depts / Reasons) ===
+const ext = rows.filter(r => r.__external);
+
+// 3.1) Hospitals (from "Referral for ")
+const hospMap = new Map();
+for (const r of ext) {
+  const k = text(r[C.recvFor]) || 'غير محدد';
+  hospMap.set(k, (hospMap.get(k) || 0) + 1);
+}
+const hospArr = Array.from(hospMap.entries()).sort((a,b)=> b[1]-a[1]).slice(0,12);
+if (document.getElementById('chartHospitals')) {
+  hospitalsChart = new Chart(document.getElementById('chartHospitals'), {
+    type: 'bar',
+    data: { labels: hospArr.map(x=>x[0]), datasets: [{ label: 'حالات خارجية', data: hospArr.map(x=>x[1]) }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, precision: 0 } } }
+  });
+}
+
+// 3.2) External receiving departments (from "Department Which Send for ")
+const edMap = new Map();
+for (const r of ext) {
+  const k = text(r[C.deptSend]) || 'غير محدد';
+  edMap.set(k, (edMap.get(k) || 0) + 1);
+}
+const edArr = Array.from(edMap.entries()).sort((a,b)=> b[1]-a[1]).slice(0,12);
+if (document.getElementById('chartExtDepts')) {
+  extDeptChart = new Chart(document.getElementById('chartExtDepts'), {
+    type: 'bar',
+    data: { labels: edArr.map(x=>x[0]), datasets: [{ label: 'أقسام خارجية', data: edArr.map(x=>x[1]) }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, precision: 0 } } }
+  });
+}
+
+// 3.3) External reasons (from "Actual Reason for Transfer the case")
+const erMap = new Map();
+for (const r of ext) {
+  const k = text(r[C.reason]) || 'غير محدد';
+  erMap.set(k, (erMap.get(k) || 0) + 1);
+}
+const erLabels = Array.from(erMap.keys());
+const erVals   = erLabels.map(k => erMap.get(k));
+if (document.getElementById('chartExtReasons')) {
+  extReasonChart = new Chart(document.getElementById('chartExtReasons'), {
+    type: 'doughnut',
+    data: { labels: erLabels, datasets: [{ data: erVals }] },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+
+      const docAvg = Array.from(docs, ([k,sum])=>({name:k, avg: sum/dcnt.get(k)})).filter(x=>isFinite(x.avg));
+      const recAvg = Array.from(recs, ([k,sum])=>({name:k, avg: sum/rcnt.get(k)})).filter(x=>isFinite(x.avg));
+
+      function renderPeopleChart(canvas, data, fastest){
+        const sorted = data.slice().sort((a,b)=> fastest? a.avg-b.avg : b.avg-a.avg).slice(0,5);
+        const labels = sorted.map(x=>x.name||'—');
+        const vals = sorted.map(x=>x.avg);
+        return new Chart(canvas, { type:'bar', data:{ labels, datasets:[{ label:'الدقائق', data: vals }]}, options:{ plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(ctx)=> humanMinutes(ctx.parsed.y) } } }, scales:{ y:{ beginAtZero:true } } } });
+      }
+      docChart = renderPeopleChart($('#chartDoc'), docAvg, false);
+      recChart = renderPeopleChart($('#chartRec'), recAvg, false);
+
+      $('#btnDocSlow').onclick = ()=>{ if(docChart) docChart.destroy(); docChart = renderPeopleChart($('#chartDoc'), docAvg, false); };
+      $('#btnDocFast').onclick = ()=>{ if(docChart) docChart.destroy(); docChart = renderPeopleChart($('#chartDoc'), docAvg, true); };
+      $('#btnRecSlow').onclick = ()=>{ if(recChart) recChart.destroy(); recChart = renderPeopleChart($('#chartRec'), recAvg, false); };
+      $('#btnRecFast').onclick = ()=>{ if(recChart) recChart.destroy(); recChart = renderPeopleChart($('#chartRec'), recAvg, true); };
+    }
+
+    function badge(val, kind){ return `<span class="${slaClass(val, kind)}">${humanMinutes(val)}</span>`; }
+
+    function renderTable(rows){
+      const body = $('#rowsBody'); body.innerHTML = '';
+      const view = rows.slice().sort((a,b)=> (b.__tr||b.__reg||0) - (a.__tr||a.__reg||0)).slice(0,50);
+      for(const r of view){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${text(r[C.mrn])}</td>
+          <td>${text(r[C.name])||''}</td>
+          <td><span class="badge" style="background:${r.__external? 'var(--external)':'var(--internal)'}; color:#001; border:none">${r.__external? 'خارجي' : 'داخلي'}</span></td>
+          <td>${text(r[C.dest])||''}</td>
+          <td>${text(r[C.refBy])||''}</td>
+          <td>${fmtDDMMYYYY(r.__reg)}</td>
+          <td>${fmtDDMMYYYY(r.__tr)}</td>
+          <td>${badge(r.__doorToDep, 'door')}</td>
+          <td>${badge(r.__consultRT, 'consult')}</td>
+          <td>${badge(r.__travel, 'travel')}</td>
+        `;
+        tr.addEventListener('click', ()=> openCaseModal(r));
+        body.appendChild(tr);
+      }
+    }
+
+    function trRow(k, v){ return `<tr><td class="opacity-70 pe-2">${k}</td><td class="font-semibold">${v}</td></tr>`; }
+
+    function openCaseModal(r){
+      const m = $('#caseModal');
+      $('#mTitle').textContent = `MRNo. ${text(r[C.mrn])} — ${r.__external? 'تحويل خارجي' : 'تحويل داخلي'}`;
+
+      // Basic
+      const basic = [];
+      basic.push(trRow('اسم المريض', text(r[C.name])||'—'));
+      basic.push(trRow('Destination', text(r[C.dest])||'—'));
+      basic.push(trRow('Referral By', text(r[C.refBy])||'—'));
+      basic.push(trRow('تاريخ التسجيل', fmtDDMMYYYY(r.__reg)));
+      basic.push(trRow('تاريخ التحويل', fmtDDMMYYYY(r.__tr)));
+      if(r.__external){
+        basic.push(trRow('MRN المستشفى المستقبِل', text(r[C.recvMRN])||'—'));
+        basic.push(trRow('تاريخ الوصول للمستشفى المستقبِل', fmtDDMMYYYY(r.__arrRecv)));
+        basic.push(trRow('تاريخ العودة لمستشفانا', fmtDDMMYYYY(r.__arrBack)));
+      }
+      $('#mBasic').innerHTML = basic.join('');
+
+// Files (inline preview + link)
+const stk = text(r[C.sticker]);
+const files = [];
+if(stk){
+  const preview = renderAttachmentPreview(stk);
+  if(preview) files.push(preview);
+  files.push(`<a class="link link-info" href="${stk}" target="_blank" rel="noopener">فتح المرفق</a>`);
+} else {
+  files.push('<span class="opacity-70">لا يوجد مرفق</span>');
+}
+$('#mFiles').innerHTML = files.join('<br>');
+
+      // Times
+      const times = [];
+      times.push(trRow('تسجيل → خروج للتحويل', badge(r.__doorToDep, 'door')));
+      times.push(trRow('طلب الاستشارة → الرد', badge(r.__consultRT, 'consult')));
+      times.push(trRow('الخروج → وصول المستشفى المستقبِل', badge(r.__travel, 'travel')));
+      times.push(trRow('وصول المستشفى المستقبِل → العودة', badge(r.__backTime, 'back')));
+      times.push(trRow('رد الاستشارة → فتح ملف ICU', badge(r.__respToOpen, 'respOpen')));
+      $('#mTimes').innerHTML = times.join('');
+
+      // Vs Avg
+      const vs = [];
+      vs.push(trRow('تسجيل→خروج', `${humanMinutes(r.__doorToDep)} <span class="opacity-70">(متوسط الفترة ${humanMinutes(AVG.doorToDep)})</span>`));
+      vs.push(trRow('الاستشارة', `${humanMinutes(r.__consultRT)} <span class="opacity-70">(متوسط الفترة ${humanMinutes(AVG.consultRT)})</span>`));
+      vs.push(trRow('الرحلة', `${humanMinutes(r.__travel)} <span class="opacity-70">(متوسط الفترة ${humanMinutes(AVG.travel)})</span>`));
+      vs.push(trRow('العودة', `${humanMinutes(r.__backTime)} <span class="opacity-70">(متوسط الفترة ${humanMinutes(AVG.backTime)})</span>`));
+      vs.push(trRow('رد→فتح ICU', `${humanMinutes(r.__respToOpen)} <span class="opacity-70">(متوسط الفترة ${humanMinutes(AVG.respToOpen)})</span>`));
+      $('#mVsAvg').innerHTML = vs.join('');
+
+      // Staff
+      const staff = [];
+      staff.push(trRow('طبيب ICU المستقبِل', `<span class="mono">${r.__recvPhys||'—'}</span>`));
+      staff.push(trRow('ممرض ICU المستقبِل', `<span class="mono">${text(r[C.recvNurseIn])||'—'}</span>`));
+      staff.push(trRow('موظف الاستقبال', `<span class="mono">${r.__reception||'—'}</span>`));
+      staff.push(trRow('الطبيب المُحيل داخل المستشفى', `<span class="mono">${r.__ourPhys||'—'}</span>`));
+      staff.push(trRow('الممرض المُحيل داخل المستشفى', `<span class="mono">${r.__ourNurse||'—'}</span>`));
+      if(r.__external){
+        staff.push(trRow('طبيب الجناح لتحويل خارجي', `<span class="mono">${r.__wingPhys||'—'}</span>`));
+        staff.push(trRow('ممرض الجناح لتحويل خارجي', `<span class="mono">${r.__wingNurse||'—'}</span>`));
+      }
+      $('#mStaff').innerHTML = staff.join('');
+
+
+      // All raw fields from sheet (readable table) — appended without changing structure
+const gridBox = $('#caseModal .modal-box .grid');
+// تخلّص من نسخة سابقة إذا موجودة لتفادي التكرار
+const oldAll = $('#mAllBox');
+if(oldAll) oldAll.remove();
+
+// صنع الصندوق وإلحاقه
+const allBox = document.createElement('div');
+allBox.id = 'mAllBox';
+allBox.className = 'glass p-3 md:col-span-2';
+allBox.innerHTML = `
+  <h4 class="font-semibold mb-2">كل الحقول من الشيت</h4>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <tbody id="mAllFields"></tbody>
+    </table>
+  </div>
+`;
+gridBox.appendChild(allBox);
+
+// ملء الجدول: عنوان العمود ← قيمة من نفس الصف
+const allTbody = $('#mAllFields');
+allTbody.innerHTML = '';
+for(const [k, colName] of Object.entries(C)){
+  let v = text(r[colName]);
+  if (DATE_FIELDS.includes(colName)) {
+    v = fmtDDMMYYYY(parseDateSmart(r[colName]));
+  }
+  // رابط المرفق كوصلة نصية هنا (المعاينة بالأعلى في قسم المرفقات)
+  if (colName === C.sticker && v) {
+    v = `<a class="link link-info" href="${r[colName]}" target="_blank" rel="noopener">فتح</a>`;
+  }
+  allTbody.insertAdjacentHTML('beforeend', trRow(colName, v || '—'));
+}
+
+
+
+      $('#caseModal').showModal();
+    }
+
+    function openDayModal(day, rows){
+      const list = rows.filter(r=> fmtDDMMYYYY(r.__tr || r.__reg || r.__cRq) === day );
+      $('#dTitle').textContent = `حالات يوم ${day} — ${list.length} حالة`;
+      const body = $('#dBody'); body.innerHTML = '';
+      list.slice(0,100).forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${text(r[C.mrn])}</td>
+          <td><span class="badge" style="background:${r.__external? 'var(--external)':'var(--internal)'}; color:#001; border:none">${r.__external? 'خارجي' : 'داخلي'}</span></td>
+          <td>${text(r[C.name])||''}</td>
+          <td>${text(r[C.dest])||''}</td>
+          <td>${text(r[C.refBy])||''}</td>
+          <td>${humanMinutes(r.__consultRT)}</td>
+        `;
+        tr.addEventListener('click', ()=>{ $('#dayModal').close(); openCaseModal(r); });
+        body.appendChild(tr);
+      });
+      $('#dayModal').showModal();
+    }
+
+    function updateAll(){
+      const rows = applyFilters(DATA);
+      renderStats(rows);
+      renderCharts(rows);
+      renderTable(rows);
+    }
+
+    // ====== EXPORT ======
+    function exportFiltered(){
+      const rows = applyFilters(DATA).map(r=>({
+        [C.mrn]: r[C.mrn],
+        [C.name]: r[C.name],
+        Type: r.__external? 'External' : 'Internal',
+        Destination: r[C.dest],
+        ReferralBy: r[C.refBy],
+        [C.regD]: fmtDDMMYYYY(r.__reg),
+        [C.trD]: fmtDDMMYYYY(r.__tr),
+        DoorToDeparture_min: r.__doorToDep!=null? Math.round(r.__doorToDep): '',
+        ConsultResponse_min: r.__consultRT!=null? Math.round(r.__consultRT): '',
+        Travel_min: r.__travel!=null? Math.round(r.__travel): '',
+        Back_min: r.__backTime!=null? Math.round(r.__backTime): '',
+        RespondToOpenICU_min: r.__respToOpen!=null? Math.round(r.__respToOpen): ''
+      }));
+      const csv = toCSV(rows);
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'transfers_filtered.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // ====== INIT ======
+    async function init(url){
+      try{
+        $('#btnReload').disabled = true;
+        const rows = await loadCSVFromUrl(url||CSV_URL);
+        RAW = rows; DATA = normalizeRows(rows); updateAll();
+      }catch(e){ console.error(e); alert('تعذر تحميل البيانات. تأكد من رابط CSV ثم أعد المحاولة.'); }
+      finally{ $('#btnReload').disabled = false; }
+    }
+
+    // events
+    $('#btnReload').addEventListener('click', ()=> init());
+    $('#btnExport').addEventListener('click', exportFiltered);
+    $('#dateFrom').addEventListener('change', updateAll);
+    $('#dateTo').addEventListener('change', updateAll);
+    $('#selType').addEventListener('change', updateAll);
+    $('#selDest').addEventListener('change', updateAll);
+    $('#selRef').addEventListener('change', updateAll);
+
+    $('#btnUpload').addEventListener('click', ()=> $('#fileInput').click());
+    $('#fileInput').addEventListener('change', async (e)=>{
+      const f = e.target.files[0]; if(!f) return;
+      const rows = await loadCSVFromFile(f);
+      RAW = rows; DATA = normalizeRows(rows); updateAll();
+    });
+    $('#btnLoadUrl').addEventListener('click', async ()=>{
+      const u = $('#txtCsvUrl').value.trim(); if(!u) return alert('أدخل رابط CSV');
+      CSV_URL = u; init(CSV_URL);
+    });
+
+    // set default date range to last 60 days
+    (function setDefaultRange(){
+      const to = new Date(); const from = new Date(); from.setDate(from.getDate()-60);
+      $('#dateTo').value = to.toISOString().slice(0,10);
+      $('#dateFrom').value = from.toISOString().slice(0,10);
+    })();
+
+    // Go!
+    init();
+  </script>
+</body>
+</html>
