@@ -196,7 +196,7 @@
   // (اختياري) رابط مباشر لقراءة B2 كـ CSV لخانة إجمالي حالات سبتمبر.
   // أنشئ شيت فرعي باسم Settings مثلاً، انشره، ثم استخدم:
   // https://docs.google.com/spreadsheets/d/<SHEET_ID>/gviz/tq?tqx=out:csv&sheet=Settings&range=B2
-  const BENCHMARK_B2_URL = '';
+const BENCHMARK_B2_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT7M-mFoBFVT4e6gyhvCXCww9QwE520QWbDgc-rmIJ7dVnxejkVNyNmz8wwBe_ioW9d8TrfcOMXnhJc/pub?gid=1298939590&single=true&output=csv';
 
   const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
   const OVER_OK_MAX = 0.35; // 35%
@@ -213,27 +213,41 @@
     return `${dd}-${mm}-${yy}`;
   };
   function parseDateFlexible(val){
-    if(!val) return null;
-    const s = String(val).trim();
-    // Try ISO or YYYY-MM-DD
-    let d = new Date(s);
-    if(!isNaN(d)) return d;
-    // Try DD-MM-YYYY or DD/MM/YYYY
-    const m1 = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-    if(m1){
-      const DD = parseInt(m1[1],10), MM = parseInt(m1[2],10), YYYY = parseInt(m1[3].length===2?('20'+m1[3]):m1[3],10);
-      d = new Date(YYYY, MM-1, DD);
-      if(!isNaN(d)) return d;
-    }
-    // Try MM-DD-YYYY
-    const m2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-    if(m2){
-      const MM = parseInt(m2[1],10), DD = parseInt(m2[2],10), YYYY = parseInt(m2[3].length===2?('20'+m2[3]):m2[3],10);
-      d = new Date(YYYY, MM-1, DD);
-      if(!isNaN(d)) return d;
-    }
-    return null;
+  if(!val) return null;
+  const s = String(val).trim();
+
+  // 1) ISO: YYYY-MM-DD أو YYYY/MM/DD (واضحة ومباشرة)
+  let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if(m){
+    const [, Y, M, D] = m.map(Number);
+    return new Date(Y, M-1, D);
   }
+
+  // 2) الصيغة المطلوبة أساسًا: DD-MM-YYYY أو DD/MM/YYYY (Day-First)
+  m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if(m){
+    let D = parseInt(m[1],10);
+    let M = parseInt(m[2],10);
+    let Y = m[3].length === 2 ? parseInt('20'+m[3],10) : parseInt(m[3],10);
+    return new Date(Y, M-1, D);
+  }
+
+  // 3) دعم أرقام إكسل التسلسلية لو ظهرت (اختياري وآمن)
+  if(/^\d+(\.\d+)?$/.test(s)){
+    const n = Number(s);
+    // 25569 = 1970-01-01 كنقطة مرجعية لإكسل (أيام)
+    if(n > 25569){
+      const ms = Math.round((n - 25569) * 86400000);
+      const d = new Date(ms);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+  }
+
+  // 4) آخر حل: جرّب بارسر المتصفح (للنصوص القياسية فقط)
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
   function cleanStr(x){ return String(x||'').trim(); }
   function parseCTAS(s){ const m = String(s||'').match(/([1-5])/); return m? parseInt(m[1],10) : NaN; }
   function changeLabel(from,to){
@@ -274,16 +288,27 @@
       Papa.parse(url, { download:true, header:true, skipEmptyLines:true, complete: r=>resolve(r.data), error: reject });
     });
   }
-  async function loadB2(){
-    if(!BENCHMARK_B2_URL) { BM_TOTAL = null; BM_SOURCE = 'تقديري'; return; }
-    try{
-      const txt = await fetch(BENCHMARK_B2_URL).then(r=>r.text());
-      // CSV بخلية واحدة
-      const val = parseFloat((txt||'').replace(/[^\d.\-]/g,''));
-      if(isFinite(val)) { BM_TOTAL = val; BM_SOURCE = 'B2'; return; }
-      BM_TOTAL = null; BM_SOURCE = 'تقديري';
-    }catch{ BM_TOTAL = null; BM_SOURCE = 'تقديري'; }
+async function loadB2(){
+  if(!BENCHMARK_B2_URL) { BM_TOTAL = null; BM_SOURCE = 'تقديري'; return; }
+  try{
+    const data = await new Promise((resolve, reject)=>{
+      Papa.parse(BENCHMARK_B2_URL, {
+        download: true,
+        header: false,
+        skipEmptyLines: false,
+        complete: (res)=> resolve(res.data),
+        error: reject
+      });
+    });
+    // B2 = الصف الثاني، العمود الثاني (index 1,1)
+    const b2raw = (data?.[1]?.[1] ?? '').toString().trim();
+    const val = parseFloat(b2raw.replace(/[^\d.\-]/g,''));
+    if (isFinite(val) && val > 0) { BM_TOTAL = val; BM_SOURCE = 'B2'; return; }
+    BM_TOTAL = null; BM_SOURCE = 'تقديري';
+  } catch(e) {
+    BM_TOTAL = null; BM_SOURCE = 'تقديري';
   }
+}
 
   function normalizeRows(rows){
     return rows.map(r=>{
