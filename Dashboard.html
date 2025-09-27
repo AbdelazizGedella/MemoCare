@@ -2,389 +2,374 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Memo || Dashboard</title>
 
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
 
-  <!-- Firebase SDKs -->
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <!-- Firebase SDKs (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
+  <!-- Lottie once (global) -->
+  <script type="module" src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs"></script>
+
   <!-- App Logic -->
   <script defer src="./js/dashboard.js"></script>
 
-  <!-- Favicon and Apple Touch Icons -->
+  <!-- Favicons -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
   <link rel="manifest" href="/icon/site.webmanifest">
 
+  <!-- Optional extra css -->
   <link rel="stylesheet" href="styles/styles.css">
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --glass-bg: rgba(255,255,255,.06);
+      --glass-bd: rgba(255,255,255,.12);
+      --ink-weak: #b6c2e0;
+      --ink-soft: #e0eaff;
+      --brand-1:#0ea5e9;
+      --brand-2:#2563eb;
+    }
+    body{
+      font-family:"Sora",system-ui,Segoe UI,Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(900px 600px at -10% 0%, rgba(14,165,233,.18), transparent 60%),
+        radial-gradient(900px 600px at 110% 10%, rgba(37,99,235,.18), transparent 60%),
+        #07102F;
+    }
+    .glass{ background: var(--glass-bg); border: 1px solid var(--glass-bd); backdrop-filter: blur(14px); border-radius: 22px; }
+    .glass-strong{ background: rgba(8,17,45,.6); border:1px solid rgba(255,255,255,.08); backdrop-filter: blur(18px) saturate(1.1); border-radius: 24px; }
+    .nav-glass{ background: rgba(2,6,23,.65); border-bottom:1px solid rgba(255,255,255,.08); backdrop-filter: saturate(160%) blur(10px); }
+    .shine{ position: relative; overflow: hidden; }
+    .shine::before{ content:""; position:absolute; inset:auto -60% -60% auto; width:120%; height:120%;
+      background: radial-gradient(closest-side, rgba(255,255,255,.12), transparent 70%); transform: rotate(25deg); pointer-events:none; }
+    .dash-container{ max-width: 1200px; }
+    .grid-overlay{ position: fixed; inset:0; pointer-events:none; opacity:.1;
+      background-image: linear-gradient(transparent 23px, rgba(255,255,255,.06) 24px),
+                       linear-gradient(90deg, transparent 23px, rgba(255,255,255,.06) 24px);
+      background-size:24px 24px; z-index:0; }
+    .quick-tile{ transition: transform .25s ease, box-shadow .25s ease; box-shadow: 0 10px 30px rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08); }
+    .quick-tile:hover{ transform: translateY(-4px) scale(1.02); }
+    .big-num{ background: linear-gradient(180deg, #fff, #9fb6ff); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 6px 30px rgba(0,0,0,.35); }
+    .section{ scroll-margin-top: 90px; }
+  </style>
 </head>
 
-<body class="bg-[#07102F] text-white pt-20">
-  <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-3 sm:p-4 shadow-md flex flex-col sm:flex-row justify-between items-center z-50">
-    <h1 class="text-lg sm:text-2xl font-bold text-white text-center sm:text-left w-full sm:w-auto">Memo Acknowledgment System</h1>
-  </div>
+<body class="text-white">
+  <!-- Overlay -->
+  <div class="grid-overlay"></div>
 
-  
+  <!-- Top Navigation -->
+  <nav class="fixed top-0 left-0 w-full nav-glass z-50">
+    <div class="dash-container mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 rounded-xl text-sm font-extrabold text-white"
+              style="background:linear-gradient(135deg,var(--brand-2),var(--brand-1))">Memo</span>
+        <h1 class="text-lg sm:text-2xl font-extrabold tracking-wide">Memo Acknowledgment System</h1>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 text-white/80">
+        <a href="Memos.html" class="btn btn-sm btn-ghost text-white/80"><i class="fa-solid fa-bell"></i></a>
+        <a href="Profile.html" class="btn btn-sm btn-ghost text-white/80"><i class="fa-solid fa-user"></i></a>
+      </div>
+    </div>
+  </nav>
 
-    <!-- Main Content -->
-    <div class="flex-1 overflow-y-auto px-4 py-6 md:px-20 ">
-      <!-- Add your main dashboard content here -->
-      <!-- Use w-full and responsive flex-cols as needed -->
+  <!-- Main -->
+  <main class="pt-24 pb-12">
+    <div class="dash-container mx-auto px-4 sm:px-6">
 
-      <!-- Example Profile Card -->
-      <div class="bg-[#151F42] p-4 rounded-lg shadow-md flex flex-col sm:flex-row items-center sm:space-x-6 space-y-4 sm:space-y-0">
-        <img id="user-profile-pic" class="w-20 h-20 rounded-full border-2 border-blue-500" src="default-avatar.png" alt="Profile Picture">
-        <div class="text-left text-white w-full">
-          <h2 class="text-xl sm:text-2xl font-semibold text-blue-300">Welcome, <span id="user-name"></span></h2>
-          <p><strong>Points:</strong> <span id="user-points"></span></p>
-          <p><strong>Email:</strong> <span id="user-email"></span></p>
-          <p><strong>UID:</strong> <span id="user-uid" class="text-sm"></span></p>
+      <!-- Profile (Refined) - no inner button -->
+      <section class="section glass-strong shine p-5 sm:p-6">
+        <div class="flex items-center gap-5">
+          <div class="relative">
+            <div class="w-24 h-24 rounded-full p-[3px] bg-gradient-to-tr from-cyan-400 to-blue-600">
+              <img id="user-profile-pic" class="w-full h-full rounded-full object-cover bg-[#0b1536]" src="default-avatar.png" alt="Profile Picture">
+            </div>
+            <!-- حالة بسيطة (اختياري) -->
+            <span class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 ring-2 ring-[#07102F] grid place-items-center text-[10px] font-bold">●</span>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-[var(--ink-soft)] truncate">
+              Welcome, <span id="user-name"></span>
+            </h2>
+
+            <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+              <div class="glass p-2 rounded-xl">
+                <div class="text-white/60 text-xs">Points</div>
+                <div class="text-[var(--ink-soft)] font-semibold"><span id="user-points"></span></div>
+              </div>
+              <div class="glass p-2 rounded-xl col-span-2 sm:col-span-2">
+                <div class="text-white/60 text-xs">Email</div>
+                <div class="truncate text-[var(--ink-soft)]"><span id="user-email"></span></div>
+              </div>
+              <div class="glass p-2 rounded-xl col-span-2 sm:col-span-1">
+                <div class="text-white/60 text-xs">UID</div>
+                <div class="truncate text-[var(--ink-soft)] text-xs"><span id="user-uid"></span></div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-           <!-- Dashboard Widgets Responsive Section -->
-<div class="bg-gradient-to-r from-[#151F42] via-[#23376b] to-[#1e293b] p-4 rounded-lg shadow-md w-full mt-6 relative overflow-hidden border border-[#2d3a5a]">
-  <div class="absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-white/20 via-white/0 to-transparent rounded-l-lg pointer-events-none"></div>
-  <div class="flex flex-col sm:flex-row items-center sm:justify-between relative z-10">
-    <div class="flex-1 text-center sm:text-left">
-      <h2 class="text-lg font-bold text-[#e0eaff]">Want to be a Space Creator?</h2>
-      <p class="text-[#b6c2e0]">Unlock new features and start creating amazing spaces today!</p>
-    </div>
-    <div class="mt-4 sm:mt-0">
-      <a href="spaces.html" class="bg-[#0059F7] text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-600 transition">
-        Click Here
-      </a>
-    </div>
+      <!-- Promo / CTA -->
+      <section class="section mt-6 glass p-5 sm:p-6 relative overflow-hidden">
+        <div class="absolute -left-10 -top-16 w-48 h-48 rounded-full bg-cyan-500/20 blur-3xl"></div>
+        <div class="absolute -right-12 -bottom-20 w-56 h-56 rounded-full bg-blue-600/20 blur-3xl"></div>
+        <div class="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-[var(--ink-soft)]">Want to be a Space Creator?</h3>
+            <p class="text-[var(--ink-weak)]">Unlock new features and start creating amazing spaces today!</p>
+          </div>
+          <a href="spaces.html" class="btn bg-[#0059F7] hover:bg-blue-600 text-white">Click Here</a>
+        </div>
+      </section>
+
+      <!-- Stats -->
+      <section class="section mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Posted / Joined -->
+        <div class="glass p-5 relative overflow-hidden">
+          <div class="absolute inset-0 pointer-events-none"
+               style="background: radial-gradient(120% 90% at 110% -10%, rgba(14,165,233,.25), transparent 60%)"></div>
+          <div class="relative z-10 text-center">
+            <div id="loading-animation" class="flex items-center justify-center">
+              <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie"
+                background="transparent" speed="1" style="width: 100px; height: 100px" loop autoplay></dotlottie-player>
+            </div>
+            <div class="flex items-end justify-center gap-3 mt-2">
+              <span id="memo-count" class="big-num text-6xl sm:text-8xl font-black"></span>
+              <span class="text-2xl sm:text-4xl font-bold text-white/70">/</span>
+              <span id="joined-spaces-count" class="text-3xl sm:text-5xl font-extrabold text-white/50"></span>
+            </div>
+            <div class="mt-2">
+              <div class="text-lg font-semibold text-orange-300">Posted Memos</div>
+              <div class="text-sm text-white/60">Spaces Joined</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acknowledged -->
+        <div class="glass p-5 relative overflow-hidden">
+          <div class="absolute inset-0 pointer-events-none"
+               style="background: radial-gradient(120% 90% at 0% 0%, rgba(34,197,94,.18), transparent 60%)"></div>
+          <div class="relative z-10 text-center">
+            <div id="ack-loader" class="flex items-center justify-center">
+              <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie"
+                background="transparent" speed="1" style="width: 130px; height: 130px" loop autoplay></dotlottie-player>
+            </div>
+            <p id="ack-count" class="hidden big-num text-6xl sm:text-8xl font-black"></p>
+            <h2 class="text-2xl font-semibold text-green-300 mt-2">Acknowledged Memos</h2>
+            <div class="mt-3 text-white/80 text-sm">
+              <p><strong>Last Acknowledged:</strong> <span id="last-timestamp" class="skeleton w-40 h-4 inline-block align-middle"></span></p>
+              <p class="mt-1"><strong>Memo Title:</strong> <span id="last-memo-title" class="skeleton w-56 h-4 inline-block align-middle"></span></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Unacknowledged -->
+        <div class="glass p-5 relative overflow-hidden">
+          <div class="absolute inset-0 pointer-events-none"
+               style="background: radial-gradient(120% 90% at 100% 0%, rgba(239,68,68,.18), transparent 60%)"></div>
+          <div class="relative z-10 text-center">
+            <div id="unack-loader">
+              <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie"
+                background="transparent" speed="1" style="width: 130px; height: 130px" loop autoplay></dotlottie-player>
+            </div>
+            <p><span id="unack-memo-count" class="hidden big-num text-5xl sm:text-7xl font-black text-red-400"></span></p>
+            <h2 class="text-2xl font-semibold text-blue-300">Unacknowledged Memos</h2>
+            <ul id="unack-memo-list" class="mt-2 list-disc text-left mx-auto max-w-[92%] text-white/90"></ul>
+            <button id="show-more-btn" class="btn btn-sm bg-blue-600 hover:bg-blue-800 text-white mt-3">Show More >></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Access (grouped) -->
+      <section class="section mt-6 grid lg:grid-cols-2 gap-4">
+
+
+
+              <!-- FREQ -->
+        <div class="glass p-4">
+          <h3 class="text-lg font-bold text-[var(--ink-soft)] mb-3">Frequently Used Ports</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <a href="Memos.html" class="relative quick-tile bg-gradient-to-br from-[#2563eb] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center">
+              <i class="fas fa-file-alt text-white text-3xl mb-2"></i><span class="text-sm">Memos</span>
+              <span id="unack-badge" class="hidden absolute top-2 right-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white z-10"></span>
+            </a>
+                        <a href="shift-portal.html" class="quick-tile bg-gradient-to-br from-[#0f766e] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-clock text-white text-3xl mb-2"></i><span class="text-sm">Shift Portal</span></a>
+            <a href="charge-report.html" class="quick-tile bg-gradient-to-br from-[#0ea5e9] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-notes-medical text-white text-3xl mb-2"></i><span class="text-sm text-center">CN Report</span></a>
+
+          </div>
+        </div>
+
+
+<!-- Toolkit -->
+        <div class="glass p-4">
+          <h3 class="text-lg font-bold text-[var(--ink-soft)] mb-3">Toolkit</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+            <a href="gm.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fab fa-whatsapp text-white text-3xl mb-2"></i><span class="text-sm">GM Report</span></a>
+
+            <a href="extractor.html" class="quick-tile bg-gradient-to-br from-[#1e3a5f] via-[#0f172a] to-[#0ea5e9] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-code text-white text-3xl mb-2"></i><span class="text-sm">Code Maker</span></a>
+
+            <a href="converter.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-file-excel text-white text-3xl mb-2"></i><span class="text-sm">Converter</span></a>
+
+
+
+
+          </div>
+        </div>
+        <!-- Essentials -->
+        <div class="glass p-4">
+          <h3 class="text-lg font-bold text-[var(--ink-soft)] mb-3">Essentials</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <a href="Profile.html" class="quick-tile bg-gradient-to-br from-[#1e3a8a] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-user-circle text-white text-3xl mb-2"></i><span class="text-sm">Profile</span></a>
+         
+
+            <a href="spaces.html" class="quick-tile bg-gradient-to-br from-[#059669] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-rocket text-white text-3xl mb-2"></i><span class="text-sm">Spaces</span></a>
+                      <a href="space-details.html?spaceId=AS6I5g9QsJ84ke3EJn6F" class="quick-tile bg-gradient-to-br from-[#78350f] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-database text-white text-3xl mb-2"></i><span class="text-sm">ER Database</span></a>
+
+          </div>
+        </div>
+
+        <!-- Operations -->
+        <div class="glass p-4">
+          <h3 class="text-lg font-bold text-[var(--ink-soft)] mb-3">Operations</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <a href="shift.html" class="quick-tile bg-gradient-to-br from-[#9333ea] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-tools text-white text-3xl mb-2"></i><span class="text-sm">Shift Mgmt</span></a>
+            <a href="leave.html" class="quick-tile bg-gradient-to-br from-[#9333ea] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-calendar-alt text-white text-3xl mb-2"></i><span class="text-sm">Leave</span></a>
+            <a href="device.html" class="quick-tile bg-gradient-to-br from-[#b91c1c] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-tablet-alt text-white text-3xl mb-2"></i><span class="text-sm">Devices</span></a>
+                        <a href="surveys.html" class="quick-tile bg-gradient-to-br from-[#7c3aed] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-poll text-white text-3xl mb-2"></i><span class="text-sm">Surveys</span></a>
+
+          </div>
+        </div>
+        <!-- Case Reporting -->
+<!-- KPI Reporting -->
+<div class="glass p-4">
+  <h3 class="text-lg font-bold text-[var(--ink-soft)] mb-3">KPI Reporting</h3>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <a href="https://abdelazizgedella.github.io/MemoCare/referralkpi.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#4b5563] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center">
+      <i class="fas fa-user-plus text-white text-3xl mb-2"></i>
+      <span class="text-sm text-center">Referral Cases KPI</span>
+    </a>
+    <a href="https://abdelazizgedella.github.io/MemoCare/triagekpi.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#1e3a5f] via-[#0f172a] to-[#0ea5e9] p-4 rounded-2xl flex flex-col items-center">
+      <i class="fas fa-exchange-alt text-white text-3xl mb-2"></i>
+      <span class="text-sm text-center">Triage Change KPI</span>
+    </a>
+    <a href="https://abdelazizgedella.github.io/MemoCare/mortalitykpi.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#ef4444] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center">
+      <i class="fas fa-heartbeat text-white text-3xl mb-2"></i>
+      <span class="text-sm text-center">Mortality Cases KPI</span>
+    </a>
+    <a href="https://abdelazizgedella.github.io/MemoCare/sickleave.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center">
+      <i class="fas fa-bed text-white text-3xl mb-2"></i>
+      <span class="text-sm text-center">Sickleave Tracker</span>
+    </a>
   </div>
 </div>
+        <!-- Clinical -->
+        <div class="glass p-4">
+          <h3 class="text-lg font-bold text-[var(--ink-soft)] mb-3">Clinical Performance Measurement</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <a href="er-productivity.html" class="quick-tile bg-gradient-to-br from-[#2563eb] via-[#1e3a8a] to-[#0f172a] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-user-md text-white text-3xl mb-2"></i><span class="text-sm">ER Physicians</span></a>
+            <a href="nurse_prod" class="quick-tile bg-gradient-to-br from-[#2563eb] via-[#1e3a8a] to-[#0f172a] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-user-nurse text-white text-3xl mb-2"></i><span class="text-sm">ER Nurses</span></a>
+            <!--<a href="pharmacy.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-prescription-bottle-alt text-white text-3xl mb-2"></i><span class="text-sm">Pharmacy Chks</span></a>-->
+            <!--<a href="charge-report.html" class="quick-tile bg-gradient-to-br from-[#dc2626] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-tint text-white text-3xl mb-2"></i><span class="text-sm">Blood Bank</span></a>-->
+          </div>
+        </div>
 
-<!-- Stat Cards Section -->
-<div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-  <!-- Posted Memos vs Spaces Joined -->
-  <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-center flex flex-col justify-center items-center relative overflow-hidden">
-    <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
-      <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
-        <polygon points="0,0 300,0 300,120 0,150" fill="#1e293b" opacity="0.8"/>
-        <linearGradient id="blueGradient" x1="0" y1="0" x2="300" y2="150" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stop-color="#0059F7" stop-opacity="0.7"/>
-          <stop offset="100%" stop-color="#1e293b" stop-opacity="0.7"/>
-        </linearGradient>
-        <polygon points="0,0 300,0 300,120 0,150" fill="url(#blueGradient)" opacity="0.7"/>
-      </svg>
+       
+
+ <!-- Analytics & Tools -->
+        <div class="glass p-4">
+          <h3 class="text-lg font-bold text-[var(--ink-soft)] mb-3">Analytics & Tools</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <a href="audit.html" class="quick-tile bg-gradient-to-br from-[#4b5563] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-search text-white text-3xl mb-2"></i><span class="text-sm">Audit</span></a>
+                                    <a href="rcm_audit.html" class="quick-tile bg-gradient-to-br from-[#4b5563] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-search text-white text-3xl mb-2"></i><span class="text-sm">RCM Audit</span></a>
+
+          <!--  <a href="leaderboard.html" class="quick-tile bg-gradient-to-br from-[#f59e0b] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-trophy text-white text-3xl mb-2"></i><span class="text-sm">Leaderboard</span></a>-->
+            <!-- <a href="EDM.html" target="_blank" class="quick-tile bg-gradient-to-br from-[#ef4444] via-[#0f172a] to-[#1e293b] p-4 rounded-2xl flex flex-col items-center"><i class="fas fa-ambulance text-white text-3xl mb-2"></i><span class="text-sm">EDM Management</span></a>-->
+          </div>
+        </div>
+
+        <!-- Logout -->
+        <div class="glass p-4 lg:col-span-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-[var(--ink-soft)]">Session</h3>
+            <button id="logout-btn" class="quick-tile bg-gradient-to-br from-[#ef4444] via-[#0f172a] to-[#1e293b] p-3 rounded-2xl flex items-center gap-2">
+              <i class="fas fa-sign-out-alt text-white text-xl"></i><span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Activity Log -->
+      <section class="section glass p-5 mt-6">
+        <h2 class="text-2xl font-bold text-[var(--ink-soft)]">Activity Log & Updates</h2>
+        <ul id="activity-log" class="mt-3 list-disc pl-6 text-white/90"></ul>
+      </section>
+
     </div>
-    <div class="relative z-10 flex flex-col items-center w-full">
-      <div id="loading-animation" class="flex items-center justify-center h-full">
-        <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
-        <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie" background="transparent" speed="1" style="width: 100px; height: 100px" loop autoplay></dotlottie-player>
-      </div>
-      <div class="flex items-end space-x-2 mt-2">
-        <span id="memo-count" class="text-5xl sm:text-9xl font-extrabold text-orange-400"></span>
-        <span class="text-3xl font-bold text-white mb-2">/</span>
-        <span id="joined-spaces-count" class="text-2xl font-bold text-gray-500 mb-2"></span>
-      </div>
-      <div class="flex flex-col items-center space-y-1 mt-2">
-        <span class="text-xl font-semibold text-orange-300">Posted Memos</span>
-        <span class="text-sm font-medium text-gray-500">Spaces Joined</span>
-      </div>
-    </div>
-  </div>
+  </main>
 
-  <!-- Acknowledged Memos -->
-  <div class="bg-gradient-to-b from-[#0f172a] via-[#1d3b64] to-[#16a34a] p-4 rounded-lg shadow-md text-center flex flex-col justify-between relative overflow-hidden">
-    <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
-      <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
-        <polygon points="0,0 300,0 300,120 0,150" fill="rgba(30, 41, 59, 0.7)"/>
-      </svg>
-    </div>
-    <div class="relative z-10 flex flex-col items-center w-full">
-      <div id="ack-loader" class="flex items-center justify-center h-full">
-        <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie" background="transparent" speed="1" style="width: 150px; height: 150px" loop autoplay></dotlottie-player>
-      </div>
-      <p id="ack-count" class="text-5xl sm:text-8xl font-extrabold text-white flex items-center justify-center h-full hidden"></p>
-      <h2 class="text-2xl font-semibold text-green-300 mt-auto p-2 rounded">Acknowledged Memos</h2>
-      <div class="mt-4 text-white text-sm sm:text-base">
-        <p><strong>Last Acknowledged:</strong> <span id="last-timestamp" class="skeleton-box"></span></p>
-        <p><strong>Memo Title:</strong> <span id="last-memo-title" class="skeleton-box"></span></p>
-      </div>
-    </div>
-  </div>
+  <!-- Toast root (DaisyUI) -->
+  <div id="toast-root" class="toast toast-top toast-end z-[60]"></div>
 
-  <!-- Unacknowledged Memos -->
-  <div class="bg-gradient-to-b from-[#151F42] to-[#1e293b] p-4 rounded-lg shadow-md text-center relative overflow-hidden">
-    <div class="absolute left-0 top-0 w-full h-full pointer-events-none">
-      <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none" class="absolute left-0 top-0">
-        <polygon points="0,0 300,0 300,120 0,150" fill="rgba(255, 0, 0, 0.3)"/>
-      </svg>
-    </div>
-    <div class="relative z-10 flex flex-col items-center w-full">
-      <div id="unack-loader">
-        <dotlottie-player src="https://lottie.host/a03793f7-91c0-4812-b713-f224a9608798/q0XmpAmQ54.lottie" background="transparent" speed="1" style="width: 150px; height: 150px" loop autoplay></dotlottie-player>
-      </div>
-      <p><span id="unack-memo-count" class="text-3xl font-bold text-red-400 hidden"></span></p>
-      <h2 class="text-2xl font-semibold text-blue-300">Unacknowledged Memos</h2>
-      <ul id="unack-memo-list" class="list-none pl-6 text-white"></ul>
-      <button id="show-more-btn" class="mt-4 bg-blue-600 hover:bg-blue-800 text-white p-2 rounded">Show More >></button>
-    </div>
-  </div>
-</div>
-
-
-
-
-<!-- Quick Access Dashboard -->
-<section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 p-4 mt-4">
-  <!-- Access Item -->
-  <a href="Profile.html" class="bg-gradient-to-br from-[#1e3a8a] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-user-circle text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Profile</span>
-  </a>
-  <a href="shift-portal.html" class="bg-gradient-to-br from-[#0f766e] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-clock text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Shift Portal</span>
-  </a>
-  <a href="certificate.html" class="bg-gradient-to-br from-[#78350f] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-certificate text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Certificates</span>
-  </a>
-  <a href="space-details.html?spaceId=AS6I5g9QsJ84ke3EJn6F" 
-   class="bg-gradient-to-br from-[#78350f] via-[#0f172a] to-[#1e293b] 
-          p-4 rounded-xl shadow-md flex flex-col items-center justify-center 
-          hover:scale-105 transition duration-300">
-  <i class="fas fa-database text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">ER Database</span>
-</a>
-<!----
-  <a href="medications.html" class="bg-gradient-to-br from-[#365314] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-pills text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Medications</span>
-  </a> --->
-  <!----
-  <a href="request.html" class="bg-gradient-to-br from-[#4b5563] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-paper-plane text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Request</span>
-  </a>--->
-  <a href="leave.html" class="bg-gradient-to-br from-[#9333ea] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-calendar-alt text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Leave</span>
-  </a>
-
-  <a href="toolkit.html" class="bg-gradient-to-br from-[#9333ea] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-toolbox text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Toolkit</span>
-</a>
-
-  
-  <a href="shift.html" class="bg-gradient-to-br from-[#9333ea] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-tools text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Shift Management</span>
-  </a>
-
-  <!-- Code Maker Button -->
-  <a href="extractor.html" class="bg-gradient-to-br from-[#1e3a5f] via-[#0f172a] to-[#0ea5e9] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-code text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Code Maker</span>
-  </a>
-<a href="audit.html" class="bg-gradient-to-br from-[#4b5563] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-search text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Audit</span>
-</a>
-
-
- <a href="rcm_audit.html" class="bg-gradient-to-br from-[#dc2626] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-file-invoice-dollar text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">RCM Audit</span>
-</a>
-
-
-  
-  <!----
-<a href="charge-report.html" class="bg-gradient-to-br from-[#dc2626] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-tint text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Blood Bank</span>
-</a> ---->
-
-  <a href="er-productivity.html" class="bg-gradient-to-br from-[#2563eb] via-[#1e3a8a] to-[#0f172a] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-user-md text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">ER Phyisicans</span>
-</a>
-
-  <a href="EDM.html" target="_blank" class="bg-gradient-to-br from-[#ef4444] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-ambulance text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">EDM Management</span>
-</a>
-
-
-    <a href="nurse_prod" class="bg-gradient-to-br from-[#2563eb] via-[#1e3a8a] to-[#0f172a] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-user-md text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">ER Nurses</span>
-</a>
-  
-  <a href="gm.html" target="_blank" class="bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fab fa-whatsapp text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">GM Reporting</span>
-</a>
-
-
-   <a href="pharmacy.html" target="_blank" class="bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-prescription-bottle-alt text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Pharmacy Chks</span>
-</a>
-
-  <a href="combo.html" target="_blank"
-   class="bg-gradient-to-br from-[#f59e0b] via-[#0f172a] to-[#1e293b]
-          p-4 rounded-xl shadow-md flex flex-col items-center justify-center
-          hover:scale-105 transition duration-300">
-  <i class="fas fa-flag text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Kudos &amp; Flags</span>
-</a>
-
-
-
-<a href="converter.html" target="_blank" 
-   class="bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] 
-          p-4 rounded-xl shadow-md flex flex-col items-center justify-center 
-          hover:scale-105 transition duration-300">
-  <i class="fas fa-file-excel text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Converter</span>
-</a>
-
-
-<a href="billing_sheet.html" class="bg-gradient-to-br from-[#059669] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-file-invoice-dollar text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Billing Sheet</span>
-</a>
-
-  
-  <a href="spaces.html" class="bg-gradient-to-br from-[#059669] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-rocket text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Spaces</span>
-  </a>
-    <a href="surveys.html" class="bg-gradient-to-br from-[#7c3aed] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-poll text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Surveys</span>
-</a>
-
-<a href="charge-report.html" class="bg-gradient-to-br from-[#0ea5e9] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-notes-medical text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Charge Nurse Shift Report</span>
-
-
-  <a href="EWS.html" class="bg-gradient-to-br from-[#0ea5e9] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-  <i class="fas fa-exclamation-triangle text-white text-3xl mb-2"></i>
-  <span class="text-white text-sm font-medium">Early Warning Signs</span>
-
-    
-  <a href="Memos.html" class="relative bg-gradient-to-br from-[#2563eb] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-file-alt text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Memos</span>
-    <!-- Notification badge -->
-    <span id="unack-badge" class="hidden absolute top-2 right-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white z-10"></span>
-  </a>
+  <!-- Badge updater (keeps your logic) -->
   <script>
-    // Show badge if there are unacknowledged memos, show green check if zero
     document.addEventListener('DOMContentLoaded', function () {
       const unackMemoCountElem = document.getElementById('unack-memo-count');
       const badge = document.getElementById('unack-badge');
       if (unackMemoCountElem && badge) {
-        // Use MutationObserver to update badge when count changes
         const updateBadge = () => {
-          let text = unackMemoCountElem.textContent.trim();
-          // If loading (empty or hidden), hide badge
-          if (!text || unackMemoCountElem.classList.contains('hidden')) {
-            badge.classList.add('hidden');
-            return;
-          }
-          let count = parseInt(text) || 0;
+          const text = unackMemoCountElem.textContent.trim();
+          if (!text || unackMemoCountElem.classList.contains('hidden')) { badge.classList.add('hidden'); return; }
+          const count = parseInt(text) || 0;
           if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
-            badge.classList.remove('hidden');
-            badge.classList.remove('bg-green-600');
-            badge.classList.add('bg-red-600');
-            badge.innerHTML = count > 99 ? '99+' : count;
+            badge.classList.remove('hidden','bg-green-600'); badge.classList.add('bg-red-600');
           } else {
-            // Show green checkmark
             badge.innerHTML = '<i class="fas fa-check text-white"></i>';
-            badge.classList.remove('hidden');
-            badge.classList.remove('bg-red-600');
-            badge.classList.add('bg-green-600');
+            badge.classList.remove('hidden','bg-red-600'); badge.classList.add('bg-green-600');
           }
         };
-        // Initial check
         updateBadge();
-        // Observe changes to the count
-        const observer = new MutationObserver(updateBadge);
-        observer.observe(unackMemoCountElem, { childList: true, characterData: true, subtree: true });
+        new MutationObserver(updateBadge).observe(unackMemoCountElem, { childList:true, characterData:true, subtree:true });
       }
     });
   </script>
+
+  <!-- Toast helper -->
+  <script>
+    // type: 'info' | 'success' | 'warning' | 'error'
+    window.showToast = function(type='info', message='', duration=3000){
+      const root = document.getElementById('toast-root');
+      if(!root) return alert(message);
+      const wrap = document.createElement('div');
+      const map = {info:'alert-info', success:'alert-success', warning:'alert-warning', error:'alert-error'};
+      const icon = {
+        info:'fa-circle-info', success:'fa-circle-check', warning:'fa-triangle-exclamation', error:'fa-circle-xmark'
+      }[type] || 'fa-bell';
+      wrap.className = `alert ${map[type]||'alert-info'} shadow-lg transition-all duration-300 translate-x-2 opacity-0`;
+      wrap.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+      root.appendChild(wrap);
+      requestAnimationFrame(()=>{ wrap.classList.remove('translate-x-2','opacity-0'); });
+      setTimeout(()=>{ wrap.classList.add('opacity-0','translate-x-2'); setTimeout(()=>wrap.remove(), 250); }, duration);
+    };
   </script>
-  <a href="device.html" class="bg-gradient-to-br from-[#b91c1c] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-tablet-alt text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Devices</span>
-  </a>
-  <a href="leaderboard.html" class="bg-gradient-to-br from-[#f59e0b] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-trophy text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Leaderboard</span>
-  </a>
-  <a href="admin.html" class="bg-gradient-to-br from-[#7c3aed] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-lock text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Admin</span>
-  </a>
-  <button id="logout-btn" class="bg-gradient-to-br from-[#ef4444] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-md flex flex-col items-center justify-center hover:scale-105 transition duration-300">
-    <i class="fas fa-sign-out-alt text-white text-3xl mb-2"></i>
-    <span class="text-white text-sm font-medium">Logout</span>
-  </button>
-</section>
-
-
-
-
-
-
-
-
-
-
-
-    <!-- Activity log -->
-      <div class="bg-[#151F42] p-4 rounded-lg shadow-md text-left w-full mt-6">
-        <h2 class="text-2xl font-semibold text-blue-300">Activity Log & Updates</h2>
-        <ul id="activity-log" class="list-none pl-6 text-white"></ul>
-    </div>
-
-
-  
-
-    </div>
-  </div></body>
+</body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
