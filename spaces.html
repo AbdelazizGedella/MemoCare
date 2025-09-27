@@ -4,154 +4,589 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memo || Spaces</title>
+  <title>Memo || Spaces — Glass UI</title>
 
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
-  <!-- App Logic -->
-  <script defer src="./js/spaces.js"></script>
-
-
-  
-  <!--  Favicon and Apple Touch Icons -->
+  <!-- Icons / Manifest (optional) -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
-<link rel="manifest" href="/icon/site.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+  <link rel="manifest" href="/icon/site.webmanifest">
 
+  <style>
+    :root{
+      --glass-bg: rgba(255, 255, 255, 0.06);
+      --glass-bd: rgba(255, 255, 255, 0.15);
+      --ink-1: #E5EEFF;
+      --ink-2: #A3B7FF;
+      --brand: #0059F7;
+      --panel: #0B1130;
+    }
+    html,body{height:100%;}
+    body{
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(0, 89, 247, 0.25), transparent 60%),
+                  radial-gradient(900px 500px at 110% 20%, rgba(0, 247, 255, 0.18), transparent 60%),
+                  #070E28;
+      color: var(--ink-1);
+      font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .glass{
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-bd);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .chip{ border:1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05) }
+    .btn-brand{ background: linear-gradient(135deg, #0ea5e9, #0059F7); border:none }
+    .btn-brand:hover{ filter: brightness(1.05) }
 
+    /* Table responsiveness: hide table on small screens and show cards instead */
+    @media (max-width: 768px){
+      #spacesTableWrap{ display:none }
+    }
+    @media (min-width: 769px){
+      #spacesCardsWrap{ display:none }
+    }
+
+    /* Simple skeleton shimmer */
+    .skeleton{ position:relative; overflow:hidden; }
+    .skeleton::after{ content:""; position:absolute; inset:0; transform:translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+      animation: shimmer 1.2s infinite; }
+    @keyframes shimmer{ 100%{ transform:translateX(100%);} }
+  </style>
 </head>
-<body class="bg-gray-900 text-white">
-  
+<body>
   <!-- Top Navigation Bar -->
-  <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-4 shadow-md flex justify-between items-center">
-    <h1 class="text-2xl font-bold text-white-300">Memo Acknowledgment System</h1>
-    <span id="user-greeting" class="text-green-400 text-lg"></span>
-  </div>
-
-  <!-- Sidebar -->
-<div class="fixed top-20 left-4 w-30 bg-[#151F42] p-6 shadow-lg rounded-lg flex flex-col items-center">
-    <ul class="space-y-6">
-        <li class="text-center">
-            <a href="Dashboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-home text-2xl"></i>
-                <span class="text-sm mt-1">Home</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="Profile.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-user-circle text-2xl"></i>
-                <span class="text-sm mt-1">Profile</span>
-            </a>
-        </li>
-                       <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
-
-        <li class="text-center">
-            <a href="request.html" class="flex flex-col items-center  text-white hover:text-blue-500">
-                <i class="fas fa-paper-plane text-2xl"></i>
-                <span class="text-sm mt-1">Request</span>
-            </a>
-        </li>
-           <li class="text-center">
-            <a href="leave.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-calendar-alt text-2xl"></i>
-                <span class="text-sm mt-1">Leave Planner</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="spaces.html" class="flex flex-col items-center text-blue-500">
-                <i class="fas fa-rocket text-2xl"></i>
-                <span class="text-sm mt-1">Spaces</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="Memos.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-file-alt text-2xl"></i>
-                <span class="text-sm mt-1">Memos</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="device.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-tablet-alt text-2xl"></i>
-                <span class="text-sm mt-1">Devices</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="leaderboard.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-trophy text-2xl"></i>
-                <span class="text-sm mt-1">Leaderboard</span>
-            </a>
-        </li>
-        <li class="text-center">
-            <a href="admin.html" class="flex flex-col items-center text-white hover:text-blue-500">
-                <i class="fas fa-lock text-2xl"></i>
-                <span class="text-sm mt-1">Admin</span>
-            </a>
-        </li>
-    </ul>
-    <button id="logout-btn" class="mt-6 text-white hover:text-red-500">
-        <i class="fas fa-sign-out-alt text-2xl"></i>
-    </button>
-</div>
-  <!-- Main Content Area -->
-  <div class="flex-1 overflow-y-auto p-20 ml-24">
-    <h2 class="text-2xl font-bold text-blue-300">Manage Spaces</h2>
-
-<!-- Status Message -->
-    <div id="statusContainer" class="bg-[#151F42] p-4 rounded text-white">
-<p id="canCreateSpaces" class="text-blue-300 mt-2"></p>
-<button id="requestSpaceBtn" class="bg-blue-500 px-4 py-2 rounded hidden">Request Space Creation</button>
-
-</div>
-
-
-    <!-- Create New Space Button -->
-    <button id="createSpaceBtn" class="bg-green-600 hover:bg-green-800 text-white px-4 py-2 rounded mt-4">+ Create New Space</button>
-
-
-    <!-- Spaces List -->
-    <table class="w-full text-left border-collapse mt-6">
-<div class="text-center text-white mb-4 relative w-1/2 mx-auto">
-    <input type="text" id="search-box" placeholder="🔎 Search for Spaces..."
-        class="bg-gray-700 text-white p-2 rounded w-full text-center">
-</div>
-
-      <caption class="caption-top text-lg font-semibold text-white mb-4">🔹 Active Spaces</caption>
-      <thead class="bg-gray-700 text-white">
-    <tr>
-        <th class="p-2">Space Name</th>
-        <th class="p-2">Created By</th>
-        <th class="p-2">Created At</th>
-        <th class="p-2">Requests</th>
-        <th class="p-2">Users</th>
-        <th class="p-2">Memos</th>
-        <th class="p-2">Actions</th>
-    </tr>
-</thead>
-
-      <tbody id="spaces-table" class="text-white"></tbody>
-    </table>
-
-    <div id="spacesContainer" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-
-
-<div id="space-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center hidden">
-    <div class="bg-[#151F42] p-6 rounded-lg shadow-md w-96">
-        <div id="space-modal-content"></div>
-        <button id="join-space-btn" class="bg-green-500 px-4 py-2 rounded mt-4">+ Join Request</button>
-        <button onclick="document.getElementById('space-modal').classList.add('hidden');" class="bg-red-500 px-4 py-2 rounded mt-4">Close</button>
+  <div class="fixed top-0 left-0 w-full z-40 glass px-4 sm:px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <i class="fa-solid fa-rocket text-xl"></i>
+      <h1 class="text-lg sm:text-2xl font-bold">Memo Acknowledgment System</h1>
     </div>
-</div>
-
+    <div class="flex items-center gap-3">
+      <a href="Dashboard.html" class="btn btn-ghost btn-sm" title="Home"><i class="fa-solid fa-house mr-2"></i>Home</a>
+      <span id="user-greeting" class="text-sm sm:text-base text-sky-200"></span>
+      <button id="logout-btn" class="btn btn-ghost btn-sm" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
   </div>
 
+  <!-- Main -->
+  <main class="pt-24 sm:pt-24 pb-16 px-4 sm:px-8 max-w-7xl mx-auto">
+    <div class="flex flex-col gap-6">
+
+      <!-- Header & Actions -->
+      <section class="glass rounded-2xl p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-extrabold text-sky-200">Manage Spaces</h2>
+            <p class="text-sm text-slate-300/80">Search, join, or create collaboration spaces. If you're an owner/admin, manage participants directly.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button id="createSpaceBtn" class="btn btn-sm sm:btn-md btn-brand text-white"><i class="fa-solid fa-plus mr-2"></i> Create New Space</button>
+          </div>
+        </div>
+
+        <!-- Permission / Status -->
+        <div id="statusContainer" class="glass rounded-xl p-4 mt-4">
+          <p id="canCreateSpaces" class="text-sky-300"></p>
+          <button id="requestSpaceBtn" class="btn btn-outline btn-info btn-sm mt-3 hidden"><i class="fa-solid fa-paper-plane mr-2"></i>Request Space Creation</button>
+        </div>
+      </section>
+
+      <!-- Search -->
+      <section class="glass rounded-2xl p-4 sm:p-6">
+        <div class="flex items-center gap-3">
+          <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-300"></i>
+            <input id="search-box" type="text" class="input input-bordered w-full pl-10 bg-transparent" placeholder="Search spaces by name..." />
+          </div>
+          <div class="hidden sm:flex items-center gap-2">
+            <span class="text-xs text-slate-300">Total:</span>
+            <span id="totalSpaces" class="badge badge-info badge-outline">0</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Table (Desktop) -->
+      <section id="spacesTableWrap" class="glass rounded-2xl p-0 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="table table-zebra w-full">
+            <thead>
+              <tr class="bg-slate-800/60">
+                <th>Space</th>
+                <th>Owner</th>
+                <th>Created</th>
+                <th>Requests</th>
+                <th>Users</th>
+                <th>Memos</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="spaces-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Cards (Mobile) -->
+      <section id="spacesCardsWrap" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div id="spaces-cards" class="contents"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="space-modal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div class="absolute inset-0 bg-black/60" onclick="closeModal()"></div>
+    <div class="glass rounded-2xl max-w-lg w-[92%] sm:w-[560px] p-5 relative">
+      <button class="btn btn-ghost btn-sm absolute right-2 top-2" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+      <div id="space-modal-content" class="space-y-4"></div>
+      <div class="flex gap-2 pt-2">
+        <button id="join-space-btn" class="btn btn-success flex-1 hidden"><i class="fa-solid fa-user-plus mr-2"></i>Join Request</button>
+        <button class="btn btn-error" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toasts" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+<script>
+/********************
+ * Firebase Init
+ ********************/
+const firebaseConfig = {
+  apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+  authDomain: "ctwo-eee79.firebaseapp.com",
+  projectId: "ctwo-eee79",
+  storageBucket: "ctwo-eee79.appspot.com",
+  messagingSenderId: "788657051205",
+  appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+  measurementId: "G-4VTCQR4ZVR"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+/********************
+ * Globals & Helpers
+ ********************/
+let spacesData = []; // master list for filtering
+let unsubSpaces = null;
+let currentUser = null;
+const userCache = new Map();
+
+function toast(msg, type='info', timeout=2500){
+  const wrap = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `alert glass shadow-lg ${type==='error'?'alert-error': type==='success'?'alert-success': type==='warning'?'alert-warning':'alert-info'}`;
+  el.innerHTML = `<span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, timeout);
+}
+
+function formatDate(ts){
+  try{
+    if(!ts) return '-';
+    const d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
+    return d.toLocaleString();
+  }catch(e){ return '-'; }
+}
+
+async function getUserName(uid){
+  if(!uid) return 'Unknown User';
+  if(userCache.has(uid)) return userCache.get(uid);
+  try{
+    const doc = await db.collection('users').doc(uid).get();
+    const name = doc.exists && doc.data().name ? doc.data().name : 'Unknown User';
+    userCache.set(uid, name);
+    return name;
+  }catch(e){ return 'Unknown User'; }
+}
+
+function isAdminOf(space, uid){
+  return space && uid && (space.createdBy === uid || (Array.isArray(space.admins) && space.admins.includes(uid)));
+}
+
+/********************
+ * Auth & UI Wiring
+ ********************/
+const $ = (s,p=document)=>p.querySelector(s);
+const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
+
+const createBtn = $('#createSpaceBtn');
+const requestBtn = $('#requestSpaceBtn');
+const statusEl = $('#canCreateSpaces');
+const searchBox = $('#search-box');
+const totalSpaces = $('#totalSpaces');
+
+function closeModal(){ $('#space-modal').classList.add('hidden'); }
+
+window.closeModal = closeModal; // expose for inline onclick
+
+// Logout
+$('#logout-btn').addEventListener('click', ()=>{
+  auth.signOut().then(()=>{
+    toast('Logged out successfully','success');
+    window.location.replace('login.html');
+  }).catch(err=>{
+    console.error(err);
+    toast('Error logging out: '+err.message,'error');
+  })
+});
+
+// Auth state
+auth.onAuthStateChanged(async (user)=>{
+  currentUser = user || null;
+  if(!user){
+    $('#user-greeting').textContent = '';
+    statusEl.textContent = '⚠️ Please log in.';
+    return;
+  }
+
+  // Greeting
+  const meDoc = await db.collection('users').doc(user.uid).get().catch(()=>null);
+  const myName = meDoc && meDoc.exists && meDoc.data().name ? meDoc.data().name : (user.email || 'User');
+  $('#user-greeting').textContent = `Hi, ${myName}`;
+
+  // Permission status UI
+  try{
+    const u = (await db.collection('users').doc(user.uid).get()).data() || {};
+    const can = u.canCreateSpaces;
+    if(can === true){
+      statusEl.innerHTML = '✅ You’ve got the ability to create spaces!';
+      requestBtn.classList.add('hidden');
+      createBtn.classList.remove('hidden');
+    }else if(can === false){
+      statusEl.innerHTML = '🚫 You don’t have the ability to create spaces.';
+      requestBtn.classList.remove('hidden');
+      // keep create button visible but we still also check on click
+      createBtn.classList.remove('hidden');
+    }else{
+      statusEl.innerHTML = '⏳ Pending admin approval...';
+      requestBtn.classList.add('hidden');
+      createBtn.classList.add('hidden');
+    }
+  }catch(e){ console.warn(e); }
+
+  // Subscribe to spaces
+  subscribeSpaces();
+});
+
+/********************
+ * Spaces: Realtime List
+ ********************/
+function subscribeSpaces(){
+  if(unsubSpaces) unsubSpaces();
+
+  // show skeleton rows while loading
+  const tbody = $('#spaces-table');
+  tbody.innerHTML = '';
+  for(let i=0;i<4;i++){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="skeleton h-6 rounded" colspan="7"></td>`;
+    tbody.appendChild(tr);
+  }
+  $('#spaces-cards').innerHTML = '';
+
+  unsubSpaces = db.collection('spaces').orderBy('createdAt','desc').onSnapshot(async (snap)=>{
+    spacesData = [];
+    const countPromises = [];
+
+    for(const doc of snap.docs){
+      const s = { id: doc.id, ...(doc.data()||{}) };
+      // Defensive defaults
+      s.pendingParticipants = Array.isArray(s.pendingParticipants) ? s.pendingParticipants : [];
+      s.joinedParticipants = Array.isArray(s.joinedParticipants) ? s.joinedParticipants : [];
+      s.postedMemos = Array.isArray(s.postedMemos) ? s.postedMemos : [];
+      s.creatorName = await getUserName(s.createdBy);
+
+      // Memos count: prefer explicit memosCount field, else count subcollection, else fallback to postedMemos length
+      if(typeof s.memosCount !== 'number'){
+        const p = db.collection('spaces').doc(s.id).collection('memos').get()
+          .then(q=>{ s.memosCount = q.size; })
+          .catch(()=>{ s.memosCount = Array.isArray(s.postedMemos) ? s.postedMemos.length : 0; });
+        countPromises.push(p);
+      }
+
+      spacesData.push(s);
+    }
+
+    if(countPromises.length){ await Promise.all(countPromises); }
+
+    renderSpaces(spacesData);
+  }, (err)=>{
+    console.error('subscribe error', err);
+    toast('Error loading spaces','error');
+  });
+}
+
+function renderSpaces(list){
+  // Filter by search
+  const q = (searchBox.value||'').trim().toLowerCase();
+  const spaces = q ? list.filter(s=> (s.name||'').toLowerCase().includes(q)) : list.slice();
+  totalSpaces.textContent = spaces.length;
+
+  const tbody = $('#spaces-table');
+  tbody.innerHTML = '';
+
+  const cards = $('#spaces-cards');
+  cards.innerHTML = '';
+
+  spaces.forEach(s=>{
+    const pendingCount = s.pendingParticipants.length;
+    const acceptedCount = s.joinedParticipants.length;
+    const postedMemos = (typeof s.memosCount === 'number') ? s.memosCount : (Array.isArray(s.postedMemos) ? s.postedMemos.length : 0);
+
+    // Desktop row
+    const tr = document.createElement('tr');
+    tr.className = 'hover';
+    tr.innerHTML = `
+      <td>
+        <div class="flex items-center gap-3">
+          <div class="avatar placeholder">
+            <div class="bg-sky-600/30 text-sky-200 rounded-full w-10">
+              <span class="text-sm">${(s.name||'?').slice(0,2).toUpperCase()}</span>
+            </div>
+          </div>
+          <div>
+            <div class="font-bold">${s.name||'-'}</div>
+            <div class="text-xs opacity-70 max-w-[420px] truncate">${s.description||''}</div>
+          </div>
+        </div>
+      </td>
+      <td>${s.creatorName||'-'}</td>
+      <td>${formatDate(s.createdAt)}</td>
+      <td><span class="badge badge-warning badge-outline">${pendingCount}</span></td>
+      <td><span class="badge badge-success badge-outline">${acceptedCount}</span></td>
+      <td><span class="badge badge-info badge-outline">${postedMemos}</span></td>
+      <td class="text-right">
+        <div class="flex justify-end gap-2">
+          <button class="btn btn-xs btn-info" onclick="viewSpaceDetails('${s.id}')"><i class='fa-regular fa-eye mr-1'></i>View</button>
+          ${ currentUser && isAdminOf(s, currentUser.uid) ?
+            `<button class='btn btn-xs btn-warning' onclick="goManage('${s.id}')"><i class='fa-solid fa-screwdriver-wrench mr-1'></i>Manage</button>`
+            : ''
+          }
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+
+    // Mobile card
+    const card = document.createElement('div');
+    card.className = 'glass rounded-2xl p-4';
+    card.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="avatar placeholder">
+          <div class="bg-sky-600/30 text-sky-200 rounded-full w-12"><span>${(s.name||'?').slice(0,2).toUpperCase()}</span></div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-lg truncate">${s.name||'-'}</h3>
+            <span class="text-xs opacity-70">${formatDate(s.createdAt)}</span>
+          </div>
+          <p class="text-sm text-slate-300/90 truncate">${s.description||''}</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span class="chip px-2 py-1 rounded-full"><i class="fa-regular fa-user mr-1"></i>${s.creatorName||'-'}</span>
+            <span class="chip px-2 py-1 rounded-full"><i class="fa-regular fa-clock mr-1"></i>${pendingCount} pending</span>
+            <span class="chip px-2 py-1 rounded-full"><i class="fa-solid fa-users mr-1"></i>${acceptedCount} users</span>
+            <span class="chip px-2 py-1 rounded-full"><i class="fa-regular fa-note-sticky mr-1"></i>${postedMemos} memos</span>
+          </div>
+          <div class="mt-4 flex gap-2">
+            <button class="btn btn-sm btn-info" onclick="viewSpaceDetails('${s.id}')"><i class='fa-regular fa-eye mr-1'></i>View</button>
+            ${ currentUser && isAdminOf(s, currentUser.uid) ?
+              `<button class='btn btn-sm btn-warning' onclick="goManage('${s.id}')"><i class='fa-solid fa-screwdriver-wrench mr-1'></i>Manage</button>`
+              : ''
+            }
+          </div>
+        </div>
+      </div>`;
+    cards.appendChild(card);
+  });
+}
+
+/********************
+ * View / Join / Manage
+ ********************/
+window.goManage = function(spaceId){
+  window.location.href = `space-details.html?spaceId=${spaceId}`;
+}
+
+window.viewSpaceDetails = async function(spaceId){
+  try{
+    const doc = await db.collection('spaces').doc(spaceId).get();
+    if(!doc.exists){ toast('Space not found','error'); return; }
+    const space = { id: doc.id, ...(doc.data()||{}) };
+
+    const createdByUID = space.createdBy;
+    const createdByName = await getUserName(createdByUID);
+
+    const pendingUIDs = Array.isArray(space.pendingParticipants) ? space.pendingParticipants : [];
+    const joinedUIDs  = Array.isArray(space.joinedParticipants) ? space.joinedParticipants : [];
+
+    const joinedNames = await Promise.all(joinedUIDs.map(u=>getUserName(u)));
+    const pendingNames = await Promise.all(pendingUIDs.map(u=>getUserName(u)));
+
+    const isOwnerOrAdmin = currentUser && isAdminOf(space, currentUser.uid);
+
+    const pendingList = pendingNames.map((name, idx)=>{
+      const uid = pendingUIDs[idx];
+      return `<li class="flex items-center justify-between py-1">
+        <span>${idx+1}. ${name}</span>
+        ${isOwnerOrAdmin ? `
+          <span class="flex gap-2">
+            <button class="btn btn-xs btn-success" onclick="approveParticipant('${space.id}', '${uid}')">Approve</button>
+            <button class="btn btn-xs btn-error" onclick="rejectParticipant('${space.id}', '${uid}')">Reject</button>
+          </span>` : ''}
+      </li>`;
+    }).join('') || '<li class="opacity-70">None</li>';
+
+    const joinedList = joinedNames.map((n,i)=>`<li>${i+1}. ${n}</li>`).join('') || '<li class="opacity-70">None</li>';
+
+    $('#space-modal-content').innerHTML = `
+      <div class="space-y-2">
+        <h2 class="text-xl font-extrabold text-sky-200">${space.name||'-'}</h2>
+        <p class="text-sm text-slate-300">${space.description||''}</p>
+        <p class="text-xs text-yellow-300">Created by: ${createdByName}</p>
+        <div class="divider divider-info my-2">Participants</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="glass rounded-xl p-3">
+            <h4 class="font-bold text-success">✔ Joined</h4>
+            <ul class="text-sm mt-2 max-h-40 overflow-auto pr-1">${joinedList}</ul>
+          </div>
+          <div class="glass rounded-xl p-3">
+            <h4 class="font-bold text-warning">⏳ Pending</h4>
+            <ul class="text-sm mt-2 max-h-40 overflow-auto pr-1">${pendingList}</ul>
+          </div>
+        </div>
+        ${ isOwnerOrAdmin ? `
+          <div class="mt-3">
+            <button class="btn btn-warning w-full" onclick="goManage('${space.id}')"><i class='fa-solid fa-screwdriver-wrench mr-2'></i>Manage Participants</button>
+          </div>` : ''}
+      </div>`;
+
+    // Join button visibility
+    const joinBtn = $('#join-space-btn');
+    if(currentUser && currentUser.uid !== createdByUID && !joinedUIDs.includes(currentUser.uid) && !pendingUIDs.includes(currentUser.uid)){
+      joinBtn.classList.remove('hidden');
+      joinBtn.onclick = ()=> sendJoinRequest(space.id, currentUser.uid);
+    }else{
+      joinBtn.classList.add('hidden');
+      joinBtn.onclick = null;
+    }
+
+    $('#space-modal').classList.remove('hidden');
+  }catch(e){
+    console.error(e);
+    toast('Error fetching space','error');
+  }
+}
+
+window.sendJoinRequest = function(spaceId, userUID){
+  db.collection('spaces').doc(spaceId).update({
+    pendingParticipants: firebase.firestore.FieldValue.arrayUnion(userUID)
+  }).then(()=>{
+    toast('Join request sent!','success');
+    // Refresh modal state
+    viewSpaceDetails(spaceId);
+  }).catch(e=>{
+    console.error(e);
+    toast('Error sending request','error');
+  });
+}
+
+window.approveParticipant = function(spaceId, userUID){
+  db.collection('spaces').doc(spaceId).update({
+    pendingParticipants: firebase.firestore.FieldValue.arrayRemove(userUID),
+    joinedParticipants: firebase.firestore.FieldValue.arrayUnion(userUID)
+  }).then(()=>{
+    toast('Participant approved','success');
+    viewSpaceDetails(spaceId);
+  }).catch(e=>{
+    console.error(e);
+    toast('Error approving participant','error');
+  });
+}
+
+window.rejectParticipant = function(spaceId, userUID){
+  db.collection('spaces').doc(spaceId).update({
+    pendingParticipants: firebase.firestore.FieldValue.arrayRemove(userUID)
+  }).then(()=>{
+    toast('Participant rejected','warning');
+    viewSpaceDetails(spaceId);
+  }).catch(e=>{
+    console.error(e);
+    toast('Error rejecting participant','error');
+  });
+}
+
+/********************
+ * Create Space & Requests
+ ********************/
+createBtn.addEventListener('click', async ()=>{
+  if(!currentUser){ toast('Please log in','warning'); return; }
+  try{
+    const userDoc = await db.collection('users').doc(currentUser.uid).get();
+    const u = userDoc.data()||{};
+    if(!u.canCreateSpaces){
+      toast('🚫 You are not authorized to create spaces. You can request access below.','warning');
+      return;
+    }
+  }catch(e){ /* continue */ }
+
+  const spaceName = prompt('Enter space name:');
+  if(!spaceName) return;
+  const spaceDescription = prompt('Enter description:') || '';
+
+  db.collection('spaces').add({
+    name: spaceName,
+    description: spaceDescription,
+    createdBy: currentUser.uid,
+    createdAt: firebase.firestore.Timestamp.now(),
+    joinedParticipants: [currentUser.uid],
+    pendingParticipants: [],
+    postedMemos: []
+  }).then(()=>{
+    toast('✅ Space created successfully!','success');
+  }).catch(e=>{
+    console.error(e);
+    toast('Error creating space','error');
+  });
+});
+
+requestBtn.addEventListener('click', ()=>{
+  if(!currentUser) return;
+  db.collection('users').doc(currentUser.uid).update({
+    pendingSpacesCreationRequest: {
+      requestedAt: firebase.firestore.Timestamp.now(),
+      status: 'pending'
+    },
+    canCreateSpaces: null // explicit pending state
+  }).then(()=>{
+    toast('⏳ Request submitted! Waiting for admin approval.','info');
+    requestBtn.classList.add('hidden');
+    statusEl.textContent = '⏳ Pending admin approval...';
+    createBtn.classList.add('hidden');
+  }).catch(e=>{
+    console.error(e);
+    toast('Error submitting request','error');
+  });
+});
+
+/********************
+ * Search
+ ********************/
+searchBox.addEventListener('input', ()=> renderSpaces(spacesData));
+
+</script>
 </body>
 </html>
