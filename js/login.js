@@ -20,7 +20,7 @@ function login() {
       window.location.href = "Dashboard.html";
     })
     .catch((error) => {
-      alert("Login failed: " + error.message);
++ showToast('error', "Login failed: " + error.message);
     });
 }
 
@@ -36,9 +36,9 @@ function resetPassword() {
 
   firebase.auth().sendPasswordResetEmail(email)
     .then(() => {
-      alert("تم إرسال رابط إعادة تعيين كلمة السر إلى بريدك الإلكتروني.");
++ showToast('success', "تم إرسال رابط إعادة تعيين كلمة السر إلى بريدك الإلكتروني.");
     })
     .catch((error) => {
-      alert("فشل في إرسال الرابط: " + error.message);
++ showToast('error', "فشل في إرسال الرابط: " + error.message);
     });
 }
