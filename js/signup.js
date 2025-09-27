@@ -38,11 +38,11 @@ function signup() {
             });
         })
         .then(() => {
-            alert("Signup successful!");
++ showToast('success', "Signup successful!");
             window.location.href = "Dashboard.html"; // Redirect to dashboard
         })
         .catch((error) => {
             console.error("Error signing up:", error);
-            alert("Signup failed: " + error.message);
++ showToast('error', "Signup failed: " + error.message);
         });
 }
