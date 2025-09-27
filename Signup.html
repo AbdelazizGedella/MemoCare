@@ -1,65 +1,167 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Signup - Memo Tracker</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Memo || Signup</title>
 
-    <title>Memo || Signup</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
-    
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
-    <!-- Custom Logic -->
-    <script defer src="./js/signup.js"></script>
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
 
-    
-  <!--  Favicon and Apple Touch Icons -->
+  <!-- Firebase Compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+  <!-- من عندك: يحتوي على firebaseConfig + initializeApp + signup() -->
+  <script defer src="./js/signup.js"></script>
+
+  <!-- Icons + Fonts -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
-<link rel="manifest" href="/icon/site.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icon/favicon-16x16.png">
+  <link rel="manifest" href="/icon/site.webmanifest">
 
-
+  <style>
+    :root{ --mc-bg:#07102F; }
+    body{ background:
+      radial-gradient(800px 600px at 0% 10%, rgba(34,211,238,.18),transparent 60%),
+      radial-gradient(1000px 600px at 100% 0%, rgba(59,130,246,.18),transparent 60%), var(--mc-bg); }
+    .glass{ background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(14px); border-radius: 22px; }
+    .panel{ min-height: 680px; }
+    .meter{ height: 8px; }
+  </style>
 </head>
-<body class="bg-[#07102F] flex items-center justify-center min-h-screen">
-    <div class="flex w-full max-w-6xl bg-base-100 shadow-2xl rounded-2xl overflow-hidden min-h-[600px]">
-        <!-- Left Side: Benefits/Details -->
-        <div class="hidden md:flex flex-col justify-center items-start bg-[#0B1746] text-white p-12 w-1/2">
-            <h2 class="text-5xl font-bold mb-6">Join Today</h2>
-            <p class="mb-6 text-lg">
-                for a space of communication enhancement and commitment. Enjoy gamification and a suite of solutions designed to facilitate communication with your staff.
-            </p>
-            <ul class="list-disc pl-6 space-y-3 text-base">
-                <li>Free access to unlimited spaces—no fees, ever!</li>
-                <li>Organize your memos and notes without limits.</li>
-                <li>Enhance your communication and collaboration with others.</li>
-                <li>Share and manage information seamlessly.</li>
-                <li>Boost productivity with easy-to-use tools.</li>
-            </ul>
-        </div>
-        <!-- Right Side: Signup Form -->
-        <div class="w-full md:w-1/2 flex flex-col justify-center p-12">
-            <div class="card w-full bg-base-100 shadow-none p-0">
-                <h2 class="text-2xl font-bold mb-6">Sign Up</h2>
-                <input type="text" id="name" placeholder="Name" class="input input-bordered w-full mb-3 text-lg" />
-                <input type="email" id="email" placeholder="Email" class="input input-bordered w-full mb-3 text-lg" />
-                <input type="password" id="password" placeholder="Password" class="input input-bordered w-full mb-5 text-lg" />
-                <input type="tel" id="phoneNumber" placeholder="Phone Number" class="input input-bordered w-full mb-3 text-lg" />
-                <button onclick="signup()" class="btn btn-primary w-full text-lg py-3 mb-4">Create Account</button>
-                <p class="text-center text-gray-600 mt-6 text-base">
-                    Already have an account? <a href="login.html" class="text-blue-500 hover:underline">Log in here</a>
-                </p>
-                <p class="text-center text-gray-600 mt-2 text-base">
-                    <a href="index.html" class="text-blue-500 hover:underline">Back to main page</a>
-                </p>
-            </div>
-        </div>
+<body class="min-h-screen relative">
+  <header class="w-full fixed top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3">
+        <span class="brand-badge text-white font-bold px-3 py-1 rounded-xl shadow-md" style="background:linear-gradient(135deg,#6d28d9,#2563eb)">Memo</span>
+        <span class="text-white/90 font-semibold tracking-wide">MemoCare</span>
+      </a>
+      <a href="login.html" class="btn btn-sm btn-ghost">Login</a>
     </div>
+  </header>
+
+  <main class="pt-24 pb-10 px-4">
+    <div class="max-w-6xl mx-auto glass panel overflow-hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2">
+        <!-- يسار: مزايا -->
+        <section class="hidden md:flex flex-col justify-center gap-6 p-12 relative">
+          <h2 class="text-4xl xl:text-5xl font-black text-white leading-tight">Create your account</h2>
+          <p class="text-white/70 text-lg">Unlimited spaces • Clear tracking • Smooth collaboration</p>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="glass p-4 rounded-2xl">
+              <div class="text-3xl font-extrabold text-info">0$</div>
+              <div class="text-white/70 text-sm">Free tier forever</div>
+            </div>
+            <div class="glass p-4 rounded-2xl">
+              <div class="text-3xl font-extrabold text-primary">∞</div>
+              <div class="text-white/70 text-sm">Unlimited memos</div>
+            </div>
+            <div class="glass p-4 rounded-2xl">
+              <div class="text-3xl font-extrabold text-accent">⚡</div>
+              <div class="text-white/70 text-sm">Realtime updates</div>
+            </div>
+            <div class="glass p-4 rounded-2xl">
+              <div class="text-3xl font-extrabold">🔒</div>
+              <div class="text-white/70 text-sm">Firebase secured</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- يمين: نموذج التسجيل -->
+        <section class="p-6 sm:p-10 bg-base-100/60">
+          <div class="max-w-md mx-auto">
+            <div class="text-center mb-8">
+              <h3 class="text-2xl font-bold text-white">Sign Up</h3>
+              <p class="text-white/60 text-sm">It takes less than a minute</p>
+            </div>
+
+            <label class="form-control w-full mb-3">
+              <div class="label"><span class="label-text text-white/70">Full name</span></div>
+              <input id="name" type="text" placeholder="John Carter" class="input input-bordered w-full text-lg" autocomplete="name" />
+            </label>
+
+            <label class="form-control w-full mb-3">
+              <div class="label"><span class="label-text text-white/70">Email</span></div>
+              <input id="email" type="email" placeholder="you@company.com" class="input input-bordered w-full text-lg" autocomplete="email" />
+            </label>
+
+            <label class="form-control w-full mb-3">
+              <div class="label"><span class="label-text text-white/70">Password</span></div>
+              <div class="input input-bordered flex items-center gap-2">
+                <input id="password" type="password" class="grow" placeholder="••••••••" autocomplete="new-password" />
+                <button type="button" id="togglePwd" class="btn btn-ghost btn-xs">Show</button>
+              </div>
+              <!-- Strength meter -->
+              <div class="meter glass mt-2 rounded-full overflow-hidden">
+                <div id="meterFill" class="h-full w-0 bg-error transition-all duration-300"></div>
+              </div>
+              <div id="meterText" class="text-xs mt-1 text-white/70">Strength: —</div>
+            </label>
+
+            <label class="form-control w-full mb-4">
+              <div class="label"><span class="label-text text-white/70">Phone number</span></div>
+              <input id="phoneNumber" type="tel" placeholder="+966 5x xxx xxxx" class="input input-bordered w-full text-lg" autocomplete="tel" />
+            </label>
+
+            <button onclick="signup()" id="btnSignup" class="btn btn-primary w-full py-3 text-lg">Create Account</button>
+
+            <div class="divider my-6">or</div>
+
+            <p class="text-center text-white/70 text-sm">
+              Already have an account?
+              <a href="login.html" class="link link-info">Login</a>
+            </p>
+
+            <p class="text-center text-white/60 text-xs mt-4">
+              <a class="link link-accent" href="index.html">← Back to main page</a>
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Toggle password visibility
+    const pwd = document.getElementById('password');
+    const toggle = document.getElementById('togglePwd');
+    toggle?.addEventListener('click', () => {
+      const t = pwd.type === 'password' ? 'text' : 'password';
+      pwd.type = t; toggle.textContent = t === 'password' ? 'Show' : 'Hide';
+    });
+
+    // Strength meter (لا يغيّر منطق signup عندك)
+    const fill = document.getElementById('meterFill');
+    const txt  = document.getElementById('meterText');
+    function scorePass(s){
+      let n = 0;
+      if(s.length >= 8) n++;
+      if(/[A-Z]/.test(s)) n++;
+      if(/[a-z]/.test(s)) n++;
+      if(/d/.test(s)) n++;
+      if(/[^\\w\\s]/.test(s)) n++;
+      return n; // 0..5
+    }
+    pwd.addEventListener('input', () => {
+      const s = scorePass(pwd.value);
+      const w = [0,20,40,60,80,100][s];
+      fill.style.width = w + '%';
+      fill.className = 'h-full transition-all duration-300 ' + (s<=2?'bg-error': s<=3?'bg-warning':'bg-success');
+      txt.textContent = 'Strength: ' + (s<=1?'Very Weak': s==2?'Weak': s==3?'Good': s==4?'Strong':'Excellent');
+    });
+
+    // Enter submits
+    document.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter') document.getElementById('btnSignup').click();
+    });
+  </script>
+
+  <!-- FontAwesome -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js" defer></script>
 </body>
-    
 </html>
