@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مركز روابط النماذج — زجاجي داكن</title>
+
+  <!-- Tailwind + DaisyUI + Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg1: #061338;  /* Dark blue */
+      --bg2: #0b1f56;  /* Deeper blue */
+      --glass: rgba(255,255,255,0.06);
+      --glass-bd: rgba(255,255,255,0.12);
+    }
+    html, body { height: 100%; }
+    body { font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial; }
+    .bg-grid {
+      background: radial-gradient(60rem 60rem at 120% -10%, rgba(0,153,255,0.20), transparent 60%),
+                  radial-gradient(50rem 50rem at -20% 120%, rgba(0,255,214,0.12), transparent 60%),
+                  linear-gradient(160deg, var(--bg1), var(--bg2));
+    }
+    .glass { background: var(--glass); border: 1px solid var(--glass-bd); backdrop-filter: blur(14px); }
+    .chip { border: 1px solid rgba(255,255,255,0.15); }
+  </style>
+</head>
+<body class="bg-grid text-white min-h-screen">
+  <!-- Topbar -->
+  <header class="sticky top-0 z-30 bg-gradient-to-b from-[#0b1f56]/80 to-transparent backdrop-blur border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-white/10 grid place-items-center"><i class="fa-solid fa-link text-xl"></i></div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold">مركز روابط النماذج</h1>
+        <p class="text-white/70 text-sm">نفس روح التصميم السابقة + خيارات نسخ الرابط وQR لكل عنصر.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <!-- Controls -->
+    <section class="glass rounded-2xl p-4 md:p-5 shadow-xl">
+      <div class="flex flex-col md:flex-row gap-3 md:items-center">
+        <label class="input input-bordered flex items-center gap-2 grow bg-white/5 border-white/15 rounded-xl">
+          <i class="fa-solid fa-magnifying-glass text-white/70"></i>
+          <input id="search" type="text" class="grow bg-transparent focus:outline-none" placeholder="ابحث باسم النموذج أو التصنيف" />
+        </label>
+        <div class="flex flex-wrap gap-2" id="chips"><!-- Filled by JS --></div>
+      </div>
+      <p class="text-xs text-white/60 mt-2">تلميح: اكتب "تحويل"، "CTAS"، "تقارير"… للتصفية السريعة.</p>
+    </section>
+
+    <!-- Grid -->
+    <section class="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4" id="cards"><!-- Filled by JS --></section>
+
+    <!-- Footer -->
+    <footer class="mt-10 text-center text-white/60 text-sm">لإضافة عناصر جديدة لاحقًا، عدّل مصفوفة <code>LINKS</code> في الأسفل.</footer>
+  </main>
+
+  <!-- Modal: QR -->
+  <dialog id="qrModal" class="modal">
+    <div class="modal-box glass">
+      <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute left-3 top-3">✕</button></form>
+      <h3 class="font-bold text-lg mb-2">رمز QR للرابط</h3>
+      <div id="qrBox" class="grid place-items-center p-3"></div>
+      <p id="qrLink" class="mt-3 text-xs break-all text-white/70"></p>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- QR Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script>
+  /*
+   * الإضافة لاحقًا:
+   * أضف عنصرًا جديدًا إلى مصفوفة LINKS بنفس الحقول: title, url, category, icon, desc (اختياري)
+   */
+  const LINKS = [
+    { title: 'Code Blue Cases Reporting', url: 'https://forms.gle/oZGXus4nNpgtkC8d8', category: 'تقارير سريرية', icon: 'fa-bolt', desc: 'إبلاغ سريع عن حالات كود بلو.' },
+    { title: 'Patient Transfer Reporting', url: 'https://forms.gle/x7VjoKgpfJJxFaRR7', category: 'تحويلات المرضى', icon: 'fa-truck-medical', desc: 'توثيق تحويلات المرضى.' },
+    { title: 'Mortality Cases Reporting', url: 'https://forms.gle/dLguueVwWiimsP4c7', category: 'تقارير سريرية', icon: 'fa-heart-crack', desc: 'تسجيل حالات الوفاة.' },
+    { title: 'Memo Care Platform', url: 'https://abdelazizgedella.github.io/MemoCare/login.html', category: 'منصّات وأنظمة', icon: 'fa-clipboard-check', desc: 'الدخول إلى منصة Memo Care.' },
+    { title: 'CTAS Change Reporting Form', url: 'https://forms.gle/kKULHoKf43m3qHYP9', category: 'CTAS', icon: 'fa-notes-medical', desc: 'توثيق تغيّر مستوى CTAS.' },
+    { title: 'CMH Reports', url: 'https://docs.google.com/spreadsheets/d/1Gx_CDBSf8TDtUUHjuJltonrRArXZYijrzb6BgiMuow4/edit?usp=drivesdk', category: 'تقارير تشغيلية', icon: 'fa-file-excel', desc: 'تقارير تشغيلية CMH.' },
+    { title: 'BAR LEVEL', url: 'https://docs.google.com/spreadsheets/d/1VX37EGwLTPdBto7UOc24yuH9EaS_5jA9/edit?usp=drivesdk&ouid=113650343020881026314&rtpof=true&sd=true', category: 'تقارير مالية / إدارية', icon: 'fa-chart-bar', desc: 'مؤشرات BAR.' }
+  ];
+
+  const cardsEl = document.getElementById('cards');
+  const chipsEl = document.getElementById('chips');
+  const searchEl = document.getElementById('search');
+  const qrModal = document.getElementById('qrModal');
+  const qrBox = document.getElementById('qrBox');
+  const qrLink = document.getElementById('qrLink');
+
+  function uniq(arr){ return [...new Set(arr)]; }
+
+  function hueForIndex(i){
+    // golden angle for pleasing distribution
+    const hue = Math.floor((i * 137.508) % 360);
+    return hue;
+  }
+
+  function makeCard(item, idx){
+    const a = document.createElement('a');
+    a.href = item.url; a.target = '_blank'; a.rel = 'noopener';
+    a.className = 'group glass rounded-2xl p-4 flex flex-col gap-3 hover:bg-white/10 transition shadow-xl';
+    a.dataset.category = item.category || '';
+    a.dataset.title = item.title.toLowerCase();
+
+    const hue = hueForIndex(idx);
+    const acc = `hsl(${hue} 85% 60%)`;
+
+    a.style.boxShadow = `inset 0 3px 0 0 ${acc}, 0 0 0 1px rgba(255,255,255,0.08)`;
+
+    const iconBg = `radial-gradient(35px 35px at 30% 30%, ${acc}, transparent 60%)`;
+
+    a.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-white/10 grid place-items-center text-xl shrink-0" style="background-image:${iconBg};background-color:rgba(255,255,255,0.06);">
+          <i class="fa-solid ${item.icon || 'fa-link'}"></i>
+        </div>
+        <div class="min-w-0">
+          <h3 class="font-bold text-lg leading-tight truncate">${item.title}</h3>
+          <p class="text-white/70 text-sm line-clamp-2">${item.desc || ''}</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-1">
+        <span class="chip px-2 py-1 rounded-lg text-xs text-white/80" style="border-color:${acc};">${item.category || 'أخرى'}</span>
+        <div class="flex items-center gap-2 opacity-90">
+          <button type="button" class="btn btn-xs rounded-lg" onclick="event.preventDefault(); copyLink('${item.url}')"><i class="fa-regular fa-copy me-1"></i>نسخ</button>
+          <button type="button" class="btn btn-xs rounded-lg" onclick="event.preventDefault(); openQR('${item.url}', ${hue})"><i class="fa-solid fa-qrcode me-1"></i>QR</button>
+          <span class="text-xs text-white/60 hidden sm:inline">فتح<i class="fa-solid fa-arrow-up-right-from-square ms-1"></i></span>
+        </div>
+      </div>`;
+    return a;
+  }
+
+  function render(list){
+    cardsEl.innerHTML = '';
+    list.forEach((item, idx) => cardsEl.appendChild(makeCard(item, idx)));
+  }
+
+  function buildChips(){
+    const cats = uniq(LINKS.map(x => x.category || 'أخرى'));
+    chipsEl.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'btn btn-sm rounded-xl chip bg-white/5 hover:bg-white/10';
+    allBtn.textContent = 'الكل';
+    allBtn.onclick = () => { filter({cat: null}); selectChip(allBtn); };
+    chipsEl.appendChild(allBtn);
+
+    cats.forEach((cat, i) => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-sm rounded-xl chip bg-white/5 hover:bg-white/10';
+      b.textContent = cat;
+      b.onclick = () => { filter({cat}); selectChip(b); };
+      chipsEl.appendChild(b);
+    });
+    selectChip(allBtn);
+  }
+
+  function selectChip(btn){
+    chipsEl.querySelectorAll('button').forEach(b => b.classList.remove('btn-primary'));
+    btn.classList.add('btn-primary');
+  }
+
+  function filter({cat=null, q=null}={}){
+    const query = (q ?? searchEl.value).trim().toLowerCase();
+    const filtered = LINKS.filter(x => {
+      const byCat = cat ? (x.category === cat) : true;
+      const byQ = query ? (x.title.toLowerCase().includes(query) || (x.category||'').toLowerCase().includes(query)) : true;
+      return byCat && byQ;
+    });
+    render(filtered);
+  }
+
+  searchEl.addEventListener('input', () => filter({}));
+
+  // Copy & QR helpers
+  async function copyLink(url){
+    try{ await navigator.clipboard.writeText(url); toast('تم نسخ الرابط'); }catch{ toast('تعذّر النسخ'); }
+  }
+
+  function openQR(url, hue){
+    qrBox.innerHTML = '';
+    new QRCode(qrBox, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    qrLink.textContent = url;
+    // تلوين الحواف بنفس لون الكرت
+    const acc = `hsl(${hue} 85% 60%)`;
+    qrBox.style.boxShadow = `0 0 0 3px ${acc}`;
+    qrModal.showModal();
+  }
+
+  // Lightweight toast using DaisyUI
+  function toast(msg){
+    const t = document.createElement('div');
+    t.className = 'toast toast-start';
+    t.innerHTML = `<div class="alert glass"><span>${msg}</span></div>`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1700);
+  }
+
+  // Init
+  buildChips();
+  render(LINKS);
+  </script>
+</body>
+</html>
