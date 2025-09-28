@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة العناية المركزة — ICU Analytics</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Icons + Charts + CSV Parser + Day.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
+
+  <style>
+    :root {
+      --glass: rgba(255,255,255,0.06);
+      --glass-bd: rgba(255,255,255,0.15);
+      --grad-1: #0f172a; /* slate-900 */
+      --grad-2: #0b2b40; /* deep blue */
+      --grad-3: #0ea5e9; /* sky-500 */
+    }
+    body {
+      font-family: "Cairo", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+      background: radial-gradient(1200px 800px at 10% 0%, rgba(14,165,233,0.15), transparent 60%),
+                  linear-gradient(135deg, var(--grad-1), var(--grad-2));
+      min-height: 100vh;
+    }
+    .glass {
+      background: var(--glass);
+      border: 1px solid var(--glass-bd);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 16px;
+    }
+    .tile {
+      background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(14,165,233,0.05));
+      border: 1px solid rgba(14,165,233,0.25);
+    }
+    .metric-number {
+      direction: ltr; /* عشان الأرقام تبان صح */
+      font-variant-numeric: tabular-nums;
+    }
+    .btn-gradient {
+      background: linear-gradient(135deg, #1e3a5f, #0f172a 60%, #0ea5e9);
+      border: none;
+      color: #fff;
+    }
+    .badge-soft {
+      background: rgba(14,165,233,0.15);
+      border: 1px solid rgba(14,165,233,0.35);
+      color: #e5f6ff;
+    }
+    .table :where(th, td) { white-space: nowrap; }
+    .truncate-2 {
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      white-space: normal;
+    }
+  </style>
+
+  <!-- Google Font (optional) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="text-slate-100">
+  <!-- Header -->
+  <header class="p-4 md:p-6">
+    <div class="glass p-4 md:p-6 rounded-2xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl tile grid place-items-center">
+          <i class="fa-solid fa-hospital text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-bold">لوحة العناية المركزة — ICU Dashboard</h1>
+          <p class="opacity-70">تحليلات فورية من ملف Google Sheets (بدون إظهار أرقام الهواتف).</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button id="btnLast7"  class="btn btn-sm btn-gradient">آخر 7 أيام</button>
+        <button id="btnLast30" class="btn btn-sm btn-gradient">آخر 30 يوم</button>
+        <button id="btnQtr"    class="btn btn-sm btn-gradient">آخر 90 يوم</button>
+        <button id="btnYTD"    class="btn btn-sm btn-outline">منذ بداية السنة</button>
+        <button id="btnAll"    class="btn btn-sm btn-outline">الكل</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <section class="px-4 md:px-6">
+    <div class="glass p-4 md:p-6 rounded-2xl grid md:grid-cols-3 gap-4 items-end">
+      <div>
+        <label class="label"><span class="label-text">اختيار نوع التاريخ للتصفية</span></label>
+        <div class="join">
+          <input class="join-item btn btn-sm" type="radio" name="dateKind" id="dateAdmission" checked>
+          <label for="dateAdmission" class="join-item btn btn-sm">الدخول</label>
+          <input class="join-item btn btn-sm" type="radio" name="dateKind" id="dateDischarge">
+          <label for="dateDischarge" class="join-item btn btn-sm">الخروج</label>
+        </div>
+      </div>
+      <div>
+        <label class="label"><span class="label-text">من تاريخ</span></label>
+        <input id="dateFrom" type="date" class="input input-bordered w-full" />
+      </div>
+      <div>
+        <label class="label"><span class="label-text">إلى تاريخ</span></label>
+        <div class="flex gap-2">
+          <input id="dateTo" type="date" class="input input-bordered w-full" />
+          <button id="btnRefresh" class="btn btn-gradient">تحديث</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section class="p-4 md:p-6">
+    <div class="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 gap-4">
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm opacity-80">إجمالي الحالات</div>
+        <div id="kpiTotal" class="text-3xl font-bold metric-number">—</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm opacity-80">عدد الدخول</div>
+        <div id="kpiAdmissions" class="text-3xl font-bold metric-number">—</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm opacity-80">عدد الخروج</div>
+        <div id="kpiDischarges" class="text-3xl font-bold metric-number">—</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm opacity-80">متوسط/وسيط العمر</div>
+        <div id="kpiAge" class="text-xl font-semibold metric-number">—</div>
+      </div>
+      <div class="glass p-4 rounded-2xl">
+        <div class="text-sm opacity-80">متوسط/وسيط LOS (يوم)</div>
+        <div id="kpiLOS" class="text-xl font-semibold metric-number">—</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section class="px-4 md:px-6">
+    <div class="grid lg:grid-cols-4 md:grid-cols-2 gap-4">
+      <div class="glass p-4 rounded-2xl">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">الجنس</h3>
+          <span class="badge badge-soft">Distribution</span>
+        </div>
+        <canvas id="chartGender" height="220"></canvas>
+      </div>
+
+      <div class="glass p-4 rounded-2xl">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">أكثر الجنسيات (Top 10)</h3>
+          <span class="badge badge-soft">Counts</span>
+        </div>
+        <canvas id="chartNationality" height="220"></canvas>
+      </div>
+
+      <div class="glass p-4 rounded-2xl">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">فئات العمر</h3>
+          <span class="badge badge-soft">Histogram</span>
+        </div>
+        <canvas id="chartAge" height="220"></canvas>
+      </div>
+
+      <div class="glass p-4 rounded-2xl">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">النتيجة النهائية (Outcome)</h3>
+          <span class="badge badge-soft">Status</span>
+        </div>
+        <canvas id="chartOutcome" height="220"></canvas>
+      </div>
+
+      <div class="glass p-4 rounded-2xl md:col-span-2 lg:col-span-2">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">الدخول حسب الشهر</h3>
+          <span class="badge badge-soft">Trend</span>
+        </div>
+        <canvas id="chartMonthly" height="260"></canvas>
+      </div>
+
+      <div class="glass p-4 rounded-2xl md:col-span-2 lg:col-span-2">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">توزيع مدة الإقامة LOS (أيام)</h3>
+          <span class="badge badge-soft">Histogram</span>
+        </div>
+        <canvas id="chartLOS" height="260"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Table -->
+  <section class="p-4 md:p-6">
+    <div class="glass p-4 md:p-6 rounded-2xl">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-table"></i>
+          <h3 class="font-semibold text-lg">كل الحالات (ضمن الإطار الزمني المحدد)</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="searchBox" type="text" placeholder="بحث بالاسم / التشخيص / MRN…" class="input input-bordered input-sm w-64" />
+          <button id="btnExport" class="btn btn-sm btn-outline"><i class="fa-solid fa-file-arrow-down ml-2"></i>تصدير CSV (المرشّح)</button>
+        </div>
+      </div>
+
+      <div class="overflow-auto">
+        <table class="table table-zebra">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>اسم المريض</th>
+              <th>MRN</th>
+              <th>العمر</th>
+              <th>الجنس</th>
+              <th>الجنسيّة</th>
+              <th class="min-w-40">تشخيص مختصر</th>
+              <th>تاريخ الدخول</th>
+              <th>تاريخ الخروج</th>
+              <th>Outcome</th>
+              <th>LOS (يوم)</th>
+              <th>تفاصيل</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="12" class="text-center py-8 opacity-70">جاري التحميل…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal -->
+  <dialog id="detailModal" class="modal">
+    <div class="modal-box max-w-4xl">
+      <h3 class="font-bold text-xl mb-2"><i class="fa-solid fa-user ml-2"></i><span id="mName">—</span></h3>
+      <div class="grid md:grid-cols-2 gap-4 text-sm">
+        <div class="glass p-3 rounded-xl">
+          <div><span class="opacity-70">MRN:</span> <span id="mMRN" class="metric-number"></span></div>
+          <div><span class="opacity-70">العمر:</span> <span id="mAge" class="metric-number"></span></div>
+          <div><span class="opacity-70">الجنس:</span> <span id="mGender"></span></div>
+          <div><span class="opacity-70">الجنسيّة:</span> <span id="mNationality"></span></div>
+          <div><span class="opacity-70">التمويل:</span> <span id="mFinance"></span></div>
+          <div><span class="opacity-70">APACHE:</span> <span id="mApache" class="metric-number"></span></div>
+        </div>
+        <div class="glass p-3 rounded-xl">
+          <div><span class="opacity-70">الدخول:</span> <span id="mAdm"></span></div>
+          <div><span class="opacity-70">الخروج:</span> <span id="mDis"></span></div>
+          <div><span class="opacity-70">LOS:</span> <span id="mLOS"></span></div>
+          <div><span class="opacity-70">جاء من:</span> <span id="mFrom"></span></div>
+          <div><span class="opacity-70">تحويل إلى:</span> <span id="mTo"></span></div>
+          <div><span class="opacity-70">سبب التحويل:</span> <span id="mReason"></span></div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <div class="glass p-3 rounded-xl">
+          <div class="font-semibold mb-2">التشخيص</div>
+          <div id="mDx" class="truncate-2"></div>
+        </div>
+      </div>
+
+      <div class="mt-4 grid md:grid-cols-2 gap-4 text-sm">
+        <div class="glass p-3 rounded-xl">
+          <div class="font-semibold mb-2">طاقم الدخول</div>
+          <div>أخصائي: <span id="mSpecIn"></span></div>
+          <div>ممرض: <span id="mNurseIn"></span></div>
+        </div>
+        <div class="glass p-3 rounded-xl">
+          <div class="font-semibold mb-2">طاقم الخروج</div>
+          <div>أخصائي: <span id="mSpecOut"></span></div>
+          <div>ممرض: <span id="mNurseOut"></span></div>
+          <div>Outcome: <span id="mOutcome"></span></div>
+        </div>
+      </div>
+
+      <div class="modal-action">
+        <form method="dialog">
+          <button class="btn">إغلاق</button>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Toast -->
+  <div id="toast" class="toast toast-end z-50"></div>
+
+  <script>
+    dayjs.extend(dayjs_plugin_customParseFormat);
+
+    /* =================== Config =================== */
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRoux4qBcO7AVFBr2CyBnCsCChI-ZIdKP3pSUdZE9--GXbyCu7YvPeWDR2lmFJiLAxDrL_6EpOXp1nC/pub?gid=1847737330&single=true&output=csv";
+
+    // Header mapping with robust trim (بعض العناوين فيها مسافات زائدة)
+    const COL = {
+      name: "Pt Name",
+      mrn: "Pt MRN",
+      age: "Pt Age",
+      gender: "Gender",
+      nationality: "Nationality",
+      finance: "Finance",
+      phone: "Pt Phone", // لن نعرضه
+      adm: "Date & Time of admission",
+      from: "Disposition from",
+      dx: "Pt Diagnosis",
+      apache: "APPACHE Score",
+      specIn: "Specialist at admission",
+      nurseIn: "Nurse at admission",
+      dis: "Date & Time of Discharge",
+      specOut: "Specialist at discharge",
+      nurseOut: "Nurse at Discharge",
+      outcome: "Outcome",
+      to: "Disposition To",
+      reason: "Reason For Transfer",
+      los: "LOS" // سنعيد حسابه بدقة
+    };
+
+    const DATE_FORMATS = [
+      "DD-MM-YYYY HH:mm",
+      "D-M-YYYY HH:mm",
+      "DD-MM-YYYY H:mm",
+      "MM-DD-YYYY HH:mm",
+      "M-D-YYYY HH:mm",
+      "YYYY-MM-DD HH:mm",
+      "YYYY/MM/DD HH:mm",
+      "DD/MM/YYYY HH:mm",
+      "D/M/YYYY HH:mm",
+      "MM/DD/YYYY HH:mm",
+      "M/D/YYYY HH:mm",
+      "YYYY-MM-DDTHH:mm",
+      "YYYY-MM-DD",
+      "DD-MM-YYYY",
+      "MM-DD-YYYY"
+    ];
+
+    /* =================== State =================== */
+    let rawRows = [];
+    let filteredRows = [];
+    let charts = {};
+    let dateKind = "adm"; // adm or dis
+
+    /* =================== Helpers =================== */
+    function normKey(k){ return String(k||"").replace(/\uFEFF/g,"").trim(); }
+    function getCell(row, key){
+      // Try exact, then try variants with extra spaces stripped
+      const target = normKey(COL[key]);
+      let v = row[target];
+      if (v == null) {
+        // try to find a key that equals ignoring double spaces
+        for (const kk in row) {
+          if (normKey(kk) === target) { v = row[kk]; break; }
+        }
+      }
+      return (v==null ? "" : String(v).trim());
+    }
+
+    function parseDateFlexible(s){
+      if(!s) return null;
+      const t = String(s).trim();
+      // handle excel-like serial?
+      if(!isNaN(t) && t !== "") {
+        // Possibly plain number; avoid wrong parse — skip
+      }
+      // Try ISO
+      const dIso = dayjs(t);
+      if (dIso.isValid() && /T|\d{4}-\d{2}-\d{2}/.test(t)) return dIso.toDate();
+
+      for(const fmt of DATE_FORMATS){
+        const d = dayjs(t, fmt, true);
+        if(d.isValid()) return d.toDate();
+      }
+      // Last chance: let Date try
+      const d2 = new Date(t);
+      return isNaN(d2.getTime()) ? null : d2;
+    }
+
+    function fmt(dt){
+      if(!dt) return "—";
+      const d = dayjs(dt);
+      return d.isValid() ? d.format("YYYY-MM-DD HH:mm") : "—";
+    }
+
+    function daysBetween(a,b){
+      if(!a || !b) return null;
+      const ms = (b.getTime() - a.getTime());
+      return ms < 0 ? null : (ms / (1000*60*60*24));
+    }
+
+    function num(v){
+      const n = parseFloat(String(v).replace(/[^\d.\-]/g,""));
+      return isNaN(n) ? null : n;
+    }
+
+    function toast(msg, type="info"){
+      const t = document.getElementById("toast");
+      const el = document.createElement("div");
+      el.className = `alert ${type==="success"?"alert-success":type==="error"?"alert-error":"alert-info"}`;
+      el.innerHTML = `<span>${msg}</span>`;
+      t.appendChild(el);
+      setTimeout(()=> el.remove(), 4000);
+    }
+
+    function quantiles(arr){
+      if(!arr.length) return {p50:null,p90:null};
+      const a = [...arr].sort((x,y)=>x-y);
+      const q = (p)=>{
+        const idx = (a.length-1)*p;
+        const lo = Math.floor(idx), hi = Math.ceil(idx);
+        if(lo===hi) return a[lo];
+        return a[lo] + (a[hi]-a[lo])*(idx-lo);
+      };
+      return {p50:q(0.5), p90:q(0.9)};
+    }
+
+    /* =================== Load CSV =================== */
+    async function loadCSV(){
+      return new Promise((resolve,reject)=>{
+        Papa.parse(CSV_URL, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: (res)=>{
+            resolve(res.data.map(r=>{
+              // Normalize keys
+              const nr = {};
+              Object.keys(r).forEach(k=> nr[normKey(k)] = r[k]);
+              return nr;
+            }));
+          },
+          error: reject
+        });
+      });
+    }
+
+    /* =================== Transform =================== */
+    function transform(rows){
+      return rows.map((r,i)=>{
+        const admStr = getCell(r,'adm');
+        const disStr = getCell(r,'dis');
+        const adm = parseDateFlexible(admStr);
+        const dis = parseDateFlexible(disStr);
+        const losDays = (dis && adm) ? daysBetween(adm, dis) : null;
+
+        return {
+          idx: i+1,
+          name: getCell(r,'name'),
+          mrn: getCell(r,'mrn'),
+          age: num(getCell(r,'age')),
+          gender: getCell(r,'gender'),
+          nationality: getCell(r,'nationality'),
+          finance: getCell(r,'finance'),
+          // phone: getCell(r,'phone'), // متعمدًا لا نستخدمه
+          adm, dis,
+          from: getCell(r,'from'),
+          dx: getCell(r,'dx'),
+          apache: num(getCell(r,'apache')),
+          specIn: getCell(r,'specIn'),
+          nurseIn: getCell(r,'nurseIn'),
+          specOut: getCell(r,'specOut'),
+          nurseOut: getCell(r,'nurseOut'),
+          outcome: getCell(r,'outcome'),
+          to: getCell(r,'to'),
+          reason: getCell(r,'reason'),
+          losDays
+        };
+      });
+    }
+
+    /* =================== Filtering =================== */
+    function applyFilter(){
+      const from = document.getElementById('dateFrom').value ? new Date(document.getElementById('dateFrom').value+" 00:00") : null;
+      const to   = document.getElementById('dateTo').value   ? new Date(document.getElementById('dateTo').value+" 23:59") : null;
+      const useDis = document.getElementById('dateDischarge').checked;
+      dateKind = useDis ? "dis" : "adm";
+
+      const q = document.getElementById('searchBox').value.trim().toLowerCase();
+
+      filteredRows = rawRows.filter(r=>{
+        const refDate = r[dateKind];
+        if(from && (!refDate || refDate < from)) return false;
+        if(to && (!refDate || refDate > to)) return false;
+
+        if(q){
+          const hay = [
+            r.name, r.mrn, r.dx, r.nationality, r.gender, r.outcome
+          ].join(" ").toLowerCase();
+          return hay.includes(q);
+        }
+        return true;
+      });
+
+      renderKPIs(filteredRows);
+      renderCharts(filteredRows);
+      renderTable(filteredRows);
+    }
+
+    /* =================== KPIs =================== */
+    function avg(arr){ return arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length) : null; }
+    function renderKPIs(rows){
+      // total
+      document.getElementById('kpiTotal').textContent = rows.length.toLocaleString('en-US');
+
+      // admissions & discharges (داخل الإطار فقط)
+      const admCount = rows.filter(r=> r.adm).length;
+      const disCount = rows.filter(r=> r.dis).length;
+      document.getElementById('kpiAdmissions').textContent = admCount.toLocaleString('en-US');
+      document.getElementById('kpiDischarges').textContent = disCount.toLocaleString('en-US');
+
+      // Age stats
+      const ages = rows.map(r=>r.age).filter(v=>v!=null && v>=0 && v<=120);
+      const {p50:ageMed} = quantiles(ages);
+      const ageAvg = avg(ages);
+      document.getElementById('kpiAge').textContent =
+        (ageAvg!=null?ageAvg.toFixed(1):"—") + " / " + (ageMed!=null?ageMed.toFixed(0):"—");
+
+      // LOS stats (محسوب لمن لديهم دخول وخروج)
+      const los = rows.map(r=>r.losDays).filter(v=>v!=null && v>=0 && isFinite(v));
+      const {p50:losMed} = quantiles(los);
+      const losAvg = avg(los);
+      document.getElementById('kpiLOS').textContent =
+        (losAvg!=null?losAvg.toFixed(1):"—") + " / " + (losMed!=null?losMed.toFixed(1):"—");
+    }
+
+    /* =================== Charts =================== */
+    function ensureChart(id, cfg){
+      if(charts[id]) { charts[id].destroy(); }
+      charts[id] = new Chart(document.getElementById(id), cfg);
+    }
+
+    function topNCounts(rows, field, n=10){
+      const map = new Map();
+      for(const r of rows){
+        const k = (r[field] || "غير محدد").trim() || "غير محدد";
+        map.set(k, (map.get(k) || 0) + 1);
+      }
+      return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
+    }
+
+    function renderCharts(rows){
+      // Gender donut
+      const g = topNCounts(rows, "gender", 10);
+      ensureChart("chartGender", {
+        type: "doughnut",
+        data: { labels: g.map(x=>x[0]), datasets: [{ data: g.map(x=>x[1]) }] },
+        options: { plugins:{ legend:{ position:'bottom' }}, maintainAspectRatio:false }
+      });
+
+      // Nationality top10
+      const n = topNCounts(rows, "nationality", 10);
+      ensureChart("chartNationality", {
+        type: "bar",
+        data: { labels: n.map(x=>x[0]), datasets: [{ data: n.map(x=>x[1]) }] },
+        options: {
+          plugins:{ legend:{ display:false }, tooltip:{ enabled:true } },
+          scales:{ x:{ ticks:{ autoSkip:false }}, y:{ beginAtZero:true } },
+          maintainAspectRatio:false
+        }
+      });
+
+      // Age histogram (0-17, 18-39, 40-59, 60-79, 80+)
+      const bins = [0,18,40,60,80,200];
+      const labels = ["<18","18-39","40-59","60-79","80+"];
+      const counts = [0,0,0,0,0];
+      rows.forEach(r=>{
+        const a = r.age;
+        if(a!=null && a>=0 && a<=150){
+          for(let i=0;i<bins.length-1;i++){
+            if(a>=bins[i] && a<bins[i+1]) { counts[i]++; break; }
+          }
+        }
+      });
+      ensureChart("chartAge", {
+        type: "bar",
+        data: { labels, datasets: [{ data: counts }] },
+        options: {
+          plugins:{ legend:{ display:false } },
+          scales:{ y:{ beginAtZero:true } },
+          maintainAspectRatio:false
+        }
+      });
+
+      // Outcome distribution
+      const o = topNCounts(rows, "outcome", 10);
+      ensureChart("chartOutcome", {
+        type: "bar",
+        data: { labels: o.map(x=>x[0]), datasets: [{ data: o.map(x=>x[1]) }] },
+        options: {
+          plugins:{ legend:{ display:false } },
+          scales:{ y:{ beginAtZero:true } },
+          maintainAspectRatio:false
+        }
+      });
+
+      // Monthly admissions trend
+      const monthMap = new Map();
+      rows.forEach(r=>{
+        if(!r.adm) return;
+        const key = dayjs(r.adm).format("YYYY-MM");
+        monthMap.set(key, (monthMap.get(key)||0)+1);
+      });
+      const months = [...monthMap.keys()].sort();
+      ensureChart("chartMonthly", {
+        type: "line",
+        data: {
+          labels: months,
+          datasets: [{ data: months.map(m=>monthMap.get(m)), fill:false, tension:0.25 }]
+        },
+        options: {
+          plugins:{ legend:{ display:false } },
+          scales:{ y:{ beginAtZero:true } },
+          maintainAspectRatio:false
+        }
+      });
+
+      // LOS histogram (0-1, 1-3, 3-7, 7-14, 14+)
+      const losBins = [0,1,3,7,14,1e9];
+      const losLabels = ["<1","1-3","3-7","7-14","14+"];
+      const losCounts = [0,0,0,0,0];
+      rows.forEach(r=>{
+        const d = r.losDays;
+        if(d!=null && d>=0){
+          for(let i=0;i<losBins.length-1;i++){
+            if(d>=losBins[i] && d<losBins[i+1]) { losCounts[i]++; break; }
+          }
+        }
+      });
+      ensureChart("chartLOS", {
+        type: "bar",
+        data: { labels: losLabels, datasets: [{ data: losCounts }] },
+        options: { plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } }, maintainAspectRatio:false }
+      });
+    }
+
+    /* =================== Table =================== */
+    function renderTable(rows){
+      const tb = document.getElementById('tableBody');
+      tb.innerHTML = "";
+      if(!rows.length){
+        tb.innerHTML = `<tr><td colspan="12" class="text-center py-8 opacity-70">لا توجد بيانات ضمن الإطار المختار</td></tr>`;
+        return;
+      }
+      rows.forEach((r,idx)=>{
+        const tr = document.createElement('tr');
+        const shortDx = (r.dx || "").slice(0,120);
+        tr.innerHTML = `
+          <td class="metric-number">${idx+1}</td>
+          <td>${r.name||"—"}</td>
+          <td class="metric-number">${r.mrn||"—"}</td>
+          <td class="metric-number">${r.age!=null?r.age:"—"}</td>
+          <td>${r.gender||"—"}</td>
+          <td>${r.nationality||"—"}</td>
+          <td><span class="truncate-2 block max-w-72" title="${(r.dx||"").replace(/"/g,'&quot;')}">${shortDx}${r.dx && r.dx.length>120?'…':''}</span></td>
+          <td>${fmt(r.adm)}</td>
+          <td>${fmt(r.dis)}</td>
+          <td>${r.outcome||"—"}</td>
+          <td class="metric-number">${r.losDays!=null? r.losDays.toFixed(1): "—"}</td>
+          <td><button class="btn btn-xs btn-gradient" data-row="${idx}">عرض</button></td>
+        `;
+        tb.appendChild(tr);
+      });
+
+      // bind modal buttons
+      tb.querySelectorAll('button[data-row]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          const r = rows[parseInt(e.currentTarget.getAttribute('data-row'))];
+          openModal(r);
+        });
+      });
+    }
+
+    function openModal(r){
+      document.getElementById('mName').textContent = r.name||"—";
+      document.getElementById('mMRN').textContent = r.mrn||"—";
+      document.getElementById('mAge').textContent = r.age!=null?r.age:"—";
+      document.getElementById('mGender').textContent = r.gender||"—";
+      document.getElementById('mNationality').textContent = r.nationality||"—";
+      document.getElementById('mFinance').textContent = r.finance||"—";
+      document.getElementById('mApache').textContent = r.apache!=null?r.apache:"—";
+      document.getElementById('mAdm').textContent = fmt(r.adm);
+      document.getElementById('mDis').textContent = fmt(r.dis);
+      document.getElementById('mLOS').textContent = r.losDays!=null? r.losDays.toFixed(2)+" يوم":"—";
+      document.getElementById('mFrom').textContent = r.from||"—";
+      document.getElementById('mTo').textContent = r.to||"—";
+      document.getElementById('mReason').textContent = r.reason||"—";
+      document.getElementById('mDx').textContent = r.dx||"—";
+      document.getElementById('mSpecIn').textContent = r.specIn||"—";
+      document.getElementById('mNurseIn').textContent = r.nurseIn||"—";
+      document.getElementById('mSpecOut').textContent = r.specOut||"—";
+      document.getElementById('mNurseOut').textContent = r.nurseOut||"—";
+      document.getElementById('mOutcome').textContent = r.outcome||"—";
+      document.getElementById('detailModal').showModal();
+    }
+
+    /* =================== Export =================== */
+    function exportCSV(rows){
+      if(!rows.length){ toast("لا يوجد بيانات للتصدير","error"); return; }
+      const headers = [
+        "Pt Name","Pt MRN","Pt Age","Gender","Nationality","Finance",
+        "Date & Time of admission","Disposition from","Pt Diagnosis","APPACHE Score",
+        "Specialist at admission","Nurse at admission","Date & Time of Discharge",
+        "Specialist at discharge","Nurse at Discharge","Outcome","Disposition To",
+        "Reason For Transfer","LOS (calc days)"
+      ];
+      const data = rows.map(r=>[
+        r.name, r.mrn, r.age??"", r.gender, r.nationality, r.finance,
+        fmt(r.adm), r.from, r.dx, r.apache??"",
+        r.specIn, r.nurseIn, fmt(r.dis),
+        r.specOut, r.nurseOut, r.outcome, r.to, r.reason,
+        r.losDays!=null? r.losDays.toFixed(2):""
+      ]);
+      const csv = [headers.join(","), ...data.map(a=> a.map(x=>{
+        const s = (x==null?"":String(x));
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+      }).join(","))].join("\n");
+
+      const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "icu_filtered.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("تم تنزيل CSV بنجاح","success");
+    }
+
+    /* =================== Init =================== */
+    async function init(){
+      try{
+        const rows = await loadCSV();
+        rawRows = transform(rows);
+
+        // Default dates: آخر 90 يوم حسب "الدخول"
+        const now = dayjs();
+        const from = now.subtract(90,'day').format("YYYY-MM-DD");
+        const to = now.format("YYYY-MM-DD");
+        document.getElementById('dateFrom').value = from;
+        document.getElementById('dateTo').value = to;
+        document.getElementById('dateAdmission').checked = true;
+
+        applyFilter();
+        toast("تم تحميل البيانات","success");
+      }catch(err){
+        console.error(err);
+        toast("تعذّر تحميل الملف — تأكد من الرابط أو الشبكة","error");
+      }
+    }
+
+    /* =================== Events =================== */
+    document.getElementById('btnRefresh').addEventListener('click', applyFilter);
+    document.getElementById('btnExport').addEventListener('click', ()=> exportCSV(filteredRows));
+    document.getElementById('searchBox').addEventListener('input', ()=>{
+      // فقط فلترة نصية سريعة بدون إعادة بناء كل شيء
+      applyFilter();
+    });
+    document.getElementById('dateAdmission').addEventListener('change', applyFilter);
+    document.getElementById('dateDischarge').addEventListener('change', applyFilter);
+
+    // Quick ranges
+    function setRange(days){
+      const now = dayjs();
+      document.getElementById('dateTo').value = now.format("YYYY-MM-DD");
+      document.getElementById('dateFrom').value = now.subtract(days,'day').format("YYYY-MM-DD");
+      applyFilter();
+    }
+    document.getElementById('btnLast7').addEventListener('click', ()=> setRange(7));
+    document.getElementById('btnLast30').addEventListener('click', ()=> setRange(30));
+    document.getElementById('btnQtr').addEventListener('click', ()=> setRange(90));
+    document.getElementById('btnYTD').addEventListener('click', ()=>{
+      const now = dayjs();
+      document.getElementById('dateFrom').value = now.startOf('year').format("YYYY-MM-DD");
+      document.getElementById('dateTo').value = now.format("YYYY-MM-DD");
+      applyFilter();
+    });
+    document.getElementById('btnAll').addEventListener('click', ()=>{
+      // احسب أقل/أعلى تاريخ متاح من البيانات
+      const dates = rawRows.map(r=>r[dateKind]).filter(Boolean).map(d=>dayjs(d));
+      if(dates.length){
+        const min = dayjs.min(dates).format("YYYY-MM-DD");
+        const max = dayjs.max(dates).format("YYYY-MM-DD");
+        document.getElementById('dateFrom').value = min;
+        document.getElementById('dateTo').value = max;
+      } else {
+        document.getElementById('dateFrom').value = "";
+        document.getElementById('dateTo').value = "";
+      }
+      applyFilter();
+    });
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
