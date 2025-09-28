@@ -16,18 +16,21 @@
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
 
+  <!-- Google Font (اختياري) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+
   <style>
     :root {
       --glass: rgba(255,255,255,0.06);
       --glass-bd: rgba(255,255,255,0.15);
-      --grad-1: #0f172a; /* slate-900 */
-      --grad-2: #0b2b40; /* deep blue */
-      --grad-3: #0ea5e9; /* sky-500 */
+      --grad-1: #0f172a;
+      --grad-2: #0b2b40;
     }
     body {
       font-family: "Cairo", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-      background: radial-gradient(1200px 800px at 10% 0%, rgba(14,165,233,0.15), transparent 60%),
-                  linear-gradient(135deg, var(--grad-1), var(--grad-2));
+      background:
+        radial-gradient(1200px 800px at 10% 0%, rgba(14,165,233,0.15), transparent 60%),
+        linear-gradient(135deg, var(--grad-1), var(--grad-2));
       min-height: 100vh;
     }
     .glass {
@@ -41,29 +44,19 @@
       background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(14,165,233,0.05));
       border: 1px solid rgba(14,165,233,0.25);
     }
-    .metric-number {
-      direction: ltr; /* عشان الأرقام تبان صح */
-      font-variant-numeric: tabular-nums;
-    }
-    .btn-gradient {
-      background: linear-gradient(135deg, #1e3a5f, #0f172a 60%, #0ea5e9);
-      border: none;
-      color: #fff;
-    }
-    .badge-soft {
-      background: rgba(14,165,233,0.15);
-      border: 1px solid rgba(14,165,233,0.35);
-      color: #e5f6ff;
-    }
+    .metric-number { direction: ltr; font-variant-numeric: tabular-nums; }
+    .btn-gradient { background: linear-gradient(135deg, #1e3a5f, #0f172a 60%, #0ea5e9); border: none; color: #fff; }
+    .badge-soft { background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.35); color: #e5f6ff; }
     .table :where(th, td) { white-space: nowrap; }
-    .truncate-2 {
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-      white-space: normal;
-    }
-  </style>
+    .truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
 
-  <!-- Google Font (optional) -->
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    /* ثبّت ارتفاع بطاقات الرسوم */
+    .chart-card { display:flex; flex-direction: column; }
+    .chart-wrap { position: relative; width: 100%; height: 280px; }
+    @media (min-width: 768px){ .chart-wrap{ height: 300px; } }
+    @media (min-width: 1024px){ .chart-wrap{ height: 320px; } }
+    .chart-wrap canvas{ position:absolute; inset:0; width:100% !important; height:100% !important; }
+  </style>
 </head>
 <body class="text-slate-100">
   <!-- Header -->
@@ -75,7 +68,7 @@
         </div>
         <div>
           <h1 class="text-2xl md:text-3xl font-bold">لوحة العناية المركزة — ICU Dashboard</h1>
-          <p class="opacity-70">تحليلات فورية من ملف Google Sheets (بدون إظهار أرقام الهواتف).</p>
+          <p class="opacity-70">تحليلات مباشرة من Google Sheets (بدون عرض أرقام الهواتف).</p>
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -84,6 +77,7 @@
         <button id="btnQtr"    class="btn btn-sm btn-gradient">آخر 90 يوم</button>
         <button id="btnYTD"    class="btn btn-sm btn-outline">منذ بداية السنة</button>
         <button id="btnAll"    class="btn btn-sm btn-outline">الكل</button>
+        <button id="btnToggleCharts" class="btn btn-sm btn-outline">إخفاء/إظهار الرسوم</button>
       </div>
     </div>
   </header>
@@ -141,55 +135,75 @@
   </section>
 
   <!-- Charts -->
-  <section class="px-4 md:px-6">
+  <section id="chartsSection" class="px-4 md:px-6">
     <div class="grid lg:grid-cols-4 md:grid-cols-2 gap-4">
-      <div class="glass p-4 rounded-2xl">
+      <div class="glass p-4 rounded-2xl chart-card">
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold">الجنس</h3>
-          <span class="badge badge-soft">Distribution</span>
+          <span class="badge badge-soft">Distribution • اضغط للتصفية</span>
         </div>
-        <canvas id="chartGender" height="220"></canvas>
+        <div class="chart-wrap"><canvas id="chartGender"></canvas></div>
       </div>
 
-      <div class="glass p-4 rounded-2xl">
+      <div class="glass p-4 rounded-2xl chart-card">
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold">أكثر الجنسيات (Top 10)</h3>
-          <span class="badge badge-soft">Counts</span>
+          <span class="badge badge-soft">Counts • اضغط للتصفية</span>
         </div>
-        <canvas id="chartNationality" height="220"></canvas>
+        <div class="chart-wrap"><canvas id="chartNationality"></canvas></div>
       </div>
 
-      <div class="glass p-4 rounded-2xl">
+      <div class="glass p-4 rounded-2xl chart-card">
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold">فئات العمر</h3>
-          <span class="badge badge-soft">Histogram</span>
+          <span class="badge badge-soft">Histogram • اضغط للتصفية</span>
         </div>
-        <canvas id="chartAge" height="220"></canvas>
+        <div class="chart-wrap"><canvas id="chartAge"></canvas></div>
       </div>
 
-      <div class="glass p-4 rounded-2xl">
+      <div class="glass p-4 rounded-2xl chart-card">
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold">النتيجة النهائية (Outcome)</h3>
-          <span class="badge badge-soft">Status</span>
+          <span class="badge badge-soft">Status • اضغط للتصفية</span>
         </div>
-        <canvas id="chartOutcome" height="220"></canvas>
+        <div class="chart-wrap"><canvas id="chartOutcome"></canvas></div>
       </div>
 
-      <div class="glass p-4 rounded-2xl md:col-span-2 lg:col-span-2">
+      <div class="glass p-4 rounded-2xl chart-card md:col-span-2 lg:col-span-2">
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold">الدخول حسب الشهر</h3>
-          <span class="badge badge-soft">Trend</span>
+          <span class="badge badge-soft">Trend • اضغط للتصفية</span>
         </div>
-        <canvas id="chartMonthly" height="260"></canvas>
+        <div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
       </div>
 
-      <div class="glass p-4 rounded-2xl md:col-span-2 lg:col-span-2">
+      <div class="glass p-4 rounded-2xl chart-card md:col-span-2 lg:col-span-2">
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-semibold">توزيع مدة الإقامة LOS (أيام)</h3>
-          <span class="badge badge-soft">Histogram</span>
+          <span class="badge badge-soft">Histogram • اضغط للتصفية</span>
         </div>
-        <canvas id="chartLOS" height="260"></canvas>
+        <div class="chart-wrap"><canvas id="chartLOS"></canvas></div>
       </div>
+
+      <!-- جديد: دخول يومي -->
+      <div class="glass p-4 rounded-2xl chart-card md:col-span-2 lg:col-span-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">الدخول اليومي (Admissions per day)</h3>
+          <span class="badge badge-soft">Daily • اضغط للتصفية</span>
+        </div>
+        <div class="chart-wrap"><canvas id="chartDaily"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Chart filter badge -->
+  <section class="px-4 md:px-6 mt-4">
+    <div id="chartFilterBar" class="glass p-3 rounded-xl hidden items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="badge badge-soft">تصفية من رسم</span>
+        <span id="chartFilterDesc" class="opacity-90"></span>
+      </div>
+      <button id="btnClearChartFilter" class="btn btn-xs btn-outline">مسح التصفية</button>
     </div>
   </section>
 
@@ -230,6 +244,33 @@
           </tbody>
         </table>
       </div>
+    </div>
+  </section>
+
+  <!-- Summaries & Lists -->
+  <section class="p-4 md:p-6 grid md:grid-cols-3 gap-4">
+    <div class="glass p-4 rounded-2xl">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold">الحالات النشطة (لم تُغلق)</h3>
+        <span id="activeCount" class="badge badge-soft">—</span>
+      </div>
+      <ul id="activeList" class="space-y-2 text-sm"></ul>
+    </div>
+
+    <div class="glass p-4 rounded-2xl">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold">قائمة الوفيات (Expired)</h3>
+        <span id="expiredCount" class="badge badge-soft">—</span>
+      </div>
+      <ul id="expiredList" class="space-y-2 text-sm"></ul>
+    </div>
+
+    <div class="glass p-4 rounded-2xl">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-semibold">المحوّلون (Transferred) & أسباب التحويل</h3>
+        <span id="transferredCount" class="badge badge-soft">—</span>
+      </div>
+      <div id="transferReasons" class="text-sm space-y-1"></div>
     </div>
   </section>
 
@@ -293,107 +334,74 @@
 
     /* =================== Config =================== */
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRoux4qBcO7AVFBr2CyBnCsCChI-ZIdKP3pSUdZE9--GXbyCu7YvPeWDR2lmFJiLAxDrL_6EpOXp1nC/pub?gid=1847737330&single=true&output=csv";
-
-    // Header mapping with robust trim (بعض العناوين فيها مسافات زائدة)
     const COL = {
-      name: "Pt Name",
-      mrn: "Pt MRN",
-      age: "Pt Age",
-      gender: "Gender",
-      nationality: "Nationality",
-      finance: "Finance",
-      phone: "Pt Phone", // لن نعرضه
-      adm: "Date & Time of admission",
-      from: "Disposition from",
-      dx: "Pt Diagnosis",
-      apache: "APPACHE Score",
-      specIn: "Specialist at admission",
-      nurseIn: "Nurse at admission",
-      dis: "Date & Time of Discharge",
-      specOut: "Specialist at discharge",
-      nurseOut: "Nurse at Discharge",
-      outcome: "Outcome",
-      to: "Disposition To",
-      reason: "Reason For Transfer",
-      los: "LOS" // سنعيد حسابه بدقة
+      name: "Pt Name", mrn: "Pt MRN", age: "Pt Age", gender: "Gender",
+      nationality: "Nationality", finance: "Finance", phone: "Pt Phone",
+      adm: "Date & Time of admission", from: "Disposition from", dx: "Pt Diagnosis",
+      apache: "APPACHE Score", specIn: "Specialist at admission", nurseIn: "Nurse at admission",
+      dis: "Date & Time of Discharge", specOut: "Specialist at discharge", nurseOut: "Nurse at Discharge",
+      outcome: "Outcome", to: "Disposition To", reason: "Reason For Transfer", los: "LOS"
     };
-
-    const DATE_FORMATS = [
-      "DD-MM-YYYY HH:mm",
-      "D-M-YYYY HH:mm",
-      "DD-MM-YYYY H:mm",
-      "MM-DD-YYYY HH:mm",
-      "M-D-YYYY HH:mm",
-      "YYYY-MM-DD HH:mm",
-      "YYYY/MM/DD HH:mm",
-      "DD/MM/YYYY HH:mm",
-      "D/M/YYYY HH:mm",
-      "MM/DD/YYYY HH:mm",
-      "M/D/YYYY HH:mm",
-      "YYYY-MM-DDTHH:mm",
-      "YYYY-MM-DD",
-      "DD-MM-YYYY",
-      "MM-DD-YYYY"
-    ];
 
     /* =================== State =================== */
     let rawRows = [];
     let filteredRows = [];
     let charts = {};
     let dateKind = "adm"; // adm or dis
+    let chartsHidden = false;
+
+    // تصفية قادمة من ضغط على رسم
+    let chartFilter = null; // { type, label, predicate(row) }
 
     /* =================== Helpers =================== */
-    function normKey(k){ return String(k||"").replace(/\uFEFF/g,"").trim(); }
+    function normKey(k){
+      return String(k||"").replace(/[\uFEFF\u00A0]/g,"").replace(/\s+/g," ").trim();
+    }
     function getCell(row, key){
-      // Try exact, then try variants with extra spaces stripped
       const target = normKey(COL[key]);
       let v = row[target];
-      if (v == null) {
-        // try to find a key that equals ignoring double spaces
-        for (const kk in row) {
-          if (normKey(kk) === target) { v = row[kk]; break; }
-        }
-      }
+      if (v == null) for (const kk in row) if (normKey(kk) === target) { v = row[kk]; break; }
       return (v==null ? "" : String(v).trim());
+    }
+
+    // أرقام عربية -> لاتينية + ص/م -> AM/PM
+    function toEnglishDigitsAndMeridiem(s){
+      if(!s) return "";
+      const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','٫':'.','٬':','};
+      let out = String(s).replace(/[٠-٩٫٬]/g, ch => map[ch] ?? ch);
+      out = out.replace(/\s*[صص]\.?/gi, ' AM').replace(/\s*[مم]\.?/gi, ' PM');
+      out = out.replace(/صباحاً?|صباحا|صباح/gi, ' AM').replace(/مساءً?|مساء|المساء/gi, ' PM');
+      return out.trim();
     }
 
     function parseDateFlexible(s){
       if(!s) return null;
-      const t = String(s).trim();
-      // handle excel-like serial?
-      if(!isNaN(t) && t !== "") {
-        // Possibly plain number; avoid wrong parse — skip
-      }
-      // Try ISO
-      const dIso = dayjs(t);
-      if (dIso.isValid() && /T|\d{4}-\d{2}-\d{2}/.test(t)) return dIso.toDate();
+      const t0 = toEnglishDigitsAndMeridiem(String(s).trim());
+      if(!t0) return null;
 
-      for(const fmt of DATE_FORMATS){
-        const d = dayjs(t, fmt, true);
-        if(d.isValid()) return d.toDate();
+      if(/^\d+(\.\d+)?$/.test(t0)){ // Excel serial
+        const n = Number(t0);
+        if(n > 20000 && n < 100000){ const base = Date.UTC(1899,11,30); return new Date(base + n * 86400000); }
       }
-      // Last chance: let Date try
-      const d2 = new Date(t);
+      if(/T|\d{4}-\d{2}-\d{2}/.test(t0)){ const d = dayjs(t0); if(d.isValid()) return d.toDate(); }
+
+      const FMT = [
+        "DD-MM-YYYY HH:mm","D-M-YYYY HH:mm","DD-MM-YYYY H:mm",
+        "YYYY-MM-DD HH:mm","YYYY/MM/DD HH:mm","YYYY/M/D HH:mm",
+        "DD/MM/YYYY HH:mm","D/M/YYYY HH:mm","DD/MM/YYYY H:mm",
+        "MM/DD/YYYY HH:mm","M/D/YYYY HH:mm","MM/DD/YYYY h:mm A","M/D/YYYY h:mm A",
+        "YYYY-MM-DDTHH:mm","YYYY-MM-DD","DD-MM-YYYY","MM-DD-YYYY","DD/MM/YYYY","MM/DD/YYYY",
+        "h:mm:ss A YYYY/MM/DD","h:mm A YYYY/MM/DD","h:mm:ss A YYYY-M-D","h:mm A YYYY-M-D",
+        "h:mm:ss A DD/MM/YYYY","h:mm A DD/MM/YYYY"
+      ];
+      for(const f of FMT){ const d = dayjs(t0, f, true); if(d.isValid()) return d.toDate(); }
+      const d2 = new Date(t0);
       return isNaN(d2.getTime()) ? null : d2;
     }
 
-    function fmt(dt){
-      if(!dt) return "—";
-      const d = dayjs(dt);
-      return d.isValid() ? d.format("YYYY-MM-DD HH:mm") : "—";
-    }
-
-    function daysBetween(a,b){
-      if(!a || !b) return null;
-      const ms = (b.getTime() - a.getTime());
-      return ms < 0 ? null : (ms / (1000*60*60*24));
-    }
-
-    function num(v){
-      const n = parseFloat(String(v).replace(/[^\d.\-]/g,""));
-      return isNaN(n) ? null : n;
-    }
-
+    function fmt(dt){ if(!dt) return "—"; const d = dayjs(dt); return d.isValid()? d.format("YYYY-MM-DD HH:mm") : "—"; }
+    function daysBetween(a,b){ if(!a||!b) return null; const ms=b.getTime()-a.getTime(); return ms<0?null: ms/86400000; }
+    function num(v){ const n=parseFloat(String(v).replace(/[^\d.\-]/g,"")); return isNaN(n)?null:n; }
     function toast(msg, type="info"){
       const t = document.getElementById("toast");
       const el = document.createElement("div");
@@ -402,32 +410,23 @@
       t.appendChild(el);
       setTimeout(()=> el.remove(), 4000);
     }
-
     function quantiles(arr){
       if(!arr.length) return {p50:null,p90:null};
       const a = [...arr].sort((x,y)=>x-y);
-      const q = (p)=>{
-        const idx = (a.length-1)*p;
-        const lo = Math.floor(idx), hi = Math.ceil(idx);
-        if(lo===hi) return a[lo];
-        return a[lo] + (a[hi]-a[lo])*(idx-lo);
-      };
+      const q = (p)=>{ const idx=(a.length-1)*p, lo=Math.floor(idx), hi=Math.ceil(idx); return lo===hi? a[lo] : a[lo]+(a[hi]-a[lo])*(idx-lo); };
       return {p50:q(0.5), p90:q(0.9)};
     }
+    function avg(arr){ return arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length) : null; }
+    function palette(n){ return Array.from({length:n}, (_,i)=>`hsl(${(i*47)%360} 70% 55%)`); }
 
     /* =================== Load CSV =================== */
     async function loadCSV(){
       return new Promise((resolve,reject)=>{
         Papa.parse(CSV_URL, {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
+          download: true, header: true, skipEmptyLines: true,
           complete: (res)=>{
             resolve(res.data.map(r=>{
-              // Normalize keys
-              const nr = {};
-              Object.keys(r).forEach(k=> nr[normKey(k)] = r[k]);
-              return nr;
+              const nr = {}; Object.keys(r).forEach(k=> nr[normKey(k)] = r[k]); return nr;
             }));
           },
           error: reject
@@ -438,12 +437,9 @@
     /* =================== Transform =================== */
     function transform(rows){
       return rows.map((r,i)=>{
-        const admStr = getCell(r,'adm');
-        const disStr = getCell(r,'dis');
-        const adm = parseDateFlexible(admStr);
-        const dis = parseDateFlexible(disStr);
+        const adm = parseDateFlexible(getCell(r,'adm'));
+        const dis = parseDateFlexible(getCell(r,'dis'));
         const losDays = (dis && adm) ? daysBetween(adm, dis) : null;
-
         return {
           idx: i+1,
           name: getCell(r,'name'),
@@ -452,7 +448,6 @@
           gender: getCell(r,'gender'),
           nationality: getCell(r,'nationality'),
           finance: getCell(r,'finance'),
-          // phone: getCell(r,'phone'), // متعمدًا لا نستخدمه
           adm, dis,
           from: getCell(r,'from'),
           dx: getCell(r,'dx'),
@@ -469,74 +464,119 @@
       });
     }
 
+    /* =================== Derived & Lists =================== */
+    function renderLists(rows){
+      // Active: Outcome فاضي
+      const active = rows.filter(r => !r.outcome || !r.outcome.trim());
+      document.getElementById('activeCount').textContent = active.length;
+      const now = new Date();
+      const ulA = document.getElementById('activeList'); ulA.innerHTML = "";
+      active.forEach((r, i)=>{
+        const currentLOS = r.adm ? daysBetween(r.adm, now) : null;
+        const li = document.createElement('li');
+        li.className = "glass p-2 rounded-lg flex items-center justify-between";
+        li.innerHTML = `
+          <div class="min-w-0">
+            <div class="font-semibold truncate">${r.name||"—"}</div>
+            <div class="text-xs opacity-80">MRN: <span class="metric-number">${r.mrn||"—"}</span> • دخول: ${fmt(r.adm)} • LOS: ${currentLOS!=null?currentLOS.toFixed(1):"—"} يوم</div>
+          </div>
+          <button class="btn btn-xs btn-gradient" data-view="${i}">عرض</button>
+        `;
+        li.querySelector('button').addEventListener('click', ()=> openModal(r));
+        ulA.appendChild(li);
+      });
+
+      // Expired
+      const expired = rows.filter(r => (r.outcome||"").toLowerCase().includes("expired"));
+      document.getElementById('expiredCount').textContent = expired.length;
+      const ulE = document.getElementById('expiredList'); ulE.innerHTML = "";
+      expired.forEach((r,i)=>{
+        const li = document.createElement('li');
+        li.className = "glass p-2 rounded-lg flex items-center justify-between";
+        li.innerHTML = `
+          <div class="min-w-0">
+            <div class="font-semibold truncate">${r.name||"—"}</div>
+            <div class="text-xs opacity-80">MRN: <span class="metric-number">${r.mrn||"—"}</span> • دخول: ${fmt(r.adm)} • خروج: ${fmt(r.dis)}</div>
+          </div>
+          <button class="btn btn-xs btn-gradient" data-view="${i}">عرض</button>
+        `;
+        li.querySelector('button').addEventListener('click', ()=> openModal(r));
+        ulE.appendChild(li);
+      });
+
+      // Transferred + reasons
+      const transferred = rows.filter(r => (r.outcome||"").toLowerCase().includes("transfer"));
+      document.getElementById('transferredCount').textContent = transferred.length;
+      const reasonsMap = new Map();
+      transferred.forEach(r=>{
+        const key = (r.reason||"غير مذكور").trim() || "غير مذكور";
+        reasonsMap.set(key, (reasonsMap.get(key)||0)+1);
+      });
+      const reasons = [...reasonsMap.entries()].sort((a,b)=>b[1]-a[1]);
+      const cont = document.getElementById('transferReasons');
+      cont.innerHTML = reasons.length ? reasons.map(([k,v])=>`<div>• ${k} <span class="badge badge-soft ml-2">${v}</span></div>`).join("") : `<div class="opacity-70">لا توجد أسباب مسجلة.</div>`;
+    }
+
     /* =================== Filtering =================== */
     function applyFilter(){
       const from = document.getElementById('dateFrom').value ? new Date(document.getElementById('dateFrom').value+" 00:00") : null;
       const to   = document.getElementById('dateTo').value   ? new Date(document.getElementById('dateTo').value+" 23:59") : null;
-      const useDis = document.getElementById('dateDischarge').checked;
-      dateKind = useDis ? "dis" : "adm";
-
+      dateKind = document.getElementById('dateDischarge').checked ? "dis" : "adm";
       const q = document.getElementById('searchBox').value.trim().toLowerCase();
 
       filteredRows = rawRows.filter(r=>{
         const refDate = r[dateKind];
         if(from && (!refDate || refDate < from)) return false;
         if(to && (!refDate || refDate > to)) return false;
-
         if(q){
-          const hay = [
-            r.name, r.mrn, r.dx, r.nationality, r.gender, r.outcome
-          ].join(" ").toLowerCase();
-          return hay.includes(q);
+          const hay = [r.name, r.mrn, r.dx, r.nationality, r.gender, r.outcome].join(" ").toLowerCase();
+          if(!hay.includes(q)) return false;
         }
+        if(chartFilter && chartFilter.predicate && !chartFilter.predicate(r)) return false;
         return true;
       });
 
       renderKPIs(filteredRows);
-      renderCharts(filteredRows);
+      if(!chartsHidden) renderCharts(filteredRows);
       renderTable(filteredRows);
+      renderLists(filteredRows);
     }
 
     /* =================== KPIs =================== */
-    function avg(arr){ return arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length) : null; }
     function renderKPIs(rows){
-      // total
       document.getElementById('kpiTotal').textContent = rows.length.toLocaleString('en-US');
-
-      // admissions & discharges (داخل الإطار فقط)
       const admCount = rows.filter(r=> r.adm).length;
       const disCount = rows.filter(r=> r.dis).length;
       document.getElementById('kpiAdmissions').textContent = admCount.toLocaleString('en-US');
       document.getElementById('kpiDischarges').textContent = disCount.toLocaleString('en-US');
 
-      // Age stats
       const ages = rows.map(r=>r.age).filter(v=>v!=null && v>=0 && v<=120);
-      const {p50:ageMed} = quantiles(ages);
-      const ageAvg = avg(ages);
-      document.getElementById('kpiAge').textContent =
-        (ageAvg!=null?ageAvg.toFixed(1):"—") + " / " + (ageMed!=null?ageMed.toFixed(0):"—");
+      const {p50:ageMed} = quantiles(ages); const ageAvg = avg(ages);
+      document.getElementById('kpiAge').textContent = (ageAvg!=null?ageAvg.toFixed(1):"—") + " / " + (ageMed!=null?ageMed.toFixed(0):"—");
 
-      // LOS stats (محسوب لمن لديهم دخول وخروج)
       const los = rows.map(r=>r.losDays).filter(v=>v!=null && v>=0 && isFinite(v));
-      const {p50:losMed} = quantiles(los);
-      const losAvg = avg(los);
-      document.getElementById('kpiLOS').textContent =
-        (losAvg!=null?losAvg.toFixed(1):"—") + " / " + (losMed!=null?losMed.toFixed(1):"—");
+      const {p50:losMed} = quantiles(los); const losAvg = avg(los);
+      document.getElementById('kpiLOS').textContent = (losAvg!=null?losAvg.toFixed(1):"—") + " / " + (losMed!=null?losMed.toFixed(1):"—");
     }
 
     /* =================== Charts =================== */
-    function ensureChart(id, cfg){
-      if(charts[id]) { charts[id].destroy(); }
-      charts[id] = new Chart(document.getElementById(id), cfg);
-    }
-
+    function ensureChart(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
     function topNCounts(rows, field, n=10){
       const map = new Map();
-      for(const r of rows){
-        const k = (r[field] || "غير محدد").trim() || "غير محدد";
-        map.set(k, (map.get(k) || 0) + 1);
-      }
+      for(const r of rows){ const k = (r[field] || "غير محدد").trim() || "غير محدد"; map.set(k, (map.get(k) || 0) + 1); }
       return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
+    }
+    function setChartFilter(desc, predicate){
+      chartFilter = { label: desc, predicate };
+      document.getElementById('chartFilterDesc').textContent = desc;
+      document.getElementById('chartFilterBar').classList.remove('hidden');
+      applyFilter();
+      toast(`تم تطبيق تصفية: ${desc}`, "success");
+    }
+    function clearChartFilter(){
+      chartFilter = null;
+      document.getElementById('chartFilterBar').classList.add('hidden');
+      applyFilter();
     }
 
     function renderCharts(rows){
@@ -544,93 +584,115 @@
       const g = topNCounts(rows, "gender", 10);
       ensureChart("chartGender", {
         type: "doughnut",
-        data: { labels: g.map(x=>x[0]), datasets: [{ data: g.map(x=>x[1]) }] },
-        options: { plugins:{ legend:{ position:'bottom' }}, maintainAspectRatio:false }
-      });
-
-      // Nationality top10
-      const n = topNCounts(rows, "nationality", 10);
-      ensureChart("chartNationality", {
-        type: "bar",
-        data: { labels: n.map(x=>x[0]), datasets: [{ data: n.map(x=>x[1]) }] },
+        data: { labels: g.map(x=>x[0]), datasets: [{ data: g.map(x=>x[1]), backgroundColor: palette(g.length) }] },
         options: {
-          plugins:{ legend:{ display:false }, tooltip:{ enabled:true } },
-          scales:{ x:{ ticks:{ autoSkip:false }}, y:{ beginAtZero:true } },
-          maintainAspectRatio:false
-        }
-      });
-
-      // Age histogram (0-17, 18-39, 40-59, 60-79, 80+)
-      const bins = [0,18,40,60,80,200];
-      const labels = ["<18","18-39","40-59","60-79","80+"];
-      const counts = [0,0,0,0,0];
-      rows.forEach(r=>{
-        const a = r.age;
-        if(a!=null && a>=0 && a<=150){
-          for(let i=0;i<bins.length-1;i++){
-            if(a>=bins[i] && a<bins[i+1]) { counts[i]++; break; }
+          responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } },
+          onClick(evt, elements, chart){
+            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
+            setChartFilter(`الجنس = ${label}`, (r)=> (r.gender||"غير محدد") === label);
           }
         }
       });
-      ensureChart("chartAge", {
+
+      // Nationality Horizontal Top 10
+      const n = topNCounts(rows, "nationality", 50).sort((a,b)=>b[1]-a[1]).slice(0,10);
+      ensureChart("chartNationality", {
         type: "bar",
-        data: { labels, datasets: [{ data: counts }] },
+        data: { labels: n.map(x=>x[0]), datasets: [{ data: n.map(x=>x[1]), backgroundColor: palette(n.length) }] },
         options: {
+          responsive:true, maintainAspectRatio:false, indexAxis:'y',
           plugins:{ legend:{ display:false } },
-          scales:{ y:{ beginAtZero:true } },
-          maintainAspectRatio:false
+          scales:{ x:{ beginAtZero:true }, y:{ ticks:{ autoSkip:false } } },
+          onClick(evt, elements, chart){
+            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
+            setChartFilter(`الجنسيّة = ${label}`, (r)=> (r.nationality||"غير محدد") === label);
+          }
         }
       });
 
-      // Outcome distribution
-      const o = topNCounts(rows, "outcome", 10);
+      // Age bins
+      const bins = [0,18,40,60,80,200], labels = ["<18","18-39","40-59","60-79","80+"], counts = [0,0,0,0,0];
+      rows.forEach(r=>{ const a = r.age; if(a!=null && a>=0 && a<=150){ for(let i=0;i<bins.length-1;i++){ if(a>=bins[i] && a<bins[i+1]) { counts[i]++; break; } } } });
+      ensureChart("chartAge", {
+        type: "bar",
+        data: { labels, datasets: [{ data: counts, backgroundColor: palette(counts.length) }] },
+        options: {
+          responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } },
+          onClick(evt, elements, chart){
+            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
+            const low = bins[idx], high = bins[idx+1];
+            setChartFilter(`العمر ${label}`, (r)=> r.age!=null && r.age>=low && r.age<high);
+          }
+        }
+      });
+
+      // Outcome Horizontal
+      const o = topNCounts(rows, "outcome", 20).sort((a,b)=>b[1]-a[1]);
       ensureChart("chartOutcome", {
         type: "bar",
-        data: { labels: o.map(x=>x[0]), datasets: [{ data: o.map(x=>x[1]) }] },
+        data: { labels: o.map(x=>x[0]), datasets: [{ data: o.map(x=>x[1]), backgroundColor: palette(o.length) }] },
         options: {
-          plugins:{ legend:{ display:false } },
-          scales:{ y:{ beginAtZero:true } },
-          maintainAspectRatio:false
+          responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ beginAtZero:true } },
+          onClick(evt, elements, chart){
+            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
+            setChartFilter(`Outcome = ${label}`, (r)=> (r.outcome||"غير محدد") === label);
+          }
         }
       });
 
       // Monthly admissions trend
       const monthMap = new Map();
-      rows.forEach(r=>{
-        if(!r.adm) return;
-        const key = dayjs(r.adm).format("YYYY-MM");
-        monthMap.set(key, (monthMap.get(key)||0)+1);
-      });
+      rows.forEach(r=>{ if(!r.adm) return; const key = dayjs(r.adm).format("YYYY-MM"); monthMap.set(key, (monthMap.get(key)||0)+1); });
       const months = [...monthMap.keys()].sort();
       ensureChart("chartMonthly", {
         type: "line",
-        data: {
-          labels: months,
-          datasets: [{ data: months.map(m=>monthMap.get(m)), fill:false, tension:0.25 }]
-        },
+        data: { labels: months, datasets: [{ data: months.map(m=>monthMap.get(m)), fill:false, tension:0.25 }] },
         options: {
-          plugins:{ legend:{ display:false } },
-          scales:{ y:{ beginAtZero:true } },
-          maintainAspectRatio:false
-        }
-      });
-
-      // LOS histogram (0-1, 1-3, 3-7, 7-14, 14+)
-      const losBins = [0,1,3,7,14,1e9];
-      const losLabels = ["<1","1-3","3-7","7-14","14+"];
-      const losCounts = [0,0,0,0,0];
-      rows.forEach(r=>{
-        const d = r.losDays;
-        if(d!=null && d>=0){
-          for(let i=0;i<losBins.length-1;i++){
-            if(d>=losBins[i] && d<losBins[i+1]) { losCounts[i]++; break; }
+          responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } },
+          onClick(evt, elements, chart){
+            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
+            setChartFilter(`شهر الدخول = ${label}`, (r)=> r.adm && dayjs(r.adm).format("YYYY-MM") === label);
           }
         }
       });
+
+      // LOS histogram
+      const losBins = [0,1,3,7,14,1e9], losLabels = ["<1","1-3","3-7","7-14","14+"], losCounts = [0,0,0,0,0];
+      rows.forEach(r=>{ const d = r.losDays; if(d!=null && d>=0){ for(let i=0;i<losBins.length-1;i++){ if(d>=losBins[i] && d<losBins[i+1]) { losCounts[i]++; break; } } } });
       ensureChart("chartLOS", {
         type: "bar",
-        data: { labels: losLabels, datasets: [{ data: losCounts }] },
-        options: { plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } }, maintainAspectRatio:false }
+        data: { labels: losLabels, datasets: [{ data: losCounts, backgroundColor: palette(losCounts.length) }] },
+        options: {
+          responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } },
+          onClick(evt, elements, chart){
+            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
+            const low = losBins[idx], high = losBins[idx+1];
+            setChartFilter(`LOS ${label} يوم`, (r)=> r.losDays!=null && r.losDays>=low && r.losDays<high);
+          }
+        }
+      });
+
+      // NEW: Daily admissions
+      const dayMap = new Map();
+      rows.forEach(r=>{ if(!r.adm) return; const k = dayjs(r.adm).format("YYYY-MM-DD"); dayMap.set(k, (dayMap.get(k)||0)+1); });
+      const days = [...dayMap.keys()].sort();
+      ensureChart("chartDaily", {
+        type: "bar",
+        data: { labels: days, datasets: [{ data: days.map(d=>dayMap.get(d)), backgroundColor: palette(days.length) }] },
+        options: {
+          responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } },
+          onClick(evt, elements, chart){
+            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
+            setChartFilter(`تاريخ الدخول = ${label}`, (r)=> r.adm && dayjs(r.adm).format("YYYY-MM-DD") === label);
+          }
+        }
       });
     }
 
@@ -662,7 +724,6 @@
         tb.appendChild(tr);
       });
 
-      // bind modal buttons
       tb.querySelectorAll('button[data-row]').forEach(btn=>{
         btn.addEventListener('click', e=>{
           const r = rows[parseInt(e.currentTarget.getAttribute('data-row'))];
@@ -681,7 +742,9 @@
       document.getElementById('mApache').textContent = r.apache!=null?r.apache:"—";
       document.getElementById('mAdm').textContent = fmt(r.adm);
       document.getElementById('mDis').textContent = fmt(r.dis);
-      document.getElementById('mLOS').textContent = r.losDays!=null? r.losDays.toFixed(2)+" يوم":"—";
+      const now = new Date();
+      const losShow = (r.dis && r.adm) ? r.losDays : (r.adm? daysBetween(r.adm, now): null);
+      document.getElementById('mLOS').textContent = losShow!=null? losShow.toFixed(2)+" يوم":"—";
       document.getElementById('mFrom').textContent = r.from||"—";
       document.getElementById('mTo').textContent = r.to||"—";
       document.getElementById('mReason').textContent = r.reason||"—";
@@ -719,25 +782,20 @@
       const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = "icu_filtered.csv";
-      a.click();
+      a.href = url; a.download = "icu_filtered.csv"; a.click();
       URL.revokeObjectURL(url);
       toast("تم تنزيل CSV بنجاح","success");
     }
 
-    /* =================== Init =================== */
+    /* =================== Init & Events =================== */
     async function init(){
       try{
         const rows = await loadCSV();
         rawRows = transform(rows);
 
-        // Default dates: آخر 90 يوم حسب "الدخول"
-        const now = dayjs();
-        const from = now.subtract(90,'day').format("YYYY-MM-DD");
-        const to = now.format("YYYY-MM-DD");
-        document.getElementById('dateFrom').value = from;
-        document.getElementById('dateTo').value = to;
+        // افتراضيًا: عرض كل البيانات (بدون فلتر زمني)
+        document.getElementById('dateFrom').value = "";
+        document.getElementById('dateTo').value   = "";
         document.getElementById('dateAdmission').checked = true;
 
         applyFilter();
@@ -748,21 +806,18 @@
       }
     }
 
-    /* =================== Events =================== */
     document.getElementById('btnRefresh').addEventListener('click', applyFilter);
     document.getElementById('btnExport').addEventListener('click', ()=> exportCSV(filteredRows));
-    document.getElementById('searchBox').addEventListener('input', ()=>{
-      // فقط فلترة نصية سريعة بدون إعادة بناء كل شيء
-      applyFilter();
-    });
+    document.getElementById('searchBox').addEventListener('input', applyFilter);
     document.getElementById('dateAdmission').addEventListener('change', applyFilter);
     document.getElementById('dateDischarge').addEventListener('change', applyFilter);
+    document.getElementById('btnClearChartFilter').addEventListener('click', clearChartFilter);
 
-    // Quick ranges
     function setRange(days){
       const now = dayjs();
       document.getElementById('dateTo').value = now.format("YYYY-MM-DD");
       document.getElementById('dateFrom').value = now.subtract(days,'day').format("YYYY-MM-DD");
+      clearChartFilter(); // علشان ما تتراكمش التصفية
       applyFilter();
     }
     document.getElementById('btnLast7').addEventListener('click', ()=> setRange(7));
@@ -772,10 +827,10 @@
       const now = dayjs();
       document.getElementById('dateFrom').value = now.startOf('year').format("YYYY-MM-DD");
       document.getElementById('dateTo').value = now.format("YYYY-MM-DD");
+      clearChartFilter();
       applyFilter();
     });
     document.getElementById('btnAll').addEventListener('click', ()=>{
-      // احسب أقل/أعلى تاريخ متاح من البيانات
       const dates = rawRows.map(r=>r[dateKind]).filter(Boolean).map(d=>dayjs(d));
       if(dates.length){
         const min = dayjs.min(dates).format("YYYY-MM-DD");
@@ -786,8 +841,20 @@
         document.getElementById('dateFrom').value = "";
         document.getElementById('dateTo').value = "";
       }
+      clearChartFilter();
       applyFilter();
     });
+
+    document.getElementById('btnToggleCharts').addEventListener('click', ()=>{
+      chartsHidden = !chartsHidden;
+      const sec = document.getElementById('chartsSection');
+      if(chartsHidden){ sec.style.display = "none"; }
+      else { sec.style.display = ""; renderCharts(filteredRows); }
+    });
+
+    // Resize charts on layout changes
+    const ro = new ResizeObserver(() => { for (const id in charts) { try { charts[id]?.resize(); } catch(e){} } });
+    ro.observe(document.getElementById('chartsSection'));
 
     window.addEventListener('DOMContentLoaded', init);
   </script>
