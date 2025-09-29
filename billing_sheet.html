@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Billing Sheet — Google Sheets (CSV)</title>
+  <title>Billing Sheet</title>
 
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -19,6 +19,73 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
   <style>
+
+    .nb-fade-in { animation: nb-fade-in 600ms ease both; }
+@keyframes nb-fade-in { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
+
+
+/* حالة عنصر واحد فقط */
+.newsbar-marquee-single {
+  display: inline-flex;
+  white-space: nowrap;
+  gap: 2rem;
+  animation: nb-marquee-single var(--nb-speed, 25s) linear infinite;
+}
+@keyframes nb-marquee-single {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* شكل شارة Attention */
+.newsbar-badge {
+  font-size: .65rem; padding: .1rem .45rem; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.35);
+  background: #ef4444;   /* أحمر */
+color:#fff;          /* خط أبيض */
+  font-weight: 600;
+}
+
+    /* ==== NEWS TICKER ==== */
+.newsbar {
+  position: sticky; top: 64px; z-index: 35;
+  margin-top: .5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255,255,255,.12);
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  overflow: hidden;
+}
+.newsbar-header {
+  display:flex; align-items:center; gap:.5rem;
+  padding:.4rem .75rem; font-weight:600; font-size:.8rem;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+}
+.newsbar-dot { width:.5rem; height:.5rem; border-radius:999px; opacity:.9 }
+.newsbar-track {
+  position: relative; display:flex; gap:2rem; white-space:nowrap;
+  padding:.5rem .75rem;
+}
+.newsbar-item {
+  opacity:.95; font-size:.9rem;
+  display:inline-flex; align-items:center; gap:.5rem;
+}
+.newsbar-badge {
+  font-size:.65rem; padding:.1rem .45rem; border-radius:999px;
+  border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06);
+}
+.newsbar-marquee {
+  display:flex; gap:2rem; animation: nb-marquee var(--nb-speed, 25s) linear infinite;
+}
+.newsbar:hover .newsbar-marquee { animation-play-state: paused; }
+@keyframes nb-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+
+
     :root { color-scheme: dark; }
     body{
       background:
@@ -58,12 +125,13 @@
     th { position: sticky; top: 0; background: rgba(0,0,0,.2); backdrop-filter: blur(6px); z-index:1; }
     tbody tr:hover { background: rgba(255,255,255,.03); }
     .strike { text-decoration: line-through; opacity:.6 }
+    .pill .dot{width:.6rem;height:.6rem;border-radius:999px;display:inline-block;opacity:.95}
+
     .pill {
       display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .7rem; border-radius:999px;
       border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); cursor:pointer; user-select:none
     }
     .pill.active { outline:2px solid rgba(255,255,255,.35) }
-    .pill .dot{ width:.6rem; height:.6rem; border-radius:999px; }
     .pill.btnlike { padding:.45rem .8rem; }
     .muted { color:#9ca3af; }
     .btn-ico { display:inline-flex; align-items:center; gap:.45rem; }
@@ -99,6 +167,17 @@
       </div>
     </div>
   </header>
+<!-- NEWS Ticker -->
+<section id="newsBar" class="newsbar hidden max-w-7xl mx-auto">
+  <div class="newsbar-header">
+    <span class="newsbar-dot" id="newsAccentDot" style="background:#60a5fa"></span>
+    <span>NEWS</span>
+    <span id="newsUpdatedAt" class="text-white/60 text-xs ml-2">—</span>
+  </div>
+  <div class="newsbar-track">
+    <div id="newsMarquee" class="newsbar-marquee"></div>
+  </div>
+</section>
 
   <!-- Row #1: Type filter + search -->
   <section class="max-w-7xl mx-auto p-4 md:p-6">
@@ -107,6 +186,8 @@
         <div class="flex gap-2">
           <button id="showDrugsBtn" class="btn btn-sm glass btn-ico">💊 <span>Drugs</span></button>
           <button id="showSuppliesBtn" class="btn btn-sm glass btn-ico">🧰 <span>Supplies</span></button>
+          <!-- NEW: Services -->
+          <button id="showServicesBtn" class="btn btn-sm glass btn-ico">🩺 <span>Services</span></button>
           <button id="showAllBtn" class="btn btn-sm glass btn-ico">📋 <span>All</span></button>
         </div>
         <div class="flex items-center gap-3">
@@ -143,6 +224,41 @@
     <div class="glass p-4 md:p-6 mb-4">
       <h2 class="text-xl font-bold mb-3">Admin Panel</h2>
 
+
+      <!-- 🗞️ News Ticker (Admin) -->
+<div class="glass p-4 mb-4">
+  <h3 class="font-semibold mb-2">🗞️ News Ticker</h3>
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+    <div class="lg:col-span-2">
+      <label class="text-xs text-white/60">Messages (one per line)</label>
+      <textarea id="admNewsItems" class="textarea textarea-sm w-full glass mt-1" rows="5"
+        placeholder="مثال:\nتم تحديث قائمة الأدوية.\nرجاء الإبلاغ عن الأكواد المعطلة."></textarea>
+    </div>
+    <div>
+      <label class="text-xs text-white/60">Accent color</label>
+      <div class="flex items-center gap-2 mt-1">
+        <input id="admNewsColor" type="color" class="input input-sm glass" value="#60a5fa" style="width:48px;padding:0;">
+        <input id="admNewsColorHex" class="input input-sm glass" placeholder="#60a5fa"/>
+      </div>
+      <label class="text-xs text-white/60 mt-3 block">Speed (seconds / loop)</label>
+      <input id="admNewsSpeed" type="number" min="8" max="120" step="1" class="input input-sm glass mt-1" placeholder="25">
+    </div>
+    <div>
+      <label class="label cursor-pointer">
+        <span class="label-text text-sm text-white/80">Enabled</span>
+        <input id="admNewsEnabled" type="checkbox" class="toggle toggle-sm ml-2"/>
+      </label>
+      <div class="flex gap-2 mt-2">
+        <button id="admNewsSave" class="btn btn-sm btn-primary w-full">💾 Save</button>
+        <button id="admNewsClear" class="btn btn-sm btn-outline w-full">🧹 Clear</button>
+      </div>
+      
+      <div class="text-xs muted mt-2" id="admNewsStatus">—</div>
+    </div>
+  </div>
+</div>
+
+
       <!-- Header / Data source controls -->
       <div class="glass p-4 mb-4">
         <h3 class="font-semibold mb-2">🪪 Header Display (Data source line)</h3>
@@ -174,8 +290,10 @@
           <div>
             <label class="text-xs text-white/60">Type</label>
             <div class="mt-1">
-              <label class="pill btnlike mr-2"><input type="radio" name="admType" value="drug" checked class="mr-2">Drug</label>
-              <label class="pill btnlike"><input type="radio" name="admType" value="supply" class="mr-2">Supply</label>
+      <label class="pill btnlike mr-2"><input type="radio" name="admType" value="drug" checked class="mr-2">Drug</label>
+<label class="pill btnlike mr-2"><input type="radio" name="admType" value="supply" class="mr-2">Supply</label>
+<label class="pill btnlike"><input type="radio" name="admType" value="service" class="mr-2">Service</label>
+
             </div>
           </div>
 
@@ -251,6 +369,21 @@
           <div id="disabledList" class="space-y-2 text-sm max-h-56 overflow-auto"></div>
         </div>
       </div>
+
+      <!-- NEW: Doctor Service Codes Panel -->
+      <div class="glass p-4 mt-4">
+        <h3 class="font-semibold mb-2">🩺 Doctor Service Codes</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-2">
+          <input id="svcCode" class="input input-sm glass" placeholder="Service Code (e.g. 1680011)">
+          <input id="svcName" class="input input-sm glass" placeholder="Service Name (e.g. Doctor Consultation)">
+          <div class="flex gap-2">
+            <button id="svcSave" class="btn btn-sm btn-primary">💾 Save/Update</button>
+            <button id="svcDelete" class="btn btn-sm btn-error btn-outline">🗑️ Delete</button>
+          </div>
+        </div>
+        <div class="text-xs text-white/60 mt-2">Saved services:</div>
+        <div id="svcList" class="mt-2 space-y-2 max-h-56 overflow-auto text-sm"></div>
+      </div>
     </div>
   </section>
 
@@ -274,6 +407,13 @@
   </main>
 
   <script>
+
+    window.getItemByCode = window.getItemByCode || function(code){
+  const c = String(code);
+  return (window.rawItems || []).find(it => it.code === c) || null;
+};
+
+
   // ========= Settings =========
   const SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAuW0hRVeyJeXeox1OsMjUYTDUai4fp7a2KO9mO4kTYUG4NQgMMsTnXQfql9xRdQ/pub?output=csv";
 
@@ -286,18 +426,19 @@
     appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
   };
   const ADMINS = new Set(["VEPPHo0YHvcIGA0hsqxBmAAkDRK2"]);
-  const EMOJI = { drug: "", supply: "" };
+  const EMOJI = { drug: "", supply: "", service: "🩺" };   // NEW
   const SHOW_UNGROUPED = true;
 
   // ========= State =========
   let db = null, auth = null, isAdmin = false;
   let rawItems = []; // {code,name,qty,sell,type}
+  let serviceItems = []; // NEW: services
   let itemCodeSet = new Set();
   let groupsByName = {};  // name -> {type,codes,color}
-  let hierarchy = { drug: {}, supply: {} };
+let hierarchy = { drug: {}, supply: {}, service: {} };
   let disabled = {}; // code -> doc
   let reports = [];
-  let viewMode = "all"; // all | drug | supply
+  let viewMode = "drug"; // all | drug | supply | service
   let selectedParent = null;
   let selectedSub = null;
   let showDisabledInside = false;
@@ -331,6 +472,12 @@
   function fmtLocal(dt){
     try{ return new Date(dt).toLocaleString(); }catch{ return String(dt||""); }
   }
+
+  function getItemByCode(code){
+  const c = String(code);
+  return rawItems.find(it => it.code === c) || null;
+}
+
 
   // ========= CSV → Items =========
   function normalizeHeader(h){ return String(h||"").toLowerCase().trim(); }
@@ -368,18 +515,60 @@
     const prev = $("#admHeaderPreview"); if (prev) prev.textContent = $("#etag").textContent;
   }
 
-  async function loadFromGoogleSheetsCSV(){
-    clearError();
-    const res = await fetch(SHEETS_CSV_URL, { cache:"no-store" });
-    if (!res.ok) throw new Error("Failed to download CSV from Google Sheets.");
-    const csvText = await res.text();
+async function loadFromGoogleSheetsCSV(){
+  clearError();
 
+  const LS_KEY = "csvCache:v1";
+  const TTL_MS = 15 * 60 * 1000; // 15 دقيقة
+  const now = Date.now();
+
+  // حاول تقرأ من الكاش الأول
+  try{
+    const cached = JSON.parse(localStorage.getItem(LS_KEY)||"null");
+    if (cached && (now - cached.ts) < TTL_MS && cached.csv){
+      await parseCsvText(cached.csv);
+      updateHeaderLine();
+      return;
+    }
+  }catch{}
+
+  // fetch بمهلة = 8 ثواني
+  const ac = new AbortController();
+  const t = setTimeout(()=> ac.abort(), 8000);
+
+  let csvText = "";
+  try{
+    const res = await fetch(SHEETS_CSV_URL, { cache:"no-store", signal: ac.signal });
+    if (!res.ok) throw new Error("Failed to download CSV from Google Sheets.");
+    csvText = await res.text();
+  }catch(e){
+    // fallback للكاش لو الشبكة فشلت
+    const cached = JSON.parse(localStorage.getItem(LS_KEY)||"null");
+    if (cached && cached.csv){
+      await parseCsvText(cached.csv);
+      updateHeaderLine();
+      toast("Loaded from cache.");
+      clearTimeout(t);
+      return;
+    }
+    throw e;
+  }
+  clearTimeout(t);
+
+  // حفظ في الكاش + بارس
+  try{ localStorage.setItem(LS_KEY, JSON.stringify({ ts: now, csv: csvText })); }catch{}
+  await parseCsvText(csvText);
+  updateHeaderLine();
+
+
+
+  async function parseCsvText(csvText){
     const wb = XLSX.read(csvText, { type:"string" });
     const ws = wb.Sheets[ wb.SheetNames[0] ];
     let data = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
     data = data.filter((row, idx) => idx===0 || (row && row.some(c => c!==null && c!==undefined && c!== "")));
 
-    // keep sheet name for header fallback / admin quick button
+    // keep sheet name
     sheetName = (wb.SheetNames && wb.SheetNames[0]) ? wb.SheetNames[0] : "Sheet";
 
     const headers = (data[0] || []).map(h=>String(h??""));
@@ -390,7 +579,7 @@
     if (codeIdx<0 || nameIdx<0){ const g=guessCols(headers,rows); if(codeIdx<0) codeIdx=g.codeIdx; if(nameIdx<0) nameIdx=g.nameIdx; }
 
     const qtyIdx  = 8;   // I = PackQty
-    const sellIdx = 18;  // S = Sell. Price (not shown)
+    const sellIdx = 18;  // S = Sell. Price (not ظاهر)
 
     const map = new Map();
     for (const r of rows){
@@ -413,11 +602,8 @@
     }
     rawItems = Array.from(map.values());
     itemCodeSet = new Set(rawItems.map(it => it.code));
-
-    // refresh header line using current meta (if any)
-    updateHeaderLine();
   }
-
+}
   // ========= Firestore / Auth =========
   function updateAuthUI(){
     const inBtn  = $("#signInBtn");
@@ -488,7 +674,7 @@
           updateAuthUI();
 
           // load everything (meta/reports depend on auth)
-          await Promise.allSettled([ loadGroups(), loadDisabled(), loadMeta(), loadReports() ]);
+await Promise.allSettled([ loadGroups(), loadDisabled(), loadMeta(), loadReports(), loadDoctorServices(), loadNews() ]);
 
           buildCategoriesBar();
           render();
@@ -536,18 +722,19 @@
     updateHeaderLine();
   }
 
-  function rebuildHierarchy(){
-    hierarchy = { drug: {}, supply: {} };
-    for (const [name, g] of Object.entries(groupsByName)){
-      const { parent, sub } = splitNameToParentSub(name);
-      const type = g?.type === "supply" ? "supply" : "drug";
-      const hasAnyMatch = Object.keys(g.codes||{}).some(c => itemCodeSet.has(c));
-      if (!hasAnyMatch) continue;
-      const parentColor = g?.color || colorFor(parent);
-      if (!hierarchy[type][parent]) hierarchy[type][parent] = { color: parentColor, children: new Set() };
-      if (sub) hierarchy[type][parent].children.add(sub);
-    }
+function rebuildHierarchy(){
+  hierarchy = { drug: {}, supply: {}, service: {} };
+  for (const [name, g] of Object.entries(groupsByName)){
+    const { parent, sub } = splitNameToParentSub(name);
+    const type = (g?.type === "supply") ? "supply" : (g?.type === "service" ? "service" : "drug");
+    const hasAnyMatch = Object.keys(g.codes||{}).some(c => itemCodeSet.has(c));
+    if (!hasAnyMatch) continue;
+    const parentColor = g?.color || colorFor(parent);
+    if (!hierarchy[type][parent]) hierarchy[type][parent] = { color: parentColor, children: new Set() };
+    if (sub) hierarchy[type][parent].children.add(sub);
   }
+}
+
 
   async function loadGroups(){
     if(!db) return;
@@ -586,117 +773,369 @@
     }
   }
 
-  function renderReports(){
-    const container=$("#reportsList"); if(!container) return;
-    container.innerHTML="";
-    reports.forEach(r=>{
-      const wrap=document.createElement("div");
-      wrap.className="glass p-2 flex items-center justify-between";
-      const ts=r.ts?.toDate? r.ts.toDate().toLocaleString():"";
-      wrap.innerHTML=`
+function renderReports(){
+  const container = $("#reportsList"); if(!container) return;
+  container.innerHTML = "";
+
+  reports.forEach(r=>{
+    const wrap = document.createElement("div");
+    wrap.className = "glass p-2 flex items-center justify-between";
+
+    const ts = r.ts?.toDate ? r.ts.toDate().toLocaleString() : "";
+
+    // fallback لو المستند قديم ومفيهوش اسم/كمية
+    const it = getItemByCode(r.code);
+    const itemName = r.itemName || it?.name || "(unknown)";
+    const qty = (r.qty ?? it?.qty ?? "-");
+
+    wrap.innerHTML = `
+      <div class="grid grid-cols-2 gap-4">
         <div>
           <div class="text-xs text-white/60">Code</div>
-          <div class="font-mono">${r.code||'-'}</div>
+          <div class="font-mono">${r.code || "-"}</div>
           <div class="text-xs text-white/50 mt-1">${ts}</div>
         </div>
-        <div>${r.resolved?'<span class="badge badge-success">Resolved</span>':'<button class="btn btn-xs btn-primary">Resolve</button>'}</div>`;
-      if(!r.resolved) wrap.querySelector("button").addEventListener("click",()=>resolveReport(r.id));
-      container.appendChild(wrap);
-    });
-  }
+        <div>
+          <div class="text-xs text-white/60">Item</div>
+          <div class="name-one-line">${itemName}</div>
+          <div class="text-xs text-white/60 mt-1">Qty: <b>${qty}</b></div>
+        </div>
+      </div>
+      <div>
+        ${r.resolved
+          ? '<span class="badge badge-success">Resolved</span>'
+          : '<button class="btn btn-xs btn-primary">Resolve</button>'}
+      </div>
+    `;
 
-  function renderDisabledList(){
-    const box = $("#disabledList"); if(!box) return;
-    box.innerHTML = "";
-    Object.keys(disabled).sort().forEach(code=>{
-      const d = disabled[code] || {};
-      const row = document.createElement("div");
-      row.className = "glass p-2 flex items-center justify-between";
-      row.innerHTML = `
+    if(!r.resolved){
+      wrap.querySelector("button")?.addEventListener("click", ()=> resolveReport(r.id));
+    }
+    container.appendChild(wrap);
+  });
+}
+
+function renderDisabledList(){
+  const box = $("#disabledList"); if(!box) return;
+  box.innerHTML = "";
+
+  Object.keys(disabled).sort().forEach(code=>{
+    const d = disabled[code] || {};
+    const it = getItemByCode(code);
+
+    const name = d.itemName || it?.name || "";
+    const qty = (d.qty ?? it?.qty ?? "-");
+
+    const row = document.createElement("div");
+    row.className = "glass p-2 flex items-center justify-between";
+    row.innerHTML = `
+      <div class="grid grid-cols-2 gap-4">
         <div>
           <div class="text-xs text-white/60">Code</div>
           <div class="font-mono">${code}</div>
           <div class="text-xs text-white/50 mt-1">${d.reason || ""}</div>
         </div>
-        <button class="btn btn-xs btn-success">Enable</button>
-      `;
-      row.querySelector("button").addEventListener("click", ()=> enableCodeFn(code));
-      box.appendChild(row);
-    });
-  }
+        <div>
+          <div class="text-xs text-white/60">Item</div>
+          <div class="name-one-line">${name}</div>
+          <div class="text-xs text-white/60 mt-1">Qty: <b>${qty}</b></div>
+        </div>
+      </div>
+      <button class="btn btn-xs btn-success">Enable</button>
+    `;
+    row.querySelector("button").addEventListener("click", ()=> enableCodeFn(code));
+    box.appendChild(row);
+  });
+}
 
   async function resolveReport(id){ if(!db) return alert("Admin feature not available now"); await db.collection("inventory_reports").doc(id).set({resolved:true},{merge:true}); await loadReports(); }
 
-  // ========= Categories bar =========
-  function buildCategoriesBar(){
-    const bar = $("#categoriesBar");
-    const parentWrap = $("#parentGroupsChips");
-    const subWrap = $("#subGroupsChips");
-    const subWrapOuter = $("#subGroupsChipsWrap");
-
-    if (viewMode === "drug" || viewMode === "supply"){
-      bar.classList.remove("hidden");
-      parentWrap.innerHTML = "";
-      subWrap.innerHTML = "";
-      subWrapOuter.classList.add("hidden");
-
-      const h = hierarchy[viewMode] || {};
-      const parents = Object.keys(h).sort();
-
-      const allChip = makeParentChip("All categories", null, "#94a3b8");
-      parentWrap.appendChild(allChip);
-
-      parents.forEach(p=>{
-        const chip = makeParentChip(sentenceCase(p), p, h[p].color || colorFor(p));
-        parentWrap.appendChild(chip);
+  // ========= NEW: Doctor Services =========
+  async function loadDoctorServices(){
+    if(!db) return;
+    try{
+      const snap = await db.collection("doctor_service_codes").get();
+      serviceItems = [];
+      snap.forEach(doc=>{
+        const d = doc.data() || {};
+        const code = String(doc.id || "").trim();
+        if(!code) return;
+        const name = String(d.name || d.title || "Doctor Service").trim();
+        const qty  = Number(d.qty || 0);
+        const sell = Number(d.sell || 0);
+        serviceItems.push({ code, name, qty, sell, type: "service" });
       });
 
-      if (selectedParent && h[selectedParent]){
-        const subs = Array.from(h[selectedParent].children || []);
-        if (subs.length){
-          subWrap.innerHTML = "";
-          subWrapOuter.classList.remove("hidden");
-          const allSub = makeSubChip("All", null, h[selectedParent].color || "#94a3b8");
-          subWrap.appendChild(allSub);
-          subs.sort().forEach(s=>{
-            const chip = makeSubChip(sentenceCase(s), s, colorFor(selectedParent + "::" + s));
-            subWrap.appendChild(chip);
-          });
-        } else {
-          subWrapOuter.classList.add("hidden");
-        }
-      }
-    } else {
-      bar.classList.add("hidden");
-      selectedParent = null;
-      selectedSub = null;
+      // merge without duplicates
+      const existing = new Set(rawItems.map(it=>it.code));
+      const merged = rawItems.concat(serviceItems.filter(it=>!existing.has(it.code)));
+      rawItems = merged;
+      itemCodeSet = new Set(rawItems.map(it => it.code));
+    }catch(e){
+      console.warn("doctor services load:", e?.message||e);
     }
   }
 
-  function makeParentChip(title, value, color){
-    const el = document.createElement("div");
-    el.className = "pill";
-    if (value === selectedParent) el.classList.add("active");
-    el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`;
-    el.addEventListener("click", ()=>{
-      selectedParent = value;
-      selectedSub = null;
-      buildCategoriesBar();
-      render();
+  // ========= Categories bar =========
+function buildCategoriesBar(){
+  const bar = $("#categoriesBar");
+  const parentWrap = $("#parentGroupsChips");
+  const subWrap = $("#subGroupsChips");
+  const subWrapOuter = $("#subGroupsChipsWrap");
+
+  // تظهر فقط في Drugs / Supplies / Services
+  if (viewMode === "drug" || viewMode === "supply" || viewMode === "service"){
+    bar.classList.remove("hidden");
+    parentWrap.innerHTML = "";
+    subWrap.innerHTML = "";
+    subWrapOuter.classList.add("hidden");
+
+    const h = hierarchy[viewMode] || {};
+    const parents = Object.keys(h).sort();
+
+    const allChip = makeParentChip("All categories", null, "#94a3b8");
+    parentWrap.appendChild(allChip);
+
+    parents.forEach(p=>{
+      const chip = makeParentChip(sentenceCase(p), p, h[p].color || colorFor(p));
+      parentWrap.appendChild(chip);
     });
-    return el;
+
+    if (selectedParent && h[selectedParent]){
+      const subs = Array.from(h[selectedParent].children || []);
+      if (subs.length){
+        subWrap.innerHTML = "";
+        subWrapOuter.classList.remove("hidden");
+        const allSub = makeSubChip("All", null, h[selectedParent].color || "#94a3b8");
+        subWrap.appendChild(allSub);
+        subs.sort().forEach(s=>{
+          const chip = makeSubChip(sentenceCase(s), s, colorFor(selectedParent + "::" + s));
+          subWrap.appendChild(chip);
+        });
+      } else {
+        subWrapOuter.classList.add("hidden");
+      }
+    }
+  } else {
+    // ← All: اخفِ الشريط ونضّف الاختيارات
+    bar.classList.add("hidden");
+    selectedParent = null;
+    selectedSub = null;
   }
-  function makeSubChip(title, value, color){
-    const el = document.createElement("div");
-    el.className = "pill";
-    if (value === selectedSub) el.classList.add("active");
-    el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`;
-    el.addEventListener("click", ()=>{
-      selectedSub = value;
-      render();
+}
+function makeParentChip(title, value, color){
+  const el = document.createElement("div");
+  el.className = "pill";
+  el.style.borderColor = `${color}66`;
+  el.style.background  = `${color}1a`;
+  if (value === selectedParent) el.classList.add("active");
+  el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`;
+  el.addEventListener("click", ()=>{ selectedParent=value; selectedSub=null; buildCategoriesBar(); render(); });
+  return el;
+}
+function makeSubChip(title, value, color){
+  const el = document.createElement("div");
+  el.className = "pill";
+  el.style.borderColor = `${color}66`;
+  el.style.background  = `${color}1a`;
+  if (value === selectedSub) el.classList.add("active");
+  el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`;
+  el.addEventListener("click", ()=>{ selectedSub=value; render(); });
+  return el;
+}
+
+  // ====== News Ticker state ======
+let newsConf = {
+  enabled: false,
+  items: [],           // array of strings
+  accent: "#60a5fa",
+  speedSec: 25,        // مدة اللفة
+  updatedAt: null
+};
+
+async function loadNews(){
+  if(!db){ renderNewsBar(); return; }
+  try{
+    const snap = await db.collection("inventory_meta").doc("news").get();
+    if (snap.exists){
+      const d = snap.data() || {};
+      newsConf.enabled  = !!d.enabled;
+      newsConf.items    = Array.isArray(d.items) ? d.items.filter(s=>String(s||"").trim()) : [];
+      newsConf.accent   = d.accent || "#60a5fa";
+      newsConf.speedSec = Number(d.speedSec||25);
+      newsConf.updatedAt= d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.updatedAt || null);
+    } else {
+      newsConf = { enabled:false, items:[], accent:"#60a5fa", speedSec:25, updatedAt:null };
+    }
+  }catch(e){
+    console.warn("loadNews:", e?.message||e);
+  }
+  renderNewsBar();
+}
+
+
+
+async function saveNews(newData){
+  if(!db || !isAdmin) throw new Error("Not authorized");
+  const payload = {
+    enabled: !!newData.enabled,
+    items: (newData.items||[]).map(s=> String(s||"").trim()).filter(Boolean),
+    accent: newData.accent || "#60a5fa",
+    speedSec: Number(newData.speedSec||25),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  await db.collection("inventory_meta").doc("news").set(payload, { merge:true });
+  newsConf = { ...newsConf, ...payload };
+  renderNewsBar();
+}
+
+let _newsTimer = null;
+function renderNewsBar(){
+  const wrap = document.getElementById("newsBar");
+  const dot  = document.getElementById("newsAccentDot");
+  const upd  = document.getElementById("newsUpdatedAt");
+  const track= document.querySelector(".newsbar-track");
+  if(!wrap || !track || !dot) return;
+
+  const items = (newsConf.items||[]).map(s=>String(s||"").trim()).filter(Boolean);
+  if (!newsConf.enabled || !items.length){
+    wrap.classList.add("hidden");
+    if(_newsTimer) clearInterval(_newsTimer);
+    _newsTimer = null;
+    return;
+  }
+
+  // اللون العام (accent) + دالة قراءة لون مخصّص في بداية السطر [#RRGGBB]
+  const baseAccent = /^#?[0-9a-fA-F]{6}$/.test(newsConf.accent||"")
+    ? (newsConf.accent.startsWith("#")? newsConf.accent : ("#"+newsConf.accent))
+    : "#60a5fa";
+  dot.style.background = baseAccent;
+  upd.textContent = newsConf.updatedAt ? new Date(newsConf.updatedAt).toLocaleString() : "";
+
+  function extractColorAndText(raw){
+    const m = raw.match(/^\s*\[(#?[0-9a-fA-F]{6})\]\s*(.*)$/);
+    if(!m) return { color: baseAccent, text: raw };
+    const hex = m[1].startsWith("#") ? m[1] : ("#"+m[1]);
+    return { color: hex, text: m[2] };
+  }
+
+  wrap.classList.remove("hidden");
+  track.innerHTML = "";
+  const slot = document.createElement("div");
+  slot.id = "newsSlot";
+  slot.className = "flex items-center gap-2";
+  track.appendChild(slot);
+
+  function renderItem(rawText){
+    const { color, text } = extractColorAndText(rawText);
+
+    const el = document.createElement("span");
+    el.className = "newsbar-item nb-fade-in";
+    el.innerHTML = `
+      <span class="newsbar-badge" style="background:${color};border-color:${color}80;color:#fff">Attention</span>
+      <span class="inline-flex items-center px-2 py-0.5 rounded"
+            style="background:${color}1a;border:1px solid ${color}33">
+        ${text}
+      </span>`;
+    slot.replaceChildren(el);
+  }
+
+  let i = 0;
+  const stepMs = Math.max(2000, Number(newsConf.speedSec||25) * 1000);
+  renderItem(items[i]);
+
+  function start(){
+    if(_newsTimer) clearInterval(_newsTimer);
+    _newsTimer = setInterval(()=>{
+      i = (i + 1) % items.length;
+      renderItem(items[i]);
+    }, stepMs);
+  }
+  function stop(){ if(_newsTimer){ clearInterval(_newsTimer); _newsTimer=null; } }
+
+  wrap.addEventListener("mouseenter", stop);
+  wrap.addEventListener("mouseleave", start);
+  start();
+
+
+
+if (items.length <= 1) {
+  // عنصر واحد: لا نكرر — نستخدم حركة منفردة
+  mq.classList.remove("newsbar-marquee");
+  mq.classList.add("newsbar-marquee-single");
+
+  // حاوية واحدة تكفي
+  const tape = document.createElement("div");
+  tape.className = "flex items-center gap-8";
+  tape.appendChild(makeSpan(items[0] || ""));  // حتى لو فاضي
+  mq.appendChild(tape);
+} else {
+  // عناصر متعددة: نكرر مرتين لسلاسة الماركيه
+  mq.classList.remove("newsbar-marquee-single");
+  mq.classList.add("newsbar-marquee");
+
+  const one = document.createElement("div");
+  one.className = "flex items-center gap-8";
+  const two = document.createElement("div");
+  two.className = "flex items-center gap-8";
+
+  items.forEach(t => one.appendChild(makeSpan(t)));
+  items.forEach(t => two.appendChild(makeSpan(t)));
+
+  mq.appendChild(one);
+  mq.appendChild(two);
+}
+
+
+  wrap.classList.remove("hidden");
+}
+
+
+
+
+// ==== Admin: News Ticker bindings ====
+const nItems = document.getElementById("admNewsItems");
+const nColor = document.getElementById("admNewsColor");
+const nColorHex = document.getElementById("admNewsColorHex");
+const nSpeed = document.getElementById("admNewsSpeed");
+const nEnabled = document.getElementById("admNewsEnabled");
+const nSave = document.getElementById("admNewsSave");
+const nClear = document.getElementById("admNewsClear");
+const nStatus = document.getElementById("admNewsStatus");
+
+function fillNewsForm(){
+  nItems.value = (newsConf.items||[]).join("\n");
+  nColor.value = /^#/.test(newsConf.accent||"") ? newsConf.accent : ("#"+(newsConf.accent||"60a5fa"));
+  nColorHex.value = nColor.value;
+  nSpeed.value = newsConf.speedSec || 25;
+  nEnabled.checked = !!newsConf.enabled;
+  nStatus.textContent = newsConf.updatedAt ? `Last update: ${new Date(newsConf.updatedAt).toLocaleString()}` : "—";
+}
+fillNewsForm();
+
+nColor.addEventListener("input", ()=> nColorHex.value = nColor.value);
+nColorHex.addEventListener("input", ()=> { if(/^#?[0-9a-fA-F]{6}$/.test(nColorHex.value.trim())) nColor.value = nColorHex.value.startsWith("#")? nColorHex.value : ("#"+nColorHex.value); });
+
+nSave.addEventListener("click", async ()=>{
+  try{
+    await saveNews({
+      enabled: nEnabled.checked,
+      items: nItems.value.split(/\r?\n/),
+      accent: nColor.value,
+      speedSec: Number(nSpeed.value||25)
     });
-    return el;
-  }
+    toast("News saved.");
+    fillNewsForm();
+  }catch(e){ showError("Failed to save news. " + (e?.message||e)); }
+});
+nClear.addEventListener("click", async ()=>{
+  try{
+    await saveNews({ enabled:false, items:[], accent:nColor.value, speedSec:Number(nSpeed.value||25) });
+    toast("News cleared.");
+    fillNewsForm();
+  }catch(e){ showError("Failed to clear news. " + (e?.message||e)); }
+});
+
 
   // ========= Admin UI =========
   function initAdminUI(){
@@ -917,54 +1356,199 @@
     });
 
     populateParents();
+
+    // ===== NEW: Services panel bindings =====
+    function renderServiceCodesList(){
+      const box = $("#svcList"); if(!box) return;
+      box.innerHTML = "";
+      const list = serviceItems.slice().sort((a,b)=> a.code.localeCompare(b.code));
+      list.forEach(s=>{
+        const row = document.createElement("div");
+        row.className = "glass p-2 flex items-center justify-between";
+        row.innerHTML = `
+          <div>
+            <div class="text-xs text-white/60">Code</div>
+            <div class="font-mono">${s.code}</div>
+            <div class="text-xs text-white/60 mt-1">${s.name||""}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-xs">Edit</button>
+            <button class="btn btn-xs btn-error btn-outline">Delete</button>
+          </div>
+        `;
+        row.querySelectorAll("button")[0].addEventListener("click", ()=>{
+          $("#svcCode").value = s.code; $("#svcName").value = s.name || "";
+        });
+        row.querySelectorAll("button")[1].addEventListener("click", async ()=>{
+          if(!confirm(`Delete ${s.code}?`)) return;
+          await db.collection("doctor_service_codes").doc(s.code).delete();
+          await loadDoctorServices(); render(); renderServiceCodesList(); toast("Deleted.");
+        });
+        box.appendChild(row);
+      });
+    }
+
+    async function saveServiceCode(){
+      if(!db || !isAdmin) return alert("Not authorized");
+      const code = $("#svcCode").value.trim();
+      const name = $("#svcName").value.trim();
+      if(!code || !name) return alert("Enter code and name");
+      await db.collection("doctor_service_codes").doc(code).set({ name }, { merge:true });
+      await loadDoctorServices(); render(); renderServiceCodesList(); toast("Saved.");
+    }
+
+    async function deleteServiceCode(){
+      if(!db || !isAdmin) return alert("Not authorized");
+      const code = $("#svcCode").value.trim();
+      if(!code) return alert("Enter code");
+      if(!confirm(`Delete ${code}?`)) return;
+      await db.collection("doctor_service_codes").doc(code).delete();
+      $("#svcName").value = "";
+      await loadDoctorServices(); render(); renderServiceCodesList(); toast("Deleted.");
+    }
+
+    $("#svcSave")?.addEventListener("click", saveServiceCode);
+    $("#svcDelete")?.addEventListener("click", deleteServiceCode);
+    renderServiceCodesList();
   }
+
+  // ===== Report Modal helpers =====
+// ===== Report (minimal) =====
+let _reportTargetCode = null;
+
+function openReportModal(code){
+  _reportTargetCode = code;
+  document.getElementById("reportCode").textContent = code;
+  document.getElementById("reportModal")?.showModal();
+}
+
+// اربط بعد تحميل الـ DOM (سطر واحد يكفي)
+document.addEventListener("DOMContentLoaded", bindReportModal);
+
+function bindReportModal(){
+  const dlg = document.getElementById("reportModal");
+  if(!dlg) return;
+  const noBtn  = document.getElementById("reportNo");
+  const yesBtn = document.getElementById("reportYes");
+
+  noBtn?.addEventListener("click", ()=> dlg.close());
+
+  yesBtn?.addEventListener("click", async ()=>{
+    if(_reportTargetCode){
+      // ابعت تقرير مختصر — باقي الحقول null
+      await reportCode(_reportTargetCode, {});
+    }
+    dlg.close();
+    // رسالة شكر خفيفة مع أنيميشن
+    niceThanksToast("Thanks! We'll look into your report.");
+  });
+
+  // اقفل لو ضغطت خارج الصندوق
+  dlg.addEventListener("click", (e)=>{
+    const box = dlg.querySelector(".modal-box");
+    if(box && !box.contains(e.target)) dlg.close();
+  });
+}
+
+// توست متأنّم (يستعمل الـ glass الموجود عندك)
+function niceThanksToast(msg){
+  const el = document.createElement("div");
+  el.className = "fixed bottom-5 right-5 glass px-4 py-2 z-50 nb-fade-in";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(6px)'; }, 1400);
+  setTimeout(()=> el.remove(), 1900);
+}
 
   // ========= Disable / Enable / Report =========
-  async function disableCodeFn(code,reason=""){
-    if(!db||!isAdmin) return alert("Not authorized");
-    await db.collection("inventory_disabled").doc(code).set({
-      reason, by: auth?.currentUser?.uid || null, ts: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge:true });
-    await loadDisabled(); render();
+async function disableCodeFn(code, reason = ""){
+  if(!db || !isAdmin) return alert("Not authorized");
+
+  const it = getItemByCode(code);
+
+  await db.collection("inventory_disabled").doc(String(code)).set({
+    reason,
+    by: auth?.currentUser?.uid || null,
+    ts: firebase.firestore.FieldValue.serverTimestamp(),
+    itemName: it?.name || null,
+    qty: (it?.qty ?? null)
+  }, { merge:true });
+
+  await loadDisabled(); render();
+}
+async function reportCode(code, extra = {}){
+  try{
+    if(!db){ throw new Error("Database not reachable right now."); }
+
+    const it = getItemByCode(code);
+
+    await db.collection("inventory_reports").add({
+      code: String(code),
+      itemName: it?.name || null,
+      qty: (it?.qty ?? null),
+      by: auth?.currentUser?.uid || null,
+      byName: extra.byName || null,
+      problemType: extra.type || null,
+      note: extra.note || null,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+      resolved: false
+    });
+
+    await loadReports();
+  }catch(e){
+    console.error(e);
+    showError("Failed to submit report. " + (e?.message||e));
   }
-  async function enableCodeFn(code){
-    if(!db||!isAdmin) return alert("Not authorized");
-    await db.collection("inventory_disabled").doc(code).delete();
-    await loadDisabled(); render();
-  }
-  async function reportCode(code){
-    try{
-      if(!db){ throw new Error("Database not reachable right now."); }
-      await db.collection("inventory_reports").add({
-        code,
-        by: auth?.currentUser?.uid || null,
-        ts: firebase.firestore.FieldValue.serverTimestamp(),
-        resolved: false
-      });
-      await loadReports();
-      toast("Report submitted. Thank you.");
-    }catch(e){
-      console.error(e);
-      showError("Failed to submit report. " + (e?.message||e));
-    }
-  }
+}
+
+
 
   // ========= Labels (chips) =========
-  function groupBadgeHTML(name){
-    if (!name || renderSuppressLabels) return "";
-    const { parent, sub } = splitNameToParentSub(name);
-    const col = (groupsByName[name]?.color) || colorFor(parent);
-    const text = sub ? `${sentenceCase(parent)} / ${sentenceCase(sub)}` : sentenceCase(parent);
-    return `<span class="chip" style="border-color:${col}33;background:${col}1a">${text}</span>`;
+function groupBadgeHTML(name, code){
+  if (!name) return "";
+
+  const { parent, sub } = splitNameToParentSub(name);
+
+  // اللون من المجموعة أو fallback
+  let col = (groupsByName[name]?.color) || colorFor(parent);
+
+  // لو الكود ملوّن بشكل خاص داخل المجموعة (HEX في codes[code])
+  const val = groupsByName[name]?.codes?.[code];
+  if (typeof val === "string" && /^#?[0-9a-fA-F]{6}$/.test(val)) {
+    col = val.startsWith("#") ? val : ("#" + val);
   }
 
+  // لو بنعرض داخل جروب (renderSuppressLabels=true): رجّع "نقطة" ملوّنة بسيطة
+  if (renderSuppressLabels) {
+    return `<span title="${parent}${sub ? ' / ' + sub : ''}"`
+         + ` style="display:inline-block;width:.6rem;height:.6rem;border-radius:999px;background:${col};opacity:.9"></span>`;
+  }
+
+  // وضع All: chip كما هي (بالألوان)
+  const text = sub ? `${sentenceCase(parent)} / ${sentenceCase(sub)}` : sentenceCase(parent);
+  return `
+    <span class="chip" style="border-color:${col}33;background:${col}1a">
+      <span style="display:inline-block;width:.6rem;height:.6rem;border-radius:999px;background:${col}"></span>
+      ${text}
+    </span>
+  `;
+}
   // ========= UI Bindings =========
   function bindUI(){
     $("#searchInput").addEventListener("input", ()=>{ debounce(render,200)(); });
     $("#reloadBtn").addEventListener("click", async ()=>{ try{ await loadFromGoogleSheetsCSV(); render(); buildCategoriesBar(); }catch(e){ showError(e.message||e); }});
-    $("#showDrugsBtn").addEventListener("click", ()=>{ viewMode="drug"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
-    $("#showSuppliesBtn").addEventListener("click", ()=>{ viewMode="supply"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
-    $("#showAllBtn").addEventListener("click", ()=>{ viewMode="all"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+$("#showDrugsBtn").addEventListener("click", ()=>{
+  viewMode="drug"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render();
+});
+$("#showSuppliesBtn").addEventListener("click", ()=>{
+  viewMode="supply"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render();
+});
+$("#showServicesBtn").addEventListener("click", ()=>{
+  viewMode="service"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render();
+});
+$("#showAllBtn").addEventListener("click", ()=>{
+  viewMode="all"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render();
+});
     $("#toggleShowDisabled")?.addEventListener("change", (e)=>{ showDisabledInside = !!e.target.checked; render(); });
 
     // auth buttons
@@ -996,24 +1580,48 @@
     tdCode.querySelector(".btn[title='Copy code']").addEventListener("click", async () => {
       await navigator.clipboard.writeText(it.code); toast(`Copied: ${it.code}`);
     });
-    tdCode.querySelector(".btn[title='Report not working']").addEventListener("click", () => { reportCode(it.code); });
+tdCode.querySelector(".btn[title='Report not working']").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  // منع التكرار السريع
+  btn.disabled = true;
+  try {
+    await reportCode(it.code, {});   // تبليغ مختصر بدون تفاصيل
+    niceThanksToast("Thanks! We'll look into your report.");
+  } catch (err) {
+    showError("Failed to submit report. " + (err?.message || err));
+  } finally {
+    setTimeout(()=> { btn.disabled = false; }, 800); // يرجّع يتفعل بعد لحظات
+  }
+});
     if (isDisabled && isAdmin) tdCode.querySelector(".btn[title='Enable code']").addEventListener("click", ()=> enableCodeFn(it.code));
 
-    // Name cell
+    // Name cell + LOW STOCK tint (drug/supply only)
     const tdName = document.createElement("td");
     const labelName = findItemGroupName(it);
     const qtyNum   = Number(it.qty) || 0;
-    const warnIcon = (qtyNum > 0 && qtyNum < 5) ? `<span title="Low stock">⚠️</span>` : "";
+
+    // NEW: low-stock row tint + quantity color
+    let rowTintClass = "", qtyClass = "text-white/60";
+    if (it.type === "drug" || it.type === "supply"){
+      if (qtyNum < 5) { rowTintClass = "bg-red-500/10"; qtyClass = "text-red-300"; }
+      else if (qtyNum < 10) { rowTintClass = "bg-yellow-500/10"; qtyClass = "text-yellow-300"; }
+    }
+    if (rowTintClass) tr.classList.add(rowTintClass);
+
+    const warnIcon = (it.type !== "service" && qtyNum < 5) ? `<span title="Low stock">⚠️</span>` : "";
+    const qtyHTML = (it.type !== "service" && qtyNum > 0)
+      ? `<span class="text-xs ${qtyClass}">(${qtyNum})</span>`
+      : "";
 
     tdName.innerHTML = `
       <div class="${isDisabled ? 'strike' : ''}">
         <div class="flex items-center gap-2">
           <span class="name-one-line" title="${it.name}">
-            ${EMOJI[it.type]} ${it.name}
-            ${qtyNum > 0 ? `<span class="text-xs text-white/60">(${qtyNum})</span>` : ``}
+            ${EMOJI[it.type] || ""} ${it.name}
+            ${qtyHTML}
           </span>
           ${warnIcon}
-          ${groupBadgeHTML(labelName)}
+${groupBadgeHTML(labelName, it.code)}
         </div>
       </div>
     `;
@@ -1079,7 +1687,10 @@
     let shownCount = 0;
     renderSuppressLabels = false;
 
-    if (viewMode === "drug" || viewMode === "supply"){
+    // NEW: Services view
+
+
+if (viewMode === "drug" || viewMode === "supply" || viewMode === "service"){
       const mode = viewMode;
       let poolByType = pool.filter(it => it.type === mode);
 
@@ -1094,14 +1705,19 @@
         // collect codes covered by groups
         const coveredCodes = new Set();
         groupNames.sort().forEach(name => {
-          const codeMap = groupsByName[name]?.codes || {};
-          const list = poolByType.filter(it => codeMap[it.code]);
-          if (list.length){
-            list.forEach(it => coveredCodes.add(it.code));
-            renderTableFor(list, name);
-            shownCount += list.length;
-          }
-        });
+  const codeMap = groupsByName[name]?.codes || {};
+  let list = poolByType.filter(it => codeMap[it.code]);
+
+  // ① بالاسم أبجديًا، ② ثم بالكمية نزولًا
+  list.sort((a,b) => a.name.localeCompare(b.name) || ((b.qty||0) - (a.qty||0)));
+
+  if (list.length){
+    list.forEach(it => coveredCodes.add(it.code));
+    renderTableFor(list, name);
+    shownCount += list.length;
+  }
+});
+
 
         // show Ungrouped if no parent selected
         if (SHOW_UNGROUPED && !selectedParent){
@@ -1129,19 +1745,60 @@
     $("#totalCounter").textContent = shownCount;
   }
 
+
+
+
+  function bindReportModal(){
+  const dlg = document.getElementById("reportModal");
+  const cancelBtn  = document.getElementById("reportCancel");
+  const confirmBtn = document.getElementById("reportConfirm");
+  if(!dlg) return;
+
+  cancelBtn?.addEventListener("click", ()=> dlg.close());
+
+  confirmBtn?.addEventListener("click", async ()=>{
+    if(!_reportTargetCode){ dlg.close(); return; }
+    const type = (document.querySelector('input[name="repType"]:checked')?.value) || "Other issue";
+    const byName = $("#reporterName").value.trim() || null;
+    const note   = $("#reporterNote").value.trim() || null;
+    await reportCode(_reportTargetCode, { type, byName, note });
+    dlg.close();
+    toast("Report submitted. Thank you.");
+  });
+
+  // close on click outside the box
+  dlg.addEventListener("click", (e)=>{
+    const box = dlg.querySelector(".modal-box");
+    if (box && !box.contains(e.target)) dlg.close();
+  });
+}
+
+
   // ========= Boot =========
   (async function boot(){
     try{
       await loadFromGoogleSheetsCSV(); // sets sheetName
       bindUI();
+document.addEventListener("DOMContentLoaded", () => {
+
+  bindReportModal();
+
+});
+
+      await loadNews();
+
+      document.getElementById("showDrugsBtn")?.click();
+
       buildCategoriesBar();
       render();
-      await safeInitFirebase(); // loads meta + shows admin UI if allowed
+      await safeInitFirebase(); // loads meta + services + shows admin UI if allowed
     }catch(e){
       console.error(e);
       showError("Data load error: " + (e?.message || e));
     }
   })();
   </script>
+
+
 </body>
 </html>
