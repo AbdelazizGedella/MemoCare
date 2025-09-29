@@ -15,11 +15,36 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/minMax.js"></script>
+
 
   <!-- Google Font (اختياري) -->
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
+
+    /* تثبيت أول عمود (يدعم RTL و LTR) */
+.sticky-start {
+  position: sticky;
+  inset-inline-start: 0;         /* بدل left/right علشان يدعم RTL */
+  z-index: 10;                   /* فوق بقية الخلايا */
+  background: var(--glass);      /* نفس خلفية الـ glass */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-inline-end: 1px solid var(--glass-bd); /* فاصل لطيف */
+}
+
+/* رأس العمود يحتاج Z-index أعلى شوية */
+.sticky-start.is-head {
+  z-index: 15;
+}
+
+/* عرض مريح لخلية العنوان */
+.col-label {
+  min-width: 9rem; /* ≈ w-36/40 */
+}
+
+
     :root {
       --glass: rgba(255,255,255,0.06);
       --glass-bd: rgba(255,255,255,0.15);
@@ -185,6 +210,33 @@
         <div class="chart-wrap"><canvas id="chartLOS"></canvas></div>
       </div>
 
+
+
+<!-- Daily report table (Grid item spans full width) -->
+<div class="glass p-4 md:p-6 rounded-2xl md:col-span-2 lg:col-span-4">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-calendar-day"></i>
+      <h3 class="font-semibold text-lg">التقرير اليومي — Admissions & Census</h3>
+    </div>
+  </div>
+  <div class="overflow-auto">
+    <table class="table table-zebra">
+    <thead id="censusThead">
+  <tr>
+    <th>المؤشر</th>
+  </tr>
+</thead>
+
+      <tbody id="censusTBody">
+        <tr><td colspan="3" class="text-center py-6 opacity-70">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+
       <!-- جديد: دخول يومي -->
       <div class="glass p-4 rounded-2xl chart-card md:col-span-2 lg:col-span-4">
         <div class="flex items-center justify-between mb-2">
@@ -331,6 +383,7 @@
 
   <script>
     dayjs.extend(dayjs_plugin_customParseFormat);
+dayjs.extend(dayjs_plugin_minMax);
 
     /* =================== Config =================== */
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRoux4qBcO7AVFBr2CyBnCsCChI-ZIdKP3pSUdZE9--GXbyCu7YvPeWDR2lmFJiLAxDrL_6EpOXp1nC/pub?gid=1847737330&single=true&output=csv";
@@ -354,6 +407,28 @@
     let chartFilter = null; // { type, label, predicate(row) }
 
     /* =================== Helpers =================== */
+
+    // يحوّل نص الـ Outcome لفئة موحّدة
+
+    // خلية جدول ببادج… ولو القيمة صفر يخلّيها فاضية
+function tdBadge(n, classes){
+  if(!n) return `<td></td>`; // بدون عرض صفر
+  return `<td><span class="badge ${classes}">${n}</span></td>`;
+}
+
+
+function outcomeCat(s){
+  const t = (s || "").toLowerCase().trim();
+  if(!t) return null;
+  if(t.includes("expir") || t.includes("death") || t.includes("وفاة") || t.includes("ميت")) return "expired";
+  if(t.includes("transfer") || t.includes("محول")) return "transferred";
+  if(t.includes("dama") || t.includes("against") || t.includes("ama") || t.includes("left") || t.includes("هروب")) return "dama";
+  if(t.includes("improv") || t.includes("recover") || t.includes("home") || t.includes("تحسن")) return "improved";
+  return "other";
+}
+
+
+
     function normKey(k){
       return String(k||"").replace(/[\uFEFF\u00A0]/g,"").replace(/\s+/g," ").trim();
     }
@@ -535,11 +610,15 @@
         if(chartFilter && chartFilter.predicate && !chartFilter.predicate(r)) return false;
         return true;
       });
+renderKPIs(filteredRows);
 
-      renderKPIs(filteredRows);
-      if(!chartsHidden) renderCharts(filteredRows);
-      renderTable(filteredRows);
-      renderLists(filteredRows);
+// NEW: حدّث جدول التقرير اليومي دائمًا
+renderCensusTable( buildDailySeries(filteredRows) );
+
+if(!chartsHidden) renderCharts(filteredRows);
+renderTable(filteredRows);
+renderLists(filteredRows);
+
     }
 
     /* =================== KPIs =================== */
@@ -558,6 +637,161 @@
       const {p50:losMed} = quantiles(los); const losAvg = avg(los);
       document.getElementById('kpiLOS').textContent = (losAvg!=null?losAvg.toFixed(1):"—") + " / " + (losMed!=null?losMed.toFixed(1):"—");
     }
+
+
+    // يبني سلاسل admissions و census@00:00 على مدى الإطار المختار
+// يبني سلاسل admissions و census@00:00 + تفصيل الخروج حسب الفئات لكل يوم
+function buildDailySeries(rows){
+  const fromVal = document.getElementById('dateFrom').value;
+  const toVal   = document.getElementById('dateTo').value;
+
+  let start;
+  if (fromVal) start = dayjs(fromVal).startOf('day');
+  else {
+    const adms = rows.map(r=>r.adm).filter(Boolean).map(d=>dayjs(d));
+    start = adms.length ? dayjs.min(adms).startOf('day') : dayjs().startOf('day');
+  }
+
+  let end;
+  if (toVal) end = dayjs(toVal).startOf('day');
+  else {
+    const allDates = rows.flatMap(r=>[r.adm, r.dis].filter(Boolean)).map(d=>dayjs(d));
+    const maxSeen = allDates.length ? dayjs.max(allDates) : dayjs();
+    const hasActive = rows.some(r=>!r.dis);
+    end = (hasActive && dayjs().isAfter(maxSeen)) ? dayjs().startOf('day') : maxSeen.startOf('day');
+  }
+
+  const labels = [];
+  const admissions = [];
+  const census = [];
+  const disAll = [];
+  const disImproved = [];
+  const disDAMA = [];
+  const disTransferred = [];
+  const disExpired = [];
+
+  for(let d = start; !d.isAfter(end); d = d.add(1,'day')){
+    const mid = d.startOf('day').toDate(); // 00:00
+
+    // Admissions في هذا اليوم
+    const admCnt = rows.filter(r => r.adm && dayjs(r.adm).isSame(d, 'day')).length;
+
+    // Census عند 00:00
+    const cenCnt = rows.filter(r => r.adm && r.adm <= mid && (!r.dis || r.dis > mid)).length;
+
+    // Discharges حسب اليوم
+    const sameDayDis = rows.filter(r => r.dis && dayjs(r.dis).isSame(d,'day'));
+    const allCnt = sameDayDis.length;
+
+    let imp=0, dama=0, trans=0, exp=0;
+    sameDayDis.forEach(r=>{
+      switch (outcomeCat(r.outcome)) {
+        case "improved":     imp++; break;
+        case "dama":         dama++; break;
+        case "transferred":  trans++; break;
+        case "expired":      exp++; break;
+      }
+    });
+
+    labels.push(d.format('YYYY-MM-DD'));
+    admissions.push(admCnt);
+    census.push(cenCnt);
+    disAll.push(allCnt);
+    disImproved.push(imp);
+    disDAMA.push(dama);
+    disTransferred.push(trans);
+    disExpired.push(exp);
+  }
+
+  return {
+    labels, admissions, census,
+    disAll, disImproved, disDAMA, disTransferred, disExpired
+  };
+}
+
+// يرسم جدول التقرير اليومي
+// يرسم "التقرير اليومي" بشكل أفقي:
+// الأعمدة = التواريخ، والصفوف = Admissions و Census @ 00:00
+// يرسم "التقرير اليومي" بشكل أفقي:
+// الأعمدة = التواريخ، والصفوف = Admissions / Census / Discharges (+ تفصيلها)
+// يرسم "التقرير اليومي" أفقيًا: الأعمدة = التواريخ
+// الصفوف (بالترتيب): Census @ 00:00 (مميّز) → Admissions → Discharges + التفصيل
+function renderCensusTable(series){
+  const thead = document.getElementById('censusThead');
+  const tbody = document.getElementById('censusTBody');
+  if(!thead || !tbody) return;
+
+  if(!series.labels.length){
+    thead.innerHTML = `<tr><th>المؤشر</th></tr>`;
+    tbody.innerHTML = `<tr><td colspan="2" class="text-center py-6 opacity-70">لا توجد بيانات ضمن الإطار المختار</td></tr>`;
+    return;
+  }
+
+  // العناوين (التواريخ)
+let headHTML = `<tr><th class="sticky-start is-head col-label">المؤشر</th>`;
+  for(const d of series.labels){
+    headHTML += `<th class="metric-number">${d}</th>`;
+  }
+  headHTML += `</tr>`;
+  thead.innerHTML = headHTML;
+
+  // 1) Census @ 00:00 — أول صف + مميّز
+let rowCensus = `<tr><td class="sticky-start col-label"><span class="badge badge-secondary gap-2">
+  <i class="fa-regular fa-clock"></i> Census @ 00:00
+</span></td>`;
+
+  for(const n of series.census){
+    rowCensus += tdBadge(n, 'badge-secondary');
+  }
+  rowCensus += `</tr>`;
+
+  // 2) Admissions (أخضر)
+let rowAdmissions = `<tr><td class="sticky-start col-label">Admissions</td>`;
+  for(const n of series.admissions){
+    rowAdmissions += tdBadge(n, 'badge-success');
+  }
+  rowAdmissions += `</tr>`;
+
+  // 3) Discharges (All) (نيوترال)
+let rowDisAll = `<tr><td class="sticky-start col-label">Discharges (All)</td>`;
+  for(const n of series.disAll || []){
+    rowDisAll += tdBadge(n, 'badge-neutral');
+  }
+  rowDisAll += `</tr>`;
+
+  // 4) Improved (Primary)
+let rowImp = `<tr><td class="sticky-start col-label">Improved</td>`;
+  for(const n of series.disImproved || []){
+    rowImp += tdBadge(n, 'badge-primary');
+  }
+  rowImp += `</tr>`;
+
+  // 5) DAMA (Warning)
+let rowDama = `<tr><td class="sticky-start col-label">DAMA</td>`;
+  for(const n of series.disDAMA || []){
+    rowDama += tdBadge(n, 'badge-warning');
+  }
+  rowDama += `</tr>`;
+
+  // 6) Transferred (Info)
+let rowTrans = `<tr><td class="sticky-start col-label">Transferred</td>`;
+  for(const n of series.disTransferred || []){
+    rowTrans += tdBadge(n, 'badge-info');
+  }
+  rowTrans += `</tr>`;
+
+  // 7) Expired (Error)
+let rowExp = `<tr><td class="sticky-start col-label">Expired</td>`;
+  for(const n of series.disExpired || []){
+    rowExp += tdBadge(n, 'badge-error');
+  }
+  rowExp += `</tr>`;
+
+  // ترتيب الصفوف: Census أولاً كما طلبت
+  tbody.innerHTML = rowCensus + rowAdmissions + rowDisAll + rowImp + rowDama + rowTrans + rowExp;
+}
+
+
 
     /* =================== Charts =================== */
     function ensureChart(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
@@ -679,21 +913,43 @@
       });
 
       // NEW: Daily admissions
-      const dayMap = new Map();
-      rows.forEach(r=>{ if(!r.adm) return; const k = dayjs(r.adm).format("YYYY-MM-DD"); dayMap.set(k, (dayMap.get(k)||0)+1); });
-      const days = [...dayMap.keys()].sort();
-      ensureChart("chartDaily", {
-        type: "bar",
-        data: { labels: days, datasets: [{ data: days.map(d=>dayMap.get(d)), backgroundColor: palette(days.length) }] },
-        options: {
-          responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } },
-          onClick(evt, elements, chart){
-            const p = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
-            if(!p.length) return; const idx = p[0].index; const label = chart.data.labels[idx];
-            setChartFilter(`تاريخ الدخول = ${label}`, (r)=> r.adm && dayjs(r.adm).format("YYYY-MM-DD") === label);
-          }
-        }
-      });
+      // DAILY: Admissions (أخضر) + Census @ 00:00 (أزرق) + تحديث جدول التقرير اليومي
+const daily = buildDailySeries(rows);
+ensureChart("chartDaily", {
+  type: "bar",
+  data: {
+    labels: daily.labels,
+    datasets: [
+      { label: "Admissions",      data: daily.admissions, backgroundColor: "hsl(160 70% 45%)" }, // أخضر
+      { label: "Census @ 00:00",  data: daily.census,     backgroundColor: "hsl(210 70% 55%)" }  // أزرق
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } },
+    scales: { y: { beginAtZero: true } },
+    onClick(evt, elements, chart){
+      const pts = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+      if(!pts.length) return;
+      const p = pts[0];
+      const label = chart.data.labels[p.index];
+      const mid = dayjs(label).startOf('day').toDate();
+
+      if(p.datasetIndex === 0){
+        // Admissions في هذا اليوم
+        setChartFilter(`تاريخ الدخول = ${label}`, r => r.adm && dayjs(r.adm).isSame(label, 'day'));
+      } else {
+        // Census @ 00:00
+        setChartFilter(`حاضر عند 00:00 في ${label}`, r => r.adm && r.adm <= mid && (!r.dis || r.dis > mid));
+      }
+    }
+  }
+});
+
+// مهم: بنحدّث جدول التقرير اليومي هنا
+renderCensusTable(daily);
+
     }
 
     /* =================== Table =================== */
