@@ -160,6 +160,9 @@
     </div>
   </section>
 
+ 
+
+
   <!-- Charts -->
   <section id="chartsSection" class="px-4 md:px-6">
     <div class="grid lg:grid-cols-4 md:grid-cols-2 gap-4">
@@ -259,6 +262,32 @@
       <button id="btnClearChartFilter" class="btn btn-xs btn-outline">مسح التصفية</button>
     </div>
   </section>
+
+  <!-- ICU Mortality per 1,000 Patient-Days — Monthly -->
+<div class="glass p-4 rounded-2xl chart-card md:col-span-2 lg:col-span-4" id="monthlyMortalityCard">
+  <div class="flex items-center justify-between mb-2">
+<h3 class="font-semibold">ICU Mortality % — شهريًا</h3>
+    <span class="badge badge-soft">Per month • من أول حالة دخلت</span>
+  </div>
+  <div class="chart-wrap"><canvas id="chartMortality"></canvas></div>
+
+  <div class="overflow-auto mt-4">
+    <table class="table table-zebra">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Patient-Days</th>
+          <th>Deaths</th>
+<th>Mortality %</th>
+        </tr>
+      </thead>
+      <tbody id="mortalityTBody">
+        <tr><td colspan="4" class="text-center py-6 opacity-70">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 
   <!-- Table -->
   <section class="p-4 md:p-6">
@@ -621,6 +650,8 @@ function colorByAvgValue(n, avg){
       dateKind = document.getElementById('dateDischarge').checked ? "dis" : "adm";
       const q = document.getElementById('searchBox').value.trim().toLowerCase();
 
+
+
       filteredRows = rawRows.filter(r=>{
         const refDate = r[dateKind];
         if(from && (!refDate || refDate < from)) return false;
@@ -632,6 +663,8 @@ function colorByAvgValue(n, avg){
         if(chartFilter && chartFilter.predicate && !chartFilter.predicate(r)) return false;
         return true;
       });
+
+      
 renderKPIs(filteredRows);
 
 // NEW: حدّث جدول التقرير اليومي دائمًا
@@ -639,7 +672,9 @@ renderCensusTable( buildDailySeries(filteredRows) );
 
 if(!chartsHidden) renderCharts(filteredRows);
 renderTable(filteredRows);
+
 renderLists(filteredRows);
+      renderMonthlyMortality(); // من أول حالة عبر rawRows
 
     }
 
@@ -822,11 +857,178 @@ function renderCensusTable(series){
 tbody.innerHTML = rowTA + rowCensus + rowAdmissions + rowDisAll + rowImp + rowDama + rowTrans + rowExp;
 }
 
+// يبني سلاسل شهرية: Patient-Days و Deaths و Mortality/1000
+// ملاحظة: يحسب من أول حالة في "كل البيانات" rawRows وليس ضمن الفلتر.
+function buildMonthlyMortalityFromAllData(){
+  const rows = rawRows; // من أول حالة
+  if(!rows?.length) return { months:[], patientDays:[], deaths:[], mortality:[] };
 
+  // نافذة التحليل: من أول Admission مرصود لأي مريض، إلى آخر تاريخ خروج أو اليوم لو في حالات نشطة
+  const allAdms = rows.map(r=>r.adm).filter(Boolean).map(d=>dayjs(d));
+  if(!allAdms.length) return { months:[], patientDays:[], deaths:[], mortality:[] };
+
+  const start = dayjs.min(allAdms).startOf('day');
+  const allDates = rows.flatMap(r=>[r.adm, r.dis].filter(Boolean)).map(d=>dayjs(d));
+  const maxSeen = allDates.length ? dayjs.max(allDates) : dayjs();
+  const hasActive = rows.some(r=>!r.dis);
+  const end = (hasActive && dayjs().isAfter(maxSeen)) ? dayjs().endOf('day') : maxSeen.endOf('day');
+
+  const daysMap = new Map();   // YYYY-MM -> patient-days (float)
+  const deathMap = new Map();  // YYYY-MM -> integer
+
+  // توزيع زمن كل مريض على الشهور (مع احتساب الأجزاء)
+  for(const r of rows){
+    if(!r.adm) continue;
+    const s = dayjs.max(dayjs(r.adm), start);
+    const e = r.dis ? dayjs.min(dayjs(r.dis), end) : end;
+    if(!e.isAfter(s)) continue;
+
+    let cur = s;
+    while(cur.isBefore(e)){
+      const monthEnd = dayjs.min(e, cur.endOf('month'));
+      const d = (monthEnd.valueOf() - cur.valueOf()) / 86400000; // أيام (كسور)
+      const key = cur.format('YYYY-MM');
+      daysMap.set(key, (daysMap.get(key) || 0) + d);
+      cur = monthEnd.add(1, 'second');
+    }
+  }
+
+  // الوفيات حسب شهر الخروج لو Outcome = Expired
+  for(const r of rows){
+    if(r.dis && outcomeCat(r.outcome) === 'expired'){
+      const key = dayjs(r.dis).format('YYYY-MM');
+      deathMap.set(key, (deathMap.get(key) || 0) + 1);
+    }
+  }
+
+  const months = Array.from(new Set([...daysMap.keys(), ...deathMap.keys()])).sort();
+  const patientDays = months.map(m => daysMap.get(m) || 0);
+  const deaths      = months.map(m => deathMap.get(m) || 0);
+  const mortality   = months.map((_,i) => patientDays[i] > 0 ? (deaths[i] / patientDays[i]) * 1000 : null);
+
+  return { months, patientDays, deaths, mortality };
+}
+
+// يرسم كارت الوفيات شهريًا كنسبة % مع تمييز أعلى/أقل قيمة + تلوين صفوف الجدول
+// ICU Mortality % (من أول حالة) مع مقياس مضبوط يظهر القيم 2–5%
+function renderMonthlyMortality(){
+  const s = buildMonthlyMortalityFromAllData();
+
+  // إلى نسبة مئوية: لكل 1000 → ×0.1
+  const mortPct = s.mortality.map(v => v != null ? +(v * 0.1).toFixed(2) : null);
+
+  // أعلى/أقل قيمة صالحة
+  const pairs = mortPct.map((v,i)=>({v,i})).filter(p=>p.v!=null);
+  const maxIdx = pairs.length ? pairs.reduce((a,b)=> b.v>a.v?b:a).i : -1;
+  const minIdx = pairs.length ? pairs.reduce((a,b)=> b.v<a.v?b:a).i : -1;
+
+  // مقاييس ذكية: وسّع 20% فوق الأعلى
+  const rateMax = Math.max(1, Math.ceil((Math.max(...mortPct.filter(v=>v!=null), 0) * 1.2)));
+  const daysMax = Math.ceil((Math.max(...s.patientDays, 0) * 1.2));
+
+  const pointRadius = mortPct.map((_,i)=> (i===maxIdx||i===minIdx) ? 6 : 3);
+  const pointBackgroundColor = mortPct.map((_,i)=>{
+    if(i===maxIdx) return 'hsl(0 70% 55%)';    // أعلى: أحمر
+    if(i===minIdx) return 'hsl(160 70% 45%)';  // أقل: أخضر
+    return undefined;
+  });
+
+  ensureChart("chartMortality", {
+    type: "bar",
+    data: {
+      labels: s.months,
+      datasets: [
+        {
+          type: "bar",
+          label: "Patient-Days",
+          data: s.patientDays.map(x => x != null ? +x.toFixed(2) : null),
+          yAxisID: "yDays",
+          backgroundColor: "hsl(210 70% 55%)"
+        },
+        {
+          type: "line",
+          label: "Mortality %",
+          data: mortPct,
+          yAxisID: "yRate",
+          tension: 0.25,
+          spanGaps: true,
+          pointRadius,
+          pointBackgroundColor,
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      // مهم: خليه يفسّر الأرقام كما هي
+      parsing: true,
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label(ctx){
+              const lbl = ctx.dataset.label || '';
+              const val = ctx.parsed.y;
+              return ctx.dataset.yAxisID === 'yRate'
+                ? `${lbl}: ${val != null ? val.toFixed(1) + '%' : '—'}`
+                : `${lbl}: ${val}`;
+            }
+          }
+        }
+      },
+      scales: {
+        yRate: {
+          position: 'left',
+          min: 0,
+          max: rateMax,                // <-- هنا المشكلة كانت
+          title: { display: true, text: 'Mortality %' },
+          ticks: { callback: v => `${v}%` }
+        },
+        yDays: {
+          position: 'right',
+          min: 0,
+          suggestedMax: daysMax,
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: 'Patient-Days' }
+        }
+      }
+    }
+  });
+
+  // جدول أسفل الشارت
+  const tb = document.getElementById('mortalityTBody');
+  if(!tb) return;
+  if(!s.months.length){
+    tb.innerHTML = `<tr><td colspan="4" class="text-center py-6 opacity-70">لا توجد بيانات</td></tr>`;
+    return;
+  }
+  tb.innerHTML = s.months.map((m, i)=>{
+    const pd = s.patientDays[i] || 0;
+    const dd = s.deaths[i] || 0;
+    const rt = mortPct[i];
+    const rowCls = i===maxIdx ? 'bg-error/20' : (i===minIdx ? 'bg-success/20' : '');
+    const mark = i===maxIdx ? ' <i class="fa-solid fa-arrow-trend-up text-error"></i>'
+              : i===minIdx ? ' <i class="fa-solid fa-arrow-trend-down text-success"></i>' : '';
+    return `
+      <tr class="${rowCls}">
+        <td class="metric-number">${m}</td>
+        <td class="metric-number">${pd.toFixed(2)}</td>
+        <td class="metric-number">${dd}</td>
+        <td class="metric-number">${rt!=null ? rt.toFixed(1) + '%' : '—'}${mark}</td>
+      </tr>
+    `;
+  }).join("");
+}
 
 
     /* =================== Charts =================== */
-    function ensureChart(id, cfg){ if(charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+function ensureChart(id, cfg){
+  const el = document.getElementById(id);
+  if(!el) return; // canvas مش موجود
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(el, cfg);
+}
     function topNCounts(rows, field, n=10){
       const map = new Map();
       for(const r of rows){ const k = (r[field] || "غير محدد").trim() || "غير محدد"; map.set(k, (map.get(k) || 0) + 1); }
