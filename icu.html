@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="dark">
 <head>
@@ -494,6 +495,27 @@ function outcomeCat(s){
     function avg(arr){ return arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length) : null; }
     function palette(n){ return Array.from({length:n}, (_,i)=>`hsl(${(i*47)%360} 70% 55%)`); }
 
+// ألوان/كلاسات حسب متوسط "Total Active"
+function classByAvg(n, avg){
+  if(n == null) return '';
+  if(n > avg * 1.15) return 'badge-error';    // أعلى بوضوح من المتوسط
+  if(n >= avg * 0.85) return 'badge-warning'; // حول المتوسط
+  return 'badge-success';                      // أقل من المتوسط
+}
+function badgeByAvg(n, avg){
+  if(!n) return `<td></td>`;
+  const cls = classByAvg(n, avg);
+  return `<td><span class="badge ${cls}">${n}</span></td>`;
+}
+// ألوان للأعمدة داخل Chart.js
+function colorByAvgValue(n, avg){
+  if(n == null) return 'hsl(210 10% 35%)';
+  if(n > avg * 1.15) return 'hsl(0 70% 55%)';    // أحمر
+  if(n >= avg * 0.85) return 'hsl(40 85% 50%)';  // أصفر/برتقالي
+  return 'hsl(160 70% 45%)';                     // أخضر
+}
+
+
     /* =================== Load CSV =================== */
     async function loadCSV(){
       return new Promise((resolve,reject)=>{
@@ -673,13 +695,9 @@ function buildDailySeries(rows){
   for(let d = start; !d.isAfter(end); d = d.add(1,'day')){
     const mid = d.startOf('day').toDate(); // 00:00
 
-    // Admissions في هذا اليوم
     const admCnt = rows.filter(r => r.adm && dayjs(r.adm).isSame(d, 'day')).length;
-
-    // Census عند 00:00
     const cenCnt = rows.filter(r => r.adm && r.adm <= mid && (!r.dis || r.dis > mid)).length;
 
-    // Discharges حسب اليوم
     const sameDayDis = rows.filter(r => r.dis && dayjs(r.dis).isSame(d,'day'));
     const allCnt = sameDayDis.length;
 
@@ -703,12 +721,15 @@ function buildDailySeries(rows){
     disExpired.push(exp);
   }
 
+  const totalActive = admissions.map((v,i) => v + census[i]);
+  const totalActiveAvg = avg(totalActive);
+
   return {
     labels, admissions, census,
-    disAll, disImproved, disDAMA, disTransferred, disExpired
+    disAll, disImproved, disDAMA, disTransferred, disExpired,
+    totalActive, totalActiveAvg
   };
 }
-
 // يرسم جدول التقرير اليومي
 // يرسم "التقرير اليومي" بشكل أفقي:
 // الأعمدة = التواريخ، والصفوف = Admissions و Census @ 00:00
@@ -728,68 +749,79 @@ function renderCensusTable(series){
   }
 
   // العناوين (التواريخ)
-let headHTML = `<tr><th class="sticky-start is-head col-label">المؤشر</th>`;
+  let headHTML = `<tr><th class="sticky-start is-head col-label">المؤشر</th>`;
   for(const d of series.labels){
     headHTML += `<th class="metric-number">${d}</th>`;
   }
   headHTML += `</tr>`;
   thead.innerHTML = headHTML;
 
-  // 1) Census @ 00:00 — أول صف + مميّز
-let rowCensus = `<tr><td class="sticky-start col-label"><span class="badge badge-secondary gap-2">
-  <i class="fa-regular fa-clock"></i> Census @ 00:00
-</span></td>`;
-
+  // 1) Census @ 00:00
+  let rowCensus = `<tr><td class="sticky-start col-label"><span class="badge badge-secondary gap-2">
+    <i class="fa-regular fa-clock"></i> Census @ 00:00
+  </span></td>`;
   for(const n of series.census){
     rowCensus += tdBadge(n, 'badge-secondary');
   }
   rowCensus += `</tr>`;
 
-  // 2) Admissions (أخضر)
-let rowAdmissions = `<tr><td class="sticky-start col-label">Admissions</td>`;
+  // 1.5) NEW: Total Active (24h) = Admissions + Census @ 00:00 (مُلوّن حسب المتوسط)
+  const avgTA = series.totalActiveAvg ?? (series.totalActive?.length ? avg(series.totalActive) : null);
+  let rowTA = `<tr><td class="sticky-start col-label">
+    <span class="badge badge-accent gap-2"><i class="fa-solid fa-bolt"></i> Total Active (24h)</span>
+    ${avgTA!=null ? `<span class="badge badge-soft ml-2">Avg ${avgTA.toFixed(1)}</span>` : ``}
+  </td>`;
+  for(const n of series.totalActive || []){
+    rowTA += badgeByAvg(n, avgTA ?? 0);
+  }
+  rowTA += `</tr>`;
+
+  // 2) Admissions
+  let rowAdmissions = `<tr><td class="sticky-start col-label">Admissions</td>`;
   for(const n of series.admissions){
     rowAdmissions += tdBadge(n, 'badge-success');
   }
   rowAdmissions += `</tr>`;
 
-  // 3) Discharges (All) (نيوترال)
-let rowDisAll = `<tr><td class="sticky-start col-label">Discharges (All)</td>`;
-  for(const n of series.disAll || []){
+  // 3) Discharges (All)
+  let rowDisAll = `<tr><td class="sticky-start col-label">Discharges (All)</td>`;
+  for(const n of (series.disAll || [])){
     rowDisAll += tdBadge(n, 'badge-neutral');
   }
   rowDisAll += `</tr>`;
 
-  // 4) Improved (Primary)
-let rowImp = `<tr><td class="sticky-start col-label">Improved</td>`;
-  for(const n of series.disImproved || []){
+  // 4) Improved
+  let rowImp = `<tr><td class="sticky-start col-label">Improved</td>`;
+  for(const n of (series.disImproved || [])){
     rowImp += tdBadge(n, 'badge-primary');
   }
   rowImp += `</tr>`;
 
-  // 5) DAMA (Warning)
-let rowDama = `<tr><td class="sticky-start col-label">DAMA</td>`;
-  for(const n of series.disDAMA || []){
+  // 5) DAMA
+  let rowDama = `<tr><td class="sticky-start col-label">DAMA</td>`;
+  for(const n of (series.disDAMA || [])){
     rowDama += tdBadge(n, 'badge-warning');
   }
   rowDama += `</tr>`;
 
-  // 6) Transferred (Info)
-let rowTrans = `<tr><td class="sticky-start col-label">Transferred</td>`;
-  for(const n of series.disTransferred || []){
+  // 6) Transferred
+  let rowTrans = `<tr><td class="sticky-start col-label">Transferred</td>`;
+  for(const n of (series.disTransferred || [])){
     rowTrans += tdBadge(n, 'badge-info');
   }
   rowTrans += `</tr>`;
 
-  // 7) Expired (Error)
-let rowExp = `<tr><td class="sticky-start col-label">Expired</td>`;
-  for(const n of series.disExpired || []){
+  // 7) Expired
+  let rowExp = `<tr><td class="sticky-start col-label">Expired</td>`;
+  for(const n of (series.disExpired || [])){
     rowExp += tdBadge(n, 'badge-error');
   }
   rowExp += `</tr>`;
 
-  // ترتيب الصفوف: Census أولاً كما طلبت
-  tbody.innerHTML = rowCensus + rowAdmissions + rowDisAll + rowImp + rowDama + rowTrans + rowExp;
+  // الترتيب: Census → Total Active → Admissions → ...
+tbody.innerHTML = rowTA + rowCensus + rowAdmissions + rowDisAll + rowImp + rowDama + rowTrans + rowExp;
 }
+
 
 
 
@@ -914,14 +946,37 @@ let rowExp = `<tr><td class="sticky-start col-label">Expired</td>`;
 
       // NEW: Daily admissions
       // DAILY: Admissions (أخضر) + Census @ 00:00 (أزرق) + تحديث جدول التقرير اليومي
+// NEW: Daily admissions
+// NEW: Daily admissions + census + total active (مع تلوين حسب المتوسط)
 const daily = buildDailySeries(rows);
+
+// أضف/حدّث شارة المتوسط في هيدر الكرت نفسه
+try{
+  const header = document.querySelector('#chartDaily')?.closest('.chart-card')?.querySelector('.flex.items-center.justify-between.mb-2');
+  if(header){
+    let avgEl = header.querySelector('#dailyAvgInfo');
+    if(!avgEl){
+      avgEl = document.createElement('span');
+      avgEl.id = 'dailyAvgInfo';
+      avgEl.className = 'badge badge-soft';
+      header.appendChild(avgEl);
+    }
+    if(daily.totalActiveAvg != null){
+      avgEl.textContent = `Avg Total Active: ${daily.totalActiveAvg.toFixed(1)}`;
+    }else{
+      avgEl.textContent = `Avg Total Active: —`;
+    }
+  }
+}catch(e){ /* no-op */ }
+
 ensureChart("chartDaily", {
   type: "bar",
   data: {
     labels: daily.labels,
     datasets: [
       { label: "Admissions",      data: daily.admissions, backgroundColor: "hsl(160 70% 45%)" }, // أخضر
-      { label: "Census @ 00:00",  data: daily.census,     backgroundColor: "hsl(210 70% 55%)" }  // أزرق
+      { label: "Census @ 00:00",  data: daily.census,     backgroundColor: "hsl(210 70% 55%)" }, // أزرق
+      { label: "Total Active (24h)", data: daily.totalActive, backgroundColor: daily.totalActive.map(n => colorByAvgValue(n, daily.totalActiveAvg)) } // ملوّن حسب المتوسط
     ]
   },
   options: {
@@ -937,18 +992,25 @@ ensureChart("chartDaily", {
       const mid = dayjs(label).startOf('day').toDate();
 
       if(p.datasetIndex === 0){
-        // Admissions في هذا اليوم
+        // Admissions
         setChartFilter(`تاريخ الدخول = ${label}`, r => r.adm && dayjs(r.adm).isSame(label, 'day'));
-      } else {
+      } else if(p.datasetIndex === 1){
         // Census @ 00:00
         setChartFilter(`حاضر عند 00:00 في ${label}`, r => r.adm && r.adm <= mid && (!r.dis || r.dis > mid));
+      } else {
+        // Total Active (24h) = Admissions + Census@00:00
+        setChartFilter(`Total Active (24h) في ${label}`, r =>
+          (r.adm && dayjs(r.adm).isSame(label, 'day')) ||
+          (r.adm && r.adm <= mid && (!r.dis || r.dis > mid))
+        );
       }
     }
   }
 });
 
-// مهم: بنحدّث جدول التقرير اليومي هنا
+// مهم: تحديث جدول التقرير اليومي (يتضمن Total Active)
 renderCensusTable(daily);
+
 
     }
 
