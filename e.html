@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>تقرير التأخيرات — Dark Glass</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <!-- SheetJS (Excel/CSV) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --glass-bg: rgba(10, 26, 50, 0.55);
+      --glass-border: rgba(255,255,255,0.07);
+    }
+    html, body { font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; }
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 1.25rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+    .grad { background: linear-gradient(135deg, #0b1b33 0%, #0f2747 40%, #0a3b5f 100%); }
+    .chip { border:1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.06); }
+    .tbl th { position: sticky; top: 0; z-index: 2; }
+    .tbl thead th { background: rgba(9,22,44,.9); }
+    .fade-in { animation: fadin .35s ease-out; }
+    @keyframes fadin { from {opacity:0; transform: translateY(6px)} to {opacity:1; transform: translateY(0)} }
+  </style>
+</head>
+
+<body class="grad min-h-screen text-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <!-- Header -->
+    <header class="glass p-5 mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 grid place-items-center shadow-lg"><i class="fa-solid fa-user-clock text-white text-xl"></i></div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-bold">تقرير التأخيرات المجمّع</h1>
+          <p class="text-sm opacity-80">رفع عدة ملفات (XLS/XLSX/CSV) لاستخراج الموظفين المتأخرين + عكس اليوم التالي (5307) عند نقص البصمة</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <button id="btnExportXLSX" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-excel mr-2"></i>تصدير Excel</button>
+        <button id="btnExportCSV" class="btn btn-outline btn-sm"><i class="fa-solid fa-file-csv mr-2"></i>تصدير CSV</button>
+        <button id="btnClear" class="btn btn-error btn-sm"><i class="fa-solid fa-broom mr-2"></i>تفريغ</button>
+      </div>
+    </header>
+
+    <!-- Controls -->
+    <section class="grid md:grid-cols-3 gap-4 mb-6">
+      <div class="glass p-5">
+        <h2 class="font-semibold mb-3">رفع الملفات</h2>
+        <div id="dropZone" class="border-2 border-dashed border-sky-700/60 rounded-2xl p-6 text-center cursor-pointer hover:bg-white/5 transition">
+          <i class="fa-solid fa-cloud-arrow-up text-3xl opacity-80"></i>
+          <p class="mt-2 text-sm opacity-80">اسحب وأفلت ملفات Excel/CSV هنا<br>أو اضغط للاختيار</p>
+          <input id="fileInput" type="file" class="hidden" multiple accept=".xls,.xlsx,.csv" />
+        </div>
+        <ul id="filesList" class="mt-3 text-sm space-y-1"></ul>
+        <div class="mt-3 flex items-center gap-2">
+          <input id="chkAddNextDay" type="checkbox" class="toggle toggle-info" checked>
+          <label for="chkAddNextDay" class="text-sm">تضمين اليوم التالي لو كود الدوام <span class="font-bold">5307</span> وفيه بصمة ناقصة</label>
+        </div>
+      </div>
+
+      <div class="glass p-5">
+        <h2 class="font-semibold mb-3">بحث وتصفية</h2>
+        <div class="space-y-3">
+          <label class="input input-bordered flex items-center gap-2 chip">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="txtSearch" type="text" class="grow" placeholder="ابحث بالاسم / الرقم الوظيفي / التاريخ" />
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn btn-xs chip" data-quick="5307">5307 فقط</button>
+            <button class="btn btn-xs chip" data-quick="4816">4816 فقط</button>
+            <button class="btn btn-xs chip" data-quick="all">الكل</button>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="form-control">
+              <span class="label-text text-xs opacity-80">صفوف/صفحة</span>
+              <select id="pageSize" class="select select-bordered select-sm chip">
+                <option>25</option><option selected>50</option><option>100</option><option>200</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text text-xs opacity-80">ترتيب حسب</span>
+              <select id="sortBy" class="select select-bordered select-sm chip">
+                <option value="PIN_CODE">الرقم الوظيفي</option>
+                <option value="NAME">الاسم</option>
+                <option value="P_DATE" selected>التاريخ</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass p-5">
+        <h2 class="font-semibold mb-3">ملخص</h2>
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="p-3 rounded-xl chip">
+            <div class="text-xs opacity-80">عدد الملفات</div>
+            <div id="statFiles" class="text-xl font-bold">0</div>
+          </div>
+          <div class="p-3 rounded-xl chip">
+            <div class="text-xs opacity-80">صفوف بالتأخير</div>
+            <div id="statLateRows" class="text-xl font-bold">0</div>
+          </div>
+          <div class="p-3 rounded-xl chip">
+            <div class="text-xs opacity-80">موظفون (فريد)</div>
+            <div id="statEmployees" class="text-xl font-bold">0</div>
+          </div>
+        </div>
+        <div class="mt-3 text-xs opacity-80">
+          * يتم إضافة اليوم التالي للحالات 5307 عند نقص البصمة إذا كان الخيار مُفعّل.
+        </div>
+      </div>
+    </section>
+
+    <!-- Table -->
+    <section class="glass p-5 fade-in">
+      <div class="overflow-x-auto">
+        <table class="table table-zebra tbl">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>PIN_CODE</th>
+              <th>NAME</th>
+              <th>SHIFT</th>
+              <th>TIMEZONE_CODE</th>
+              <th>التاريخ</th>
+              <th>IN1</th><th>OUT1</th><th>IN2</th><th>OUT2</th><th>IN3</th><th>OUT3</th>
+              <th>ACTUALIN1</th><th>ACTUALOUT1</th>
+              <th>LATE</th>
+              <th>ملاحظة</th>
+              <th>الملف</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between mt-4">
+        <div id="pagerInfo" class="text-sm opacity-80"></div>
+        <div class="join">
+          <button id="prev" class="btn btn-sm join-item">السابق</button>
+          <button id="next" class="btn btn-sm join-item">التالي</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+// ===== Helpers =====
+const aliases = {
+  PIN_CODE: ['PIN_CODE','PIN CODE','PIN','EMP CODE','EMPID','EMPLOYEE ID','EMPLOYEE CODE','Employee Code','رقم الموظف','الرقم الوظيفي'],
+  NAME: ['NAME','EMP NAME','EMPLOYEE NAME','اسم','اسم الموظف'],
+  LATE: ['LATE','Late','TOTAL LATE','Total Late','التأخير','تاخير','LATE(MIN)','LATE MIN'],
+  P_DATE: ['P_DATE','P DATE','DATE','AttDate','التاريخ','PDate'],
+  IN1: ['IN1','IN 1','IN','IN TIME','InTime1'],
+  OUT1: ['OUT1','OUT 1','OUT','OUT TIME','OutTime1'],
+  IN2: ['IN2','IN 2'], OUT2: ['OUT2','OUT 2'], IN3: ['IN3','IN 3'], OUT3: ['OUT3','OUT 3'],
+  TIMEZONE_CODE: ['TIMEZONE_CODE','TZ CODE','TIME ZONE CODE','Shift Code','ZONECODE','ZONE CODE','كود الدوام'],
+  ACTUALIN1: ['ACTUALIN1','ACTUAL IN1','ACTUAL IN','ACTUAL IN TIME','ACTUAL IN 1','ActualIn1'],
+  ACTUALOUT1: ['ACTUALOUT1','ACTUAL OUT1','ACTUAL OUT','ACTUAL OUT TIME','ACTUAL OUT 1','ActualOut1'],
+};
+
+const SHIFT_NAMES = (code)=> code==="5307"||code===5307 ? 'مسائي' : (code==="4816"||code===4816 ? 'صباحي' : 'أخرى');
+
+const normalizeHeader = (h)=> (h||'').toString().trim().replace(/\s+/g,' ').toUpperCase();
+
+function buildHeaderMap(headers){
+  const map = {};
+  const upper = headers.map(h=>normalizeHeader(h));
+  for(const key in aliases){
+    const opts = aliases[key].map(x=>normalizeHeader(x));
+    const idx = upper.findIndex(h=>opts.includes(h));
+    if(idx!==-1) map[key] = headers[idx];
+  }
+  return map;
+}
+
+function readWorkBook(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = (e)=>{
+      try{
+        const data = e.target.result;
+        const wb = XLSX.read(data, {type:'array', cellDates:true, raw:false});
+        resolve(wb);
+      }catch(err){ reject(err); }
+    };
+    r.onerror = reject;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function excelDateToISO(v){
+  // v may be Date, number (Excel serial), or string
+  if(v instanceof Date){ return v.toISOString().slice(0,10); }
+  if(typeof v === 'number'){ return XLSX.SSF.format('yyyy-mm-dd', v); }
+  const s = (v||'').toString().trim();
+  // try parse dd-mm-yyyy or yyyy/mm/dd etc.
+  const m1 = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+  if(m1){
+    const [ , d, m, y ] = m1;
+    const yyyy = (y.length===2 ? (Number(y)>50? '19'+y : '20'+y) : y);
+    return `${yyyy.padStart(4,'0')}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  const m2 = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m2){
+    const [ , y, m, d ] = m2; return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  // fallback: try Date
+  const dt = new Date(s); if(!isNaN(dt)) return dt.toISOString().slice(0,10);
+  return s; // as-is
+}
+
+function isEmpty(v){ return v===undefined || v===null || (typeof v==='string' && v.trim()===''); }
+
+function looksZeroLate(v){
+  if(isEmpty(v)) return true; // treat empty as zero
+  const s = v.toString().trim();
+  if(s==='0' || s==='0:00' || s==='00:00' || s==='0.0' || s==='0.00' || s==='0.000') return true;
+  // try HH:MM or MM
+  if(/^[0-9]{1,2}:[0-5][0-9]$/.test(s)){
+    const [h,m] = s.split(':').map(Number); return (h*60+m)===0;
+  }
+  // try number
+  const num = Number(s.replace(/[^0-9.\-]/g,''));
+  if(!isNaN(num)) return num===0;
+  return false; // if we cannot parse, assume non-zero
+}
+
+function missingPunch(row, map){
+  const ai = row[ map.ACTUALIN1 ] ?? row['ACTUALIN1'];
+  const ao = row[ map.ACTUALOUT1 ] ?? row['ACTUALOUT1'];
+  return isEmpty(ai) || isEmpty(ao);
+}
+
+function toSafeStr(v){ return isEmpty(v) ? '' : String(v); }
+
+function fmtDate(arISO){
+  // show as DD-MM-YYYY for UI
+  if(!arISO || typeof arISO!=='string' || arISO.length<10) return toSafeStr(arISO);
+  const y=arISO.slice(0,4), m=arISO.slice(5,7), d=arISO.slice(8,10);
+  return `${d}-${m}-${y}`;
+}
+
+// ===== Global State =====
+let allRows = []; // original parsed rows {row, map, fileName}
+let report = []; // transformed rows for table
+let filtered = []; // after search/filter
+let page = 1, pageSize = 50, sortBy = 'P_DATE';
+
+// ===== UI Refs =====
+const els = {
+  drop: document.getElementById('dropZone'), input: document.getElementById('fileInput'), filesList: document.getElementById('filesList'),
+  tbody: document.getElementById('tbody'), statFiles: document.getElementById('statFiles'), statLateRows: document.getElementById('statLateRows'), statEmployees: document.getElementById('statEmployees'),
+  txtSearch: document.getElementById('txtSearch'), pagerInfo: document.getElementById('pagerInfo'), pageSize: document.getElementById('pageSize'), sortBy: document.getElementById('sortBy'),
+  btnPrev: document.getElementById('prev'), btnNext: document.getElementById('next'),
+  btnExportXLSX: document.getElementById('btnExportXLSX'), btnExportCSV: document.getElementById('btnExportCSV'), btnClear: document.getElementById('btnClear'),
+  chkAddNextDay: document.getElementById('chkAddNextDay')
+};
+
+// ===== File Handling =====
+els.drop.addEventListener('click', ()=> els.input.click());
+els.drop.addEventListener('dragover', e=>{ e.preventDefault(); els.drop.classList.add('bg-white/5');});
+els.drop.addEventListener('dragleave', ()=> els.drop.classList.remove('bg-white/5'));
+els.drop.addEventListener('drop', async (e)=>{
+  e.preventDefault(); els.drop.classList.remove('bg-white/5');
+  await handleFiles(e.dataTransfer.files);
+});
+els.input.addEventListener('change', async (e)=>{ await handleFiles(e.target.files); });
+
+async function handleFiles(fileList){
+  const files = [...fileList];
+  if(!files.length) return;
+  els.filesList.innerHTML = '';
+  for(const f of files){
+    const li = document.createElement('li');
+    li.textContent = `• ${f.name}`; els.filesList.appendChild(li);
+  }
+  document.body.style.cursor = 'progress';
+  for(const file of files){
+    try{
+      const wb = await readWorkBook(file);
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const json = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+      if(!json.length) continue;
+      const headers = Object.keys(json[0]);
+      const map = buildHeaderMap(headers);
+      const fileName = file.name;
+      json.forEach(row=> allRows.push({row, map, fileName}));
+    }catch(err){
+      console.error('Failed:', file.name, err);
+      const li = document.createElement('li'); li.className='text-error'; li.textContent = `× تعذّر قراءة ${file.name}`; els.filesList.appendChild(li);
+    }
+  }
+  document.body.style.cursor = 'default';
+  buildReport();
+}
+
+// ===== Transform =====
+function buildReport(){
+  // 1) Gather rows with non-zero LATE
+  const out = [];
+  const seen = new Set();
+  const keyOf = (pin, dateISO, file)=> `${pin}|${dateISO}|${file}`;
+
+  // Fast lookup for next-day logic
+  const byPinDate = new Map(); // key: pin|dateISO -> {ctx}
+
+  for(const {row, map, fileName} of allRows){
+    const pin = toSafeStr(row[ map.PIN_CODE ] ?? row['PIN_CODE']);
+    const dISO = excelDateToISO(row[ map.P_DATE ] ?? row['P_DATE']);
+    byPinDate.set(`${pin}|${dISO}`, {row, map, fileName});
+  }
+
+  for(const ctx of allRows){
+    const {row, map, fileName} = ctx;
+    const pin = toSafeStr(row[ map.PIN_CODE ] ?? row['PIN_CODE']);
+    const name = toSafeStr(row[ map.NAME ] ?? row['NAME']);
+    const tz = toSafeStr(row[ map.TIMEZONE_CODE ] ?? row['TIMEZONE_CODE']);
+    const dateISO = excelDateToISO(row[ map.P_DATE ] ?? row['P_DATE']);
+    const lateVal = row[ map.LATE ] ?? row['LATE'];
+
+    if(!looksZeroLate(lateVal)){
+      const rec = emitRow(ctx, 'Late>0');
+      const key = keyOf(pin, dateISO, fileName);
+      if(!seen.has(key)) { out.push(rec); seen.add(key); }
+    }
+
+    // 2) Preferred extra: if tz==5307 and missing ACTUAL IN/OUT, also include next day
+    if((tz==="5307" || tz===5307) && missingPunch(row, map) && els.chkAddNextDay.checked){
+      const dt = new Date(dateISO);
+      if(!isNaN(dt)){
+        const next = new Date(dt.getTime()+86400000);
+        const nextISO = next.toISOString().slice(0,10);
+        const found = byPinDate.get(`${pin}|${nextISO}`);
+        if(found){
+          const rec2 = emitRow(found, 'NextDay(5307)-from missing punch');
+          const key2 = keyOf(pin, nextISO, found.fileName);
+          if(!seen.has(key2)) { out.push(rec2); seen.add(key2); }
+        } else {
+          // Synthesize empty row
+          const fake = emitRow({row:{}, map:{}, fileName:'—'}, 'NextDay(5307)-synthetic');
+          fake.PIN_CODE = pin; fake.NAME = name; fake.TIMEZONE_CODE = tz; fake.SHIFT = SHIFT_NAMES(tz);
+          fake.P_DATE_ISO = nextISO; fake.P_DATE = fmtDate(nextISO);
+          const key3 = keyOf(pin, nextISO, '—');
+          if(!seen.has(key3)) { out.push(fake); seen.add(key3); }
+        }
+      }
+    }
+  }
+
+  // Sort
+  const sorter = (a,b)=>{
+    if(sortBy==='P_DATE') return (a.P_DATE_ISO < b.P_DATE_ISO ? -1 : a.P_DATE_ISO > b.P_DATE_ISO ? 1 : (a.PIN_CODE.localeCompare(b.PIN_CODE)));
+    if(sortBy==='NAME') return a.NAME.localeCompare(b.NAME) || a.P_DATE_ISO.localeCompare(b.P_DATE_ISO);
+    return a.PIN_CODE.localeCompare(b.PIN_CODE) || a.P_DATE_ISO.localeCompare(b.P_DATE_ISO);
+  };
+  out.sort(sorter);
+
+  report = out;
+  applyFilter();
+  updateSummary();
+}
+
+function emitRow(ctx, note){
+  const {row, map, fileName} = ctx;
+  const pin = toSafeStr(row?.[ map?.PIN_CODE ] ?? row?.['PIN_CODE']);
+  const name = toSafeStr(row?.[ map?.NAME ] ?? row?.['NAME']);
+  const tz = toSafeStr(row?.[ map?.TIMEZONE_CODE ] ?? row?.['TIMEZONE_CODE']);
+  const dateISO = excelDateToISO(row?.[ map?.P_DATE ] ?? row?.['P_DATE']);
+
+  const obj = {
+    PIN_CODE: pin,
+    NAME: name,
+    SHIFT: SHIFT_NAMES(tz),
+    TIMEZONE_CODE: tz,
+    P_DATE_ISO: dateISO,
+    P_DATE: fmtDate(dateISO),
+    IN1: toSafeStr(row?.[ map?.IN1 ] ?? row?.['IN1']),
+    OUT1: toSafeStr(row?.[ map?.OUT1 ] ?? row?.['OUT1']),
+    IN2: toSafeStr(row?.[ map?.IN2 ] ?? row?.['IN2']),
+    OUT2: toSafeStr(row?.[ map?.OUT2 ] ?? row?.['OUT2']),
+    IN3: toSafeStr(row?.[ map?.IN3 ] ?? row?.['IN3']),
+    OUT3: toSafeStr(row?.[ map?.OUT3 ] ?? row?.['OUT3']),
+    ACTUALIN1: toSafeStr(row?.[ map?.ACTUALIN1 ] ?? row?.['ACTUALIN1']),
+    ACTUALOUT1: toSafeStr(row?.[ map?.ACTUALOUT1 ] ?? row?.['ACTUALOUT1']),
+    LATE: toSafeStr(row?.[ map?.LATE ] ?? row?.['LATE']),
+    NOTE: note,
+    SOURCE_FILE: fileName||''
+  };
+  return obj;
+}
+
+// ===== Filter & Render =====
+function applyFilter(){
+  const q = els.txtSearch.value.trim();
+  // quick filter chips
+  const quick = document.querySelector('[data-quick].active')?.getAttribute('data-quick') || 'all';
+
+  filtered = report.filter(r=>{
+    let ok = true;
+    if(quick==='5307') ok = ok && (r.TIMEZONE_CODE==="5307" || r.TIMEZONE_CODE===5307);
+    if(quick==='4816') ok = ok && (r.TIMEZONE_CODE==="4816" || r.TIMEZONE_CODE===4816);
+
+    if(q){
+      const needle = q.toLowerCase();
+      const hay = [r.PIN_CODE, r.NAME, r.P_DATE, r.TIMEZONE_CODE, r.LATE, r.NOTE].join(' ').toLowerCase();
+      ok = ok && hay.includes(needle);
+    }
+    return ok;
+  });
+  page = 1;
+  render();
+}
+
+function render(){
+  pageSize = Number(els.pageSize.value)||50; sortBy = els.sortBy.value;
+  const total = filtered.length;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  page = Math.min(Math.max(1,page), pages);
+  const start = (page-1)*pageSize;
+  const slice = filtered.slice(start, start+pageSize);
+
+  els.tbody.innerHTML = slice.map((r,i)=>`
+    <tr>
+      <td>${start+i+1}</td>
+      <td class="font-mono">${r.PIN_CODE||''}</td>
+      <td>${r.NAME||''}</td>
+      <td><span class="badge badge-info">${r.SHIFT}</span></td>
+      <td class="font-mono">${r.TIMEZONE_CODE||''}</td>
+      <td class="font-mono">${r.P_DATE||''}</td>
+      <td class="font-mono">${r.IN1||''}</td>
+      <td class="font-mono">${r.OUT1||''}</td>
+      <td class="font-mono">${r.IN2||''}</td>
+      <td class="font-mono">${r.OUT2||''}</td>
+      <td class="font-mono">${r.IN3||''}</td>
+      <td class="font-mono">${r.OUT3||''}</td>
+      <td class="font-mono">${r.ACTUALIN1||''}</td>
+      <td class="font-mono">${r.ACTUALOUT1||''}</td>
+      <td class="font-mono">${r.LATE||''}</td>
+      <td class="text-xs">${r.NOTE||''}</td>
+      <td class="text-xs opacity-80">${r.SOURCE_FILE||''}</td>
+    </tr>
+  `).join('');
+
+  els.pagerInfo.textContent = `عرض ${Math.min(total, start+1)}–${Math.min(total, start+slice.length)} من ${total}`;
+}
+
+function updateSummary(){
+  els.statFiles.textContent = new Set(allRows.map(x=>x.fileName).filter(Boolean)).size;
+  els.statLateRows.textContent = report.filter(r=>r.NOTE.startsWith('Late')).length;
+  els.statEmployees.textContent = new Set(report.map(r=>r.PIN_CODE)).size;
+}
+
+// ===== Events =====
+document.querySelectorAll('[data-quick]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-quick]').forEach(b=>b.classList.remove('active','btn-primary'));
+    btn.classList.add('active','btn-primary');
+    applyFilter();
+  });
+});
+els.txtSearch.addEventListener('input', ()=> applyFilter());
+els.pageSize.addEventListener('change', ()=> render());
+els.sortBy.addEventListener('change', ()=> buildReport());
+els.btnPrev.addEventListener('click', ()=>{ page=Math.max(1,page-1); render();});
+els.btnNext.addEventListener('click', ()=>{ page=page+1; render();});
+els.chkAddNextDay.addEventListener('change', ()=> buildReport());
+
+els.btnClear.addEventListener('click', ()=>{
+  allRows = []; report = []; filtered = []; page=1;
+  els.filesList.innerHTML='';
+  els.tbody.innerHTML='';
+  els.statFiles.textContent='0'; els.statLateRows.textContent='0'; els.statEmployees.textContent='0';
+});
+
+// ===== Export =====
+function exportSheet(type='xlsx'){
+  if(!report.length){ alert('لا توجد بيانات للتصدير'); return; }
+
+  // الترتيب المطلوب:
+  // PIN_CODE, LATE, NAME, P_DATE, IN1, OUT1, IN2, OUT2, IN3, OUT3, [فارغ], [فارغ], TIMEZONE_CODE, LATE
+  const colsKeys = [
+    'PIN_CODE','LATE','NAME','P_DATE','IN1','OUT1','IN2','OUT2','IN3','OUT3',
+    '__BLANK1__','__BLANK2__','TIMEZONE_CODE','LATE_2'
+  ];
+  const headerLabels = [
+    'PIN_CODE','LATE','NAME','P_DATE','IN1','OUT1','IN2','OUT2','IN3','OUT3','','','TIMEZONE_CODE','LATE'
+  ];
+
+  const data = report.map(r => ({
+    PIN_CODE: r.PIN_CODE || '',
+    LATE: r.LATE || '',
+    NAME: r.NAME || '',
+    P_DATE: r.P_DATE || '',
+    IN1: r.IN1 || '',
+    OUT1: r.OUT1 || '',
+    IN2: r.IN2 || '',
+    OUT2: r.OUT2 || '',
+    IN3: r.IN3 || '',
+    OUT3: r.OUT3 || '',
+    __BLANK1__: '',
+    __BLANK2__: '',
+    TIMEZONE_CODE: r.TIMEZONE_CODE || '',
+    LATE_2: r.LATE || ''
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data, { header: colsKeys });
+
+  // تثبيت صف العنوان
+  ws['!freeze'] = { xSplit:0, ySplit:1, topLeftCell:'A2', activePane:'bottomRight' };
+
+  // استبدال عناوين الصف الأول بالعناوين المطلوبة
+  for(let i=0; i<headerLabels.length; i++){
+    const addr = XLSX.utils.encode_cell({ r:0, c:i });
+    ws[addr] = { t:'s', v: headerLabels[i] };
+  }
+
+  // عرض أعمدة مبدئي
+  ws['!cols'] = headerLabels.map(lbl => ({ wch: Math.max(6, String(lbl||'').length + 2) }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Late_Report');
+  const fname = `LateReport_${new Date().toISOString().slice(0,10)}.${type==='csv' ? 'csv' : 'xlsx'}`;
+
+  if(type==='csv'){
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } else {
+    XLSX.writeFile(wb, fname);
+  }
+}
+
+// مستمعو الأزرار
+els.btnExportXLSX.addEventListener('click', ()=> exportSheet('xlsx'));
+els.btnExportCSV.addEventListener('click', ()=> exportSheet('csv'));
+</script>
+</body>
+</html>
