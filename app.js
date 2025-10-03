@@ -1,5 +1,5 @@
 // TriageXpert — CTAS Neon v3
-import registry from './modules/index.js';
+import registry from './modules/ctas_full_registry.js';
 
 function loadCustomModules(){
   try{
