@@ -90,9 +90,13 @@
     <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="glass kpi"><i class="fa-solid fa-list text-cyan-300"></i><div><div class="num" id="kpiTotal">0</div><div class="lbl">إجمالي التغييرات</div></div></div>
       <div class="glass kpi"><i class="fa-solid fa-arrow-trend-up text-amber-300"></i><div><div class="num" id="kpiUnder">0</div><div class="lbl">Under‑triage (زادت الخطورة)</div></div></div>
+   
       <div class="glass kpi"><i class="fa-solid fa-arrow-trend-down text-emerald-300"></i><div><div class="num" id="kpiOver">0</div><div class="lbl">Over‑triage (قلت الخطورة)</div></div></div>
+  
+  
       <div class="glass kpi"><i class="fa-solid fa-check text-emerald-300"></i>
   <div><div class="num" id="kpiAccurate">0</div><div class="lbl">Accurate (قرار الأول كان تمام)</div></div>
+  
 </div>
 
     </section>
@@ -200,10 +204,39 @@
         قرار الترياج الأولي كان مناسب للحالة (ولسبب كان غير ظاهر بالخارج او مرصود تم تغير درجة خطورة الحالة).
       </span>
     </div>
+    <div class="flex items-start gap-2">
+  <span class="badge badge-info">For Review</span>
+  <span>
+    حالات معلّمة للمراجعة — لا تُحتسب ضمن Under/Over/Accurate لحين التأكيد،
+
+  </span>
+</div>
+
   </div>
 </section>
 
     
+
+<section class="glass p-4">
+  <div class="flex items-center justify-between">
+    <div class="card-title text-sky-300">For Review — حالات للمراجعة</div>
+    <button class="btn btn-xs" id="btnReviewAll">عرض الكل</button>
+  </div>
+  <div class="text-xs opacity-70">
+    الحالات المعلّمة "For Review" لا تدخل ضمن المؤشرات، وتُعرض كتنبيه فقط.
+  </div>
+  <div class="overflow-x-auto mt-2">
+    <table class="table table-zebra table-xs" id="tblReview">
+      <thead>
+        <tr>
+          <th>التاريخ</th><th>MRN</th><th>المريض</th><th>د/م</th><th>من ➜ إلى</th><th>السبب</th><th>FB</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
     <!-- Triaged Columns (Accurate / Over / Under) -->
 <!-- Triaged Tables (Accurate / Over / Under) -->
 <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -261,6 +294,8 @@
     </div>
   </div>
 </section>
+
+
 <!-- Full List Modal -->
 <dialog id="dlgTriaged" class="modal">
   <div class="modal-box max-w-6xl glass">
@@ -378,14 +413,20 @@ function parseCTAS(s){
 // القرار ييجي من عمود Initial Triage was فقط
 function kindFromInit(init){
   const s = String(init||'').toLowerCase();
+  if (/for\s*review/.test(s) || /مراجعة|للمراجعة/.test(s)) return 'review';
   if (/under/.test(s) || /أندر|اقل|تقليل/.test(s)) return 'under';
   if (/over/.test(s)  || /أوفر|أعلى|زيادة/.test(s)) return 'over';
   if (/accurate/.test(s) || /اكيرت|صحيح|تمام/.test(s)) return 'accurate';
   return 'na';
 }
 function labelFromKind(k){
-  return k==='under' ? 'Under' : k==='over' ? 'Over' : k==='accurate' ? 'Accurate' : '';
+  return k==='under' ? 'Under'
+    : k==='over' ? 'Over'
+    : k==='accurate' ? 'Accurate'
+    : k==='review' ? 'For Review'
+    : '';
 }
+
 
 function isAccurateToken(s){
   return /accurate/i.test(String(s||'')); // يمسك "Accurate" أو "Accurate Triage"
@@ -409,7 +450,10 @@ function makeCaseCard(e){
 const changeClass =
   e.changeKind==='over'     ? 'badge-error'   :
   e.changeKind==='under'    ? 'badge-warning' :
-  e.changeKind==='accurate' ? 'badge-success' : 'badge-ghost';
+  e.changeKind==='accurate' ? 'badge-success' :
+  e.changeKind==='review'   ? 'badge-info'    :
+                              'badge-ghost';
+
 
 
   const card = document.createElement('div');
@@ -646,16 +690,38 @@ function tallyKindsBy(arr, byKey){
 
   // ===================== RENDER =====================
 function renderKPIs(view){
-  const under = view.filter(x=>x.changeKind==='under').length;
-  const over  = view.filter(x=>x.changeKind==='over').length;
-  const accurate = view.filter(x=>x.changeKind==='accurate').length;
-  const total = under + over + accurate; // تجاهل 'na'
+  const under   = view.filter(x=>x.changeKind==='under').length;
+  const over    = view.filter(x=>x.changeKind==='over').length;
+  const accurate= view.filter(x=>x.changeKind==='accurate').length;
+  const total   = under + over + accurate; // نتجاهل review في الإجمالي
+  const review  = view.filter(x=>x.changeKind==='review').length;
 
-  $('#kpiTotal').textContent = total;
-  $('#kpiUnder').textContent = under;
-  $('#kpiOver').textContent  = over;
+  $('#kpiTotal').textContent    = total;
+  $('#kpiUnder').textContent    = under;
+  $('#kpiOver').textContent     = over;
   $('#kpiAccurate').textContent = accurate;
+
+    // رايات صغيرة للمراجعة جنب الأرقام
+  const setReviewFlag = (targetId)=>{
+    const parent = document.getElementById(targetId)?.parentElement;
+    if(!parent) return;
+    let badge = parent.querySelector('.rev-flag');
+    if(!badge){
+      badge = document.createElement('span');
+      badge.className = 'rev-flag badge badge-info badge-sm ms-2';
+      parent.appendChild(badge);
+    }
+    badge.textContent = `للمراجعة: ${review}`;
+    badge.style.display = review>0 ? 'inline-flex' : 'none';
+  };
+  setReviewFlag('kpiTotal');
+  setReviewFlag('kpiUnder');
+  setReviewFlag('kpiOver');
+  // (ممكن تضيفها لـ Accurate برضه لو حابب)
 }
+
+
+
 
 
   function ensureChart(ctxRef){ const el = document.getElementById(ctxRef); return el? el.getContext('2d') : null; }
@@ -879,6 +945,20 @@ function openTriagedModal(title, rows){
   $('#dlgTriaged').showModal();
 }
 
+function renderReview(view){
+  const rev = view.filter(x=>x.changeKind==='review')
+                  .sort((a,b)=> (b.date||0)-(a.date||0));
+  const tb = $('#tblReview tbody');
+  if(tb){
+    fillSmallTable(tb, rev.slice(0,15));
+  }
+  const btn = document.getElementById('btnReviewAll');
+  if(btn){
+    btn.onclick = ()=> openTriagedModal('قائمة For Review', rev);
+  }
+}
+
+
 function renderTriagedTables(view){
   const over = view.filter(x=>x.changeKind==='over').sort((a,b)=>(b.date||0)-(a.date||0));
   const under = view.filter(x=>x.changeKind==='under').sort((a,b)=>(b.date||0)-(a.date||0));
@@ -1031,6 +1111,7 @@ function updateAll(){
   renderTable(view.slice().sort((a,b)=> (b.date||0)-(a.date||0)));
   renderTriagedTables(view);
   renderBenchmarks(); // مرّة واحدة فقط
+  renderReview(view); // <<< جديد
 }
 
   async function refresh(){
