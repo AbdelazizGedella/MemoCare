@@ -257,7 +257,15 @@ function computeVitalsEffects(){
   return effects;
 }
 
-function num(id){ const v = document.getElementById(id).value; const n = Number(v); return Number.isFinite(n) ? n : null; }
+// بدّل هذه الدالة في app.js
+function num(id){
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const raw = el.value;
+  if (raw === '' || raw === null || raw === undefined) return null; // مهم
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 function val(id){ return document.getElementById(id).value }
 function checked(id){ return document.getElementById(id).checked }
 
@@ -272,23 +280,32 @@ function renderVitalsEffects(effects){
 
 // Recalculate CTAS from selected modifiers + vitals every change
 function recalc(){
-  const values = [];
-  // CTAS from selected modifiers
+  // 1) قيم CTAS من الموديفايرز المختارة
+  const modValues = [];
   Array.from(state.selectedMods).forEach(k => {
     const [mid, sid] = k.split('::');
     const mod = ALL_MODULES.find(m=>m.id===mid);
     if (!mod) return;
     const m = (mod.modifiers||[]).find(x=>x.id===sid);
-    if (m && m.effect && Number.isFinite(Number(m.effect.ctas))) values.push(Number(m.effect.ctas));
+    if (m && m.effect && Number.isFinite(Number(m.effect.ctas))) {
+      modValues.push(Number(m.effect.ctas));
+    }
   });
-  // vitals
+
+  // 2) احسب وعرض تأثيرات الفيتالز (للعرض فقط، ولن تؤثر إذا فيه موديفايرز)
   state.vitalsEffects = computeVitalsEffects();
   renderVitalsEffects(state.vitalsEffects);
-  state.vitalsEffects.forEach(v => values.push(v.ctas));
-  // final = lowest of all
-  const current = lowestCTAS(values);
-  updateCTASCurrent(current);
-  renderSelectedModifiersSummary(); // keep summary synced
+
+  // 3) القرار النهائي: الموديفايرز أولاً، وإلا الفيتالز
+  let finalCTAS = null;
+  if (modValues.length) {
+    finalCTAS = lowestCTAS(modValues);              // تفضيل الموديفايرز
+  } else {
+    finalCTAS = lowestCTAS(state.vitalsEffects.map(v=>v.ctas)); // لو مفيش موديفايرز
+  }
+
+  updateCTASCurrent(finalCTAS);
+  renderSelectedModifiersSummary();
   updateSummaries();
 }
 
