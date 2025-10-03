@@ -1,32 +1,152 @@
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
 <head>
-
-
-    <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="MemoCare - Streamlined Memo Management">
-    <meta property="og:description" content="Enhance accountability and efficiency with real-time memo tracking and user engagement features.">
-    <meta property="og:image" content="https://raw.githubusercontent.com/AbdelazizGedella/MemoCare/main/icon/android-chrome-192x192.png">
-    <meta property="og:url" content="https://abdelazizgedella.github.io/MemoCare/">
-    <meta property="og:type" content="website">
-
-
-
-    <meta http-equiv="refresh" content="0; url=public/index.html">
-    <style>
-        body {
-            background-color: #0a1a2f; /* dark navy blue */
-            margin: 0;
-            height: 100vh;
-        }
-    </style>
-    <title>Redirecting...</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TriageXpert — CTAS Neon v3</title>
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="color-scheme" content="dark" />
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
-    <noscript>
-        <meta http-equiv="refresh" content="0; url=public/index.html">
-        <div style="color: white; text-align: center; margin-top: 20%;">
-            Redirecting to <b>public/index.html</b>...
+  <div class="container" id="capture-area">
+    <div class="header">
+      <div class="ctas-big" id="ctas-current">CTAS —</div>
+      <div class="brand">
+        <div class="logo">TX</div>
+        <div>
+          <h1>TriageXpert — CTAS</h1>
+          <div class="sub">Type a chief complaint → pick modifiers (right) → optional vitals (center). Multiple complaints supported.</div>
         </div>
-    </noscript>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Complaints -->
+      <section class="card">
+        <h2>Chief Complaints</h2>
+        <div class="row" style="display:flex; gap:10px">
+          <input id="cc-input" placeholder="e.g., Chest pain, SOB, Seizure..." style="flex:1" />
+          <button class="primary" id="btn-clear">Clear</button>
+          <a href="builder.html"><button class="ghost">Module Builder</button></a>
+        </div>
+
+        <div class="section-title">Selected complaints</div>
+        <div id="selected-ccs" class="list"></div>
+
+        <div class="section-title">Suggestions</div>
+        <div id="suggestions" class="list"></div>
+      </section>
+
+      <!-- Center: Vitals as spoilers -->
+      <section class="card">
+        <h2>Vitals & First-Order Modifiers (Optional)</h2>
+
+        <details class="spoiler" id="sp-age">
+          <summary>Age <span class="summary-value" id="sv-age">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <input id="age" type="number" min="0" placeholder="years" style="width:160px" />
+          </div>
+        </details>
+
+        <details class="spoiler" id="sp-gcs">
+          <summary>GCS <span class="summary-value" id="sv-gcs">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <input id="gcs" type="number" min="3" max="15" placeholder="3–15" style="width:120px" />
+          </div>
+        </details>
+
+        <details class="spoiler" id="sp-hemo">
+          <summary>Circulation <span class="summary-value" id="sv-hemo">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <label>Shock</label> <input id="shock" type="checkbox" />
+            <label>Hemodynamic compromise</label> <input id="hemo" type="checkbox" />
+          </div>
+        </details>
+
+        <details class="spoiler" id="sp-rr">
+          <summary>Respiratory <span class="summary-value" id="sv-resp">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <label>RR</label><input id="rr" type="number" placeholder="rpm" style="width:110px" />
+            <label>SpO₂ %</label><input id="spo2" type="number" placeholder="%" style="width:110px" />
+          </div>
+        </details>
+
+        <details class="spoiler" id="sp-bp">
+          <summary>Blood Pressure <span class="summary-value" id="sv-bp">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <label>SBP</label><input id="sbp" type="number" placeholder="mmHg" style="width:120px" />
+            <label>DBP</label><input id="dbp" type="number" placeholder="mmHg" style="width:120px" />
+            <label>HTN symptoms</label><input id="htn-sx" type="checkbox" />
+          </div>
+        </details>
+
+        <details class="spoiler" id="sp-glu">
+          <summary>Glucose <span class="summary-value" id="sv-glu">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <input id="glucose" type="number" step="0.1" placeholder="mmol/L" style="width:160px" />
+            <label>Hypoglycemia sx</label><input id="hypo-sx" type="checkbox" />
+            <label>Hyperglycemia sx</label><input id="hyper-sx" type="checkbox" />
+          </div>
+        </details>
+
+        <details class="spoiler" id="sp-temp">
+          <summary>Temperature / Sepsis <span class="summary-value" id="sv-temp">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <label>Temp °C</label><input id="temp" type="number" step="0.1" placeholder="°C" style="width:120px" />
+            <label>Immunocompromised</label><input id="immuno" type="checkbox" />
+            <label>Septic look</label><input id="septic" type="checkbox" />
+            <label>Unwell look</label><input id="unwell" type="checkbox" />
+          </div>
+        </details>
+
+        <details class="spoiler" id="sp-pain">
+          <summary>Pain <span class="summary-value" id="sv-pain">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+            <label>Pain 0–10</label><input id="pain" type="number" min="0" max="10" placeholder="0–10" style="width:120px" />
+            <label>Location</label><select id="pain-loc" style="width:140px">
+              <option value="">—</option>
+              <option value="central">Central</option>
+              <option value="peripheral">Peripheral</option>
+            </select>
+            <label>Onset</label><select id="pain-onset" style="width:140px">
+              <option value="">—</option>
+              <option value="acute">Acute</option>
+              <option value="chronic">Chronic</option>
+            </select>
+          </div>
+        </details>
+
+        <div class="section-title">Vitals-derived effects</div>
+        <table class="table" id="vitals-effects">
+          <thead><tr><th>Source</th><th>Details</th><th>CTAS</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <hr />
+        <div class="row" style="display:flex; justify-content:flex-end; align-items:center; gap:10px">
+          <button id="btn-screenshot" class="primary">Screenshot</button>
+          <button id="btn-print" class="ghost">Print</button>
+          <span class="small"><span class="kbd">Ctrl</span> + <span class="kbd">P</span></span>
+        </div>
+      </section>
+
+      <!-- Right: Modifiers -->
+      <section class="card">
+        <h2>Complaint-specific Modifiers</h2>
+        <div class="section-title">Selected modifiers</div>
+        <div id="selected-mods"></div>
+        <div class="mods-panel" id="mods-panel" style="margin-top:10px"></div>
+      </section>
+    </div>
+
+    <footer>
+      <div>Educational quick-reference only — always use your clinical judgment and local CTAS policy.</div>
+      <div>© 2025 TriageXpert</div>
+    </footer>
+  </div>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>

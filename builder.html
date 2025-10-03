@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TriageXpert — Module Builder</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="ctas-big">Module Builder</div>
+      <div class="brand">
+        <div class="logo">TX</div>
+        <div><h1>Create custom modules</h1><div class="sub">Save to browser or export as .js</div></div>
+      </div>
+    </div>
+
+    <section class="card">
+      <h2>Module details</h2>
+      <div class="row" style="display:flex; gap:10px; flex-wrap:wrap">
+        <label>ID</label><input id="m-id" placeholder="unique_id" />
+        <label>Title</label><input id="m-title" placeholder="Display title" style="min-width:320px" />
+      </div>
+      <div class="row" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+        <label>Keywords (comma separated)</label><input id="m-keywords" placeholder="e.g., chest pain, ACS" style="min-width:420px" />
+      </div>
+      <div class="row" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+        <label>Vitals hints</label><input id="m-hints" placeholder="e.g., ECG, SpO2" style="min-width:420px" />
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Modifiers</h2>
+      <div id="mods"></div>
+      <div class="row" style="display:flex; gap:10px; margin-top:10px">
+        <button id="btn-add-mod">+ Add modifier</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Save / Export</h2>
+      <div class="row" style="display:flex; gap:10px; flex-wrap:wrap">
+        <button id="btn-save-browser">Save to Browser</button>
+        <button id="btn-export-js">Export as .js</button>
+        <a href="index.html"><button>← Back to App</button></a>
+      </div>
+      <div class="section-title">Tip</div>
+      <div class="small">Saved modules appear automatically in the app (reload may be needed once). They are kept in your browser (localStorage).</div>
+    </section>
+  </div>
+
+  <template id="mod-row">
+    <div class="mod" style="display:flex; gap:10px; align-items:flex-start">
+      <div style="flex:1">
+        <div class="row" style="display:flex; gap:10px; flex-wrap:wrap">
+          <input class="mi-id" placeholder="modifier_id" style="width:160px" />
+          <input class="mi-label" placeholder="Modifier label" style="min-width:280px" />
+          <select class="mi-ctas" style="width:160px">
+            <option value="">CTAS —</option>
+            <option value="1">CTAS 1 (red)</option>
+            <option value="2">CTAS 2 (blue)</option>
+            <option value="3">CTAS 3 (yellow)</option>
+            <option value="4">CTAS 4 (green)</option>
+            <option value="5">CTAS 5 (white)</option>
+          </select>
+        </div>
+        <div class="row" style="display:flex; gap:10px; margin-top:8px">
+          <input class="mi-note" placeholder="Note (optional)" style="min-width:420px" />
+        </div>
+      </div>
+      <button class="btn-remove">×</button>
+    </div>
+  </template>
+
+  <script type="module" src="builder.js"></script>
+</body>
+</html>
