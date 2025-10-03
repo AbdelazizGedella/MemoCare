@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="dark">
 <head>
@@ -267,7 +268,7 @@
 <div class="glass p-4 rounded-2xl chart-card md:col-span-2 lg:col-span-4" id="monthlyMortalityCard">
   <div class="flex items-center justify-between mb-2">
 <h3 class="font-semibold">ICU Mortality % — شهريًا</h3>
-    <span class="badge badge-soft">Per month • من أول حالة دخلت</span>
+    <span class="badge badge-soft">Per month • Since Launching</span>
   </div>
   <div class="chart-wrap"><canvas id="chartMortality"></canvas></div>
 
@@ -726,16 +727,17 @@ function buildDailySeries(rows){
   const disDAMA = [];
   const disTransferred = [];
   const disExpired = [];
+  const totalActive = []; // <-- كان ناقص
 
   for(let d = start; !d.isAfter(end); d = d.add(1,'day')){
-    const mid = d.startOf('day').toDate(); // 00:00
+    const dayStart = d.startOf('day').toDate();
+    const dayEnd   = d.endOf('day').toDate();
 
     const admCnt = rows.filter(r => r.adm && dayjs(r.adm).isSame(d, 'day')).length;
-    const cenCnt = rows.filter(r => r.adm && r.adm <= mid && (!r.dis || r.dis > mid)).length;
+    const cenCnt = rows.filter(r => r.adm && r.adm <= dayEnd && (!r.dis || r.dis > dayEnd)).length;
 
     const sameDayDis = rows.filter(r => r.dis && dayjs(r.dis).isSame(d,'day'));
     const allCnt = sameDayDis.length;
-
     let imp=0, dama=0, trans=0, exp=0;
     sameDayDis.forEach(r=>{
       switch (outcomeCat(r.outcome)) {
@@ -746,6 +748,9 @@ function buildDailySeries(rows){
       }
     });
 
+    // Total Active (24h): أي مريض تداخلت إقامته مع اليوم
+    const activeCnt = rows.filter(r => r.adm && r.adm <= dayEnd && (!r.dis || r.dis > dayStart)).length;
+
     labels.push(d.format('YYYY-MM-DD'));
     admissions.push(admCnt);
     census.push(cenCnt);
@@ -754,16 +759,11 @@ function buildDailySeries(rows){
     disDAMA.push(dama);
     disTransferred.push(trans);
     disExpired.push(exp);
+    totalActive.push(activeCnt);
   }
 
-  const totalActive = admissions.map((v,i) => v + census[i]);
   const totalActiveAvg = avg(totalActive);
-
-  return {
-    labels, admissions, census,
-    disAll, disImproved, disDAMA, disTransferred, disExpired,
-    totalActive, totalActiveAvg
-  };
+  return { labels, admissions, census, disAll, disImproved, disDAMA, disTransferred, disExpired, totalActive, totalActiveAvg };
 }
 // يرسم جدول التقرير اليومي
 // يرسم "التقرير اليومي" بشكل أفقي:
@@ -793,8 +793,8 @@ function renderCensusTable(series){
 
   // 1) Census @ 00:00
   let rowCensus = `<tr><td class="sticky-start col-label"><span class="badge badge-secondary gap-2">
-    <i class="fa-regular fa-clock"></i> Census @ 00:00
-  </span></td>`;
+  <i class="fa-regular fa-clock"></i> Census @ 23:59
+</span></td>`;
   for(const n of series.census){
     rowCensus += tdBadge(n, 'badge-secondary');
   }
@@ -860,10 +860,9 @@ tbody.innerHTML = rowTA + rowCensus + rowAdmissions + rowDisAll + rowImp + rowDa
 // يبني سلاسل شهرية: Patient-Days و Deaths و Mortality/1000
 // ملاحظة: يحسب من أول حالة في "كل البيانات" rawRows وليس ضمن الفلتر.
 function buildMonthlyMortalityFromAllData(){
-  const rows = rawRows; // من أول حالة
+  const rows = rawRows;
   if(!rows?.length) return { months:[], patientDays:[], deaths:[], mortality:[] };
 
-  // نافذة التحليل: من أول Admission مرصود لأي مريض، إلى آخر تاريخ خروج أو اليوم لو في حالات نشطة
   const allAdms = rows.map(r=>r.adm).filter(Boolean).map(d=>dayjs(d));
   if(!allAdms.length) return { months:[], patientDays:[], deaths:[], mortality:[] };
 
@@ -873,10 +872,10 @@ function buildMonthlyMortalityFromAllData(){
   const hasActive = rows.some(r=>!r.dis);
   const end = (hasActive && dayjs().isAfter(maxSeen)) ? dayjs().endOf('day') : maxSeen.endOf('day');
 
-  const daysMap = new Map();   // YYYY-MM -> patient-days (float)
+  const daysMap = new Map();   // YYYY-MM -> patient-days (integer after ceiling)
   const deathMap = new Map();  // YYYY-MM -> integer
 
-  // توزيع زمن كل مريض على الشهور (مع احتساب الأجزاء)
+  // وزّع إقامة كل مريض على الشهور مع جَبْر أي كسر ليوم كامل
   for(const r of rows){
     if(!r.adm) continue;
     const s = dayjs.max(dayjs(r.adm), start);
@@ -886,14 +885,15 @@ function buildMonthlyMortalityFromAllData(){
     let cur = s;
     while(cur.isBefore(e)){
       const monthEnd = dayjs.min(e, cur.endOf('month'));
-      const d = (monthEnd.valueOf() - cur.valueOf()) / 86400000; // أيام (كسور)
-      const key = cur.format('YYYY-MM');
-      daysMap.set(key, (daysMap.get(key) || 0) + d);
+      const d = (monthEnd.valueOf() - cur.valueOf()) / 86400000;
+      const dayChunk = d > 0 ? Math.ceil(d) : 0; // جبر الكسور
+      const key = cur.format('YYYY-MM');         // <-- كان ناقص
+      daysMap.set(key, (daysMap.get(key) || 0) + dayChunk);
       cur = monthEnd.add(1, 'second');
     }
   }
 
-  // الوفيات حسب شهر الخروج لو Outcome = Expired
+  // وفيات حسب شهر الخروج لو Outcome = Expired
   for(const r of rows){
     if(r.dis && outcomeCat(r.outcome) === 'expired'){
       const key = dayjs(r.dis).format('YYYY-MM');
@@ -914,54 +914,77 @@ function buildMonthlyMortalityFromAllData(){
 function renderMonthlyMortality(){
   const s = buildMonthlyMortalityFromAllData();
 
-  // إلى نسبة مئوية: لكل 1000 → ×0.1
+  // Mortality % (من لكل 1000 إلى نسبة مئوية)
   const mortPct = s.mortality.map(v => v != null ? +(v * 0.1).toFixed(2) : null);
 
-  // أعلى/أقل قيمة صالحة
+  // أعلى/أقل قيمة (لافتات للجدول)
   const pairs = mortPct.map((v,i)=>({v,i})).filter(p=>p.v!=null);
   const maxIdx = pairs.length ? pairs.reduce((a,b)=> b.v>a.v?b:a).i : -1;
   const minIdx = pairs.length ? pairs.reduce((a,b)=> b.v<a.v?b:a).i : -1;
 
-  // مقاييس ذكية: وسّع 20% فوق الأعلى
+  // مقاييس
   const rateMax = Math.max(1, Math.ceil((Math.max(...mortPct.filter(v=>v!=null), 0) * 1.2)));
   const daysMax = Math.ceil((Math.max(...s.patientDays, 0) * 1.2));
 
-  const pointRadius = mortPct.map((_,i)=> (i===maxIdx||i===minIdx) ? 6 : 3);
-  const pointBackgroundColor = mortPct.map((_,i)=>{
-    if(i===maxIdx) return 'hsl(0 70% 55%)';    // أعلى: أحمر
-    if(i===minIdx) return 'hsl(160 70% 45%)';  // أقل: أخضر
-    return undefined;
+  // متوسط الـ Mortality %
+  const valid = mortPct.filter(v => v != null);
+  const mortAvg = valid.length ? (valid.reduce((a,b)=>a+b,0) / valid.length) : null;
+
+  // لوّن نقاط الخط: فوق المتوسط أحمر، أقل/يساوي أخضر
+  const pointRadius = mortPct.map(v => v != null ? 4 : 0);
+  const pointBackgroundColor = mortPct.map(v => {
+    if (v == null) return undefined;
+    return (mortAvg != null && v > mortAvg) ? 'hsl(0 70% 55%)' : 'hsl(160 70% 45%)';
   });
 
-  ensureChart("chartMortality", {
-    type: "bar",
-    data: {
-      labels: s.months,
-      datasets: [
-        {
-          type: "bar",
-          label: "Patient-Days",
-          data: s.patientDays.map(x => x != null ? +x.toFixed(2) : null),
-          yAxisID: "yDays",
-          backgroundColor: "hsl(210 70% 55%)"
-        },
-        {
-          type: "line",
-          label: "Mortality %",
-          data: mortPct,
-          yAxisID: "yRate",
-          tension: 0.25,
-          spanGaps: true,
-          pointRadius,
-          pointBackgroundColor,
-          borderWidth: 2
-        }
-      ]
-    },
+  // أضف/حدّث شارة المتوسط بجوار العنوان
+  try {
+    const card = document.getElementById('monthlyMortalityCard');
+    const h3 = card?.querySelector('h3');
+    if (h3) {
+      let avgBadge = card.querySelector('#mortAvgBadge');
+      if (!avgBadge) {
+        avgBadge = document.createElement('span');
+        avgBadge.id = 'mortAvgBadge';
+        avgBadge.className = 'badge badge-soft ml-2';
+        h3.appendChild(document.createTextNode(' '));
+        h3.appendChild(avgBadge);
+      }
+      avgBadge.textContent = `Avg: ${mortAvg != null ? mortAvg.toFixed(1) + '%' : '—'}`;
+    }
+  } catch(e) { /* no-op */ }
+
+ensureChart("chartMortality", {
+  type: "bar",
+  data: {
+    labels: s.months,
+    datasets: [
+      {
+        type: "bar",
+        label: "Patient-Days",
+        data: s.patientDays.map(x => x != null ? +x.toFixed(2) : null),
+        yAxisID: "yDays",
+        backgroundColor: "hsl(210 70% 55%)",
+        order: -10 // ← ارسم الأعمدة أولاً (خلف)
+      },
+      {
+        type: "line",
+        label: "Mortality %",
+        data: mortPct,
+        yAxisID: "yRate",
+        tension: 0.25,
+        spanGaps: true,
+        pointRadius,
+        pointBackgroundColor,
+        borderWidth: 2,
+        order: 10,   // ← ارسم الخط بعد الأعمدة (قدّام)
+        clip: false  // ← احتياط: يمنع أي قصّ يجعل أجزاء من الخط تختفي خلف الأعمدة
+      }
+    ]
+  },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      // مهم: خليه يفسّر الأرقام كما هي
       parsing: true,
       plugins: {
         legend: { position: 'bottom' },
@@ -981,7 +1004,7 @@ function renderMonthlyMortality(){
         yRate: {
           position: 'left',
           min: 0,
-          max: rateMax,                // <-- هنا المشكلة كانت
+          max: rateMax,
           title: { display: true, text: 'Mortality %' },
           ticks: { callback: v => `${v}%` }
         },
@@ -996,6 +1019,34 @@ function renderMonthlyMortality(){
     }
   });
 
+
+  // ضع هذا بعد ensureChart(...) مباشرةً
+try {
+  const card = document.getElementById('monthlyMortalityCard');
+  const chartWrap = card?.querySelector('.chart-wrap');
+  const tableBlock = card?.querySelector('.overflow-auto'); // جدول الوفيات
+
+  let formula = card?.querySelector('#mortalityFormula');
+  if (!formula) {
+    formula = document.createElement('p');
+    formula.id = 'mortalityFormula';
+    formula.className = 'text-xs opacity-80 mt-2';
+    // أدخلها بين الرسم والجدول
+    (tableBlock?.parentNode || card).insertBefore(formula, tableBlock || null);
+  }
+
+  // نص المعادلة بالعربي
+  formula.innerHTML = `
+    <span class="badge badge-soft mr-2">المعادلة</span>
+    نسبة وفيات العناية المركزة (شهريًا) = 
+    <strong>(عدد الوفيات خلال الشهر ÷ مجموع <em>Patient-Days</em> لنفس الشهر) × 100</strong><br>
+    <span class="opacity-70">
+      ملاحظة: <em>Patient-Days</em> تُحسب بجمع أيام إقامة كل المرضى داخل العناية خلال الشهر
+      مع <strong>جبر أي جزء يوم إلى يوم كامل</strong>.
+    </span>
+  `;
+} catch(e) { /* no-op */ }
+
   // جدول أسفل الشارت
   const tb = document.getElementById('mortalityTBody');
   if(!tb) return;
@@ -1004,7 +1055,8 @@ function renderMonthlyMortality(){
     return;
   }
   tb.innerHTML = s.months.map((m, i)=>{
-    const pd = s.patientDays[i] || 0;
+const pd = s.patientDays[i] ?? 0;
+const pdDisplay = Number.isFinite(pd) ? Math.round(pd) : pd; // عرض كعدد صحيح
     const dd = s.deaths[i] || 0;
     const rt = mortPct[i];
     const rowCls = i===maxIdx ? 'bg-error/20' : (i===minIdx ? 'bg-success/20' : '');
@@ -1013,7 +1065,7 @@ function renderMonthlyMortality(){
     return `
       <tr class="${rowCls}">
         <td class="metric-number">${m}</td>
-        <td class="metric-number">${pd.toFixed(2)}</td>
+<td class="metric-number">${pdDisplay}</td>
         <td class="metric-number">${dd}</td>
         <td class="metric-number">${rt!=null ? rt.toFixed(1) + '%' : '—'}${mark}</td>
       </tr>
@@ -1031,7 +1083,7 @@ function ensureChart(id, cfg){
 }
     function topNCounts(rows, field, n=10){
       const map = new Map();
-      for(const r of rows){ const k = (r[field] || "غير محدد").trim() || "غير محدد"; map.set(k, (map.get(k) || 0) + 1); }
+      for(const r of rows){ const k = (r[field] || "Active Cases").trim() || "Active Cases"; map.set(k, (map.get(k) || 0) + 1); }
       return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
     }
     function setChartFilter(desc, predicate){
@@ -1177,8 +1229,8 @@ ensureChart("chartDaily", {
     labels: daily.labels,
     datasets: [
       { label: "Admissions",      data: daily.admissions, backgroundColor: "hsl(160 70% 45%)" }, // أخضر
-      { label: "Census @ 00:00",  data: daily.census,     backgroundColor: "hsl(210 70% 55%)" }, // أزرق
-      { label: "Total Active (24h)", data: daily.totalActive, backgroundColor: daily.totalActive.map(n => colorByAvgValue(n, daily.totalActiveAvg)) } // ملوّن حسب المتوسط
+{ label: "Census @ 23:59",  data: daily.census, backgroundColor: "hsl(210 70% 55%)" }
+,      { label: "Total Active (24h)", data: daily.totalActive, backgroundColor: daily.totalActive.map(n => colorByAvgValue(n, daily.totalActiveAvg)) } // ملوّن حسب المتوسط
     ]
   },
   options: {
@@ -1186,27 +1238,29 @@ ensureChart("chartDaily", {
     maintainAspectRatio: false,
     plugins: { legend: { position: 'bottom' } },
     scales: { y: { beginAtZero: true } },
-    onClick(evt, elements, chart){
-      const pts = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
-      if(!pts.length) return;
-      const p = pts[0];
-      const label = chart.data.labels[p.index];
-      const mid = dayjs(label).startOf('day').toDate();
+onClick(evt, elements, chart){
+  const pts = chart.getElementsAtEventForMode(evt, 'nearest', {intersect:true}, true);
+  if(!pts.length) return;
+  const p = pts[0];
+  const label = chart.data.labels[p.index];
 
-      if(p.datasetIndex === 0){
-        // Admissions
-        setChartFilter(`تاريخ الدخول = ${label}`, r => r.adm && dayjs(r.adm).isSame(label, 'day'));
-      } else if(p.datasetIndex === 1){
-        // Census @ 00:00
-        setChartFilter(`حاضر عند 00:00 في ${label}`, r => r.adm && r.adm <= mid && (!r.dis || r.dis > mid));
-      } else {
-        // Total Active (24h) = Admissions + Census@00:00
-        setChartFilter(`Total Active (24h) في ${label}`, r =>
-          (r.adm && dayjs(r.adm).isSame(label, 'day')) ||
-          (r.adm && r.adm <= mid && (!r.dis || r.dis > mid))
-        );
-      }
-    }
+  if(p.datasetIndex === 0){
+    // Admissions
+    setChartFilter(`تاريخ الدخول = ${label}`, r => r.adm && dayjs(r.adm).isSame(label, 'day'));
+  } else if(p.datasetIndex === 1){
+    // Census @ 23:59
+    const eod = dayjs(label).endOf('day').toDate();
+    setChartFilter(`حاضر عند 23:59 في ${label}`, r => r.adm && r.adm <= eod && (!r.dis || r.dis > eod));
+} else {
+  // Total Active (24h)
+  const dayStart = dayjs(label).startOf('day').toDate();
+  const dayEnd   = dayjs(label).endOf('day').toDate();
+  setChartFilter(`Total Active (24h) في ${label}`, r =>
+    r.adm && r.adm <= dayEnd && (!r.dis || r.dis > dayStart)
+  );
+}
+
+}
   }
 });
 
