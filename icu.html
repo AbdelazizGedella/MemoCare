@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="dark">
 <head>
@@ -18,6 +19,11 @@
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/minMax.js"></script>
+<!-- Firebase SDKs (Compat زي مشروعك) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 
   <!-- Google Font (اختياري) -->
@@ -413,11 +419,101 @@
   <div id="toast" class="toast toast-end z-50"></div>
 
   <script>
+
+      // TODO: حطّ إعدادات مشروعك هنا (زي ما هي عندك)
+  // مثال (استبدل بالقيم بتاعتك):
+  firebase.initializeApp({
+    apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+  authDomain: "ctwo-eee79.firebaseapp.com",
+  projectId: "ctwo-eee79",
+  storageBucket: "ctwo-eee79.appspot.com",
+  messagingSenderId: "788657051205",
+  appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+  measurementId: "G-4VTCQR4ZVR"
+
+  });
+
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+  const st   = firebase.storage();
+
+  // طبقة قفل بسيطة (ما بتغيّرش أي ستايل عام)
+  (function(){
+    const lock = document.createElement('div');
+    lock.id = 'auth-lock';
+    lock.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;background:rgba(15,23,42,.94);z-index:9999';
+    lock.innerHTML = `
+      <div class="glass p-6 rounded-2xl text-center max-w-sm">
+        <h2 class="text-xl font-bold mb-2">🔒 وصول مقيّد</h2>
+        <p class="opacity-80 mb-4">سجّل الدخول بحساب الموظفين.</p>
+        <button id="btnLogin" class="btn btn-gradient">تسجيل الدخول</button>
+      </div>`;
+    document.addEventListener('DOMContentLoaded', ()=> document.body.appendChild(lock));
+    window.addEventListener('click', (e)=> {
+      if(e.target && e.target.id === 'btnLogin'){
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider);
+      }
+    });
+  })();
+
+  async function startIfAllowed(user){
+    // تحقُّق من العضوية
+    const me = await db.collection('allowedUsers').doc(user.uid).get();
+    if(!me.exists || me.data().enabled !== true){
+      const lock = document.getElementById('auth-lock');
+      if(lock) lock.innerHTML = `
+        <div class="glass p-6 rounded-2xl text-center max-w-sm">
+          <h2 class="text-xl font-bold mb-2">⛔ غير مصرح</h2>
+          <p class="opacity-80">تواصل مع الإدارة لإضافتك إلى قائمة الوصول.</p>
+        </div>`;
+      throw new Error('Forbidden');
+    }
+
+    // جلب إعدادات الـ CSV + مسار ملف الكود
+    const cfg = await db.collection('config').doc('icuDashboard').get();
+    const csvUrl  = cfg.exists ? cfg.data().csvUrl : null;
+    const codePath = (cfg.exists && cfg.data().codePath) || 'restricted/icu-dashboard.v1.js';
+    if(!csvUrl) throw new Error('Missing csvUrl in config/icuDashboard');
+    // مرّر الـ CSV للوحة
+window.__CSV_URL = csvUrl;
+
+    // حمّل كود اللوحة المحمي من Storage
+    const codeUrl = await st.ref(codePath).getDownloadURL();
+    await new Promise((ok, err)=>{
+      const s = document.createElement('script');
+      s.src = codeUrl; s.onload = ok; s.onerror = err;
+      document.body.appendChild(s);
+    });
+
+    // شغّل اللوحة (لو DOM جاهز)
+    if (typeof window.init === 'function') {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ()=> window.init());
+      } else {
+        window.init();
+      }
+    }
+
+    // اخفِ القفل
+    document.getElementById('auth-lock')?.remove();
+  }
+
+  auth.onAuthStateChanged(async (u)=>{
+    try{
+      if(!u) return;           // لسه ما سجلش دخول
+      await startIfAllowed(u); // ابدأ إن كان مصرح
+    }catch(e){
+      console.error(e);
+    }
+  });
+
+
+
     dayjs.extend(dayjs_plugin_customParseFormat);
 dayjs.extend(dayjs_plugin_minMax);
 
     /* =================== Config =================== */
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRoux4qBcO7AVFBr2CyBnCsCChI-ZIdKP3pSUdZE9--GXbyCu7YvPeWDR2lmFJiLAxDrL_6EpOXp1nC/pub?gid=1847737330&single=true&output=csv";
     const COL = {
       name: "Pt Name", mrn: "Pt MRN", age: "Pt Age", gender: "Gender",
       nationality: "Nationality", finance: "Finance", phone: "Pt Phone",
@@ -547,19 +643,22 @@ function colorByAvgValue(n, avg){
 
 
     /* =================== Load CSV =================== */
-    async function loadCSV(){
-      return new Promise((resolve,reject)=>{
-        Papa.parse(CSV_URL, {
-          download: true, header: true, skipEmptyLines: true,
-          complete: (res)=>{
-            resolve(res.data.map(r=>{
-              const nr = {}; Object.keys(r).forEach(k=> nr[normKey(k)] = r[k]); return nr;
-            }));
-          },
-          error: reject
-        });
-      });
-    }
+  async function loadCSV(){
+  const url = window.__CSV_URL || window.CSV_URL; // نستخدم اللي متاح
+  if(!url) throw new Error('CSV URL is missing');
+  return new Promise((resolve,reject)=>{
+    Papa.parse(url, {
+      download: true, header: true, skipEmptyLines: true,
+      complete: (res)=>{ /* نفس الكود الحالي */ 
+        resolve(res.data.map(r=>{
+          const nr = {}; Object.keys(r).forEach(k=> nr[normKey(k)] = r[k]); return nr;
+        }));
+      },
+      error: reject
+    });
+  });
+}
+
 
     /* =================== Transform =================== */
     function transform(rows){
@@ -1362,10 +1461,15 @@ renderCensusTable(daily);
     }
 
     /* =================== Init & Events =================== */
-    async function init(){
-      try{
-        const rows = await loadCSV();
-        rawRows = transform(rows);
+ async function init(){
+  // لو لسه مفيش رابط CSV، سيب startIfAllowed ينادي init بعد الحقن
+  if (!(window.__CSV_URL || window.CSV_URL)) return;
+
+  // لو البيانات اتحمّلت قبل كده، ما تعيدش
+  if (rawRows.length) return;
+  try{
+    const rows = await loadCSV();
+    rawRows = transform(rows);
 
         // افتراضيًا: عرض كل البيانات (بدون فلتر زمني)
         document.getElementById('dateFrom').value = "";
@@ -1430,7 +1534,11 @@ renderCensusTable(daily);
     const ro = new ResizeObserver(() => { for (const id in charts) { try { charts[id]?.resize(); } catch(e){} } });
     ro.observe(document.getElementById('chartsSection'));
 
-    window.addEventListener('DOMContentLoaded', init);
+window.addEventListener('DOMContentLoaded', () => {
+  // شغّل init فقط لو الـ CSV URL متاح (حالة public/بدون قفل)
+  if (window.__CSV_URL || window.CSV_URL) init();
+  // في الحالة العادية: startIfAllowed هو اللي هينادي init بعد ما يحقن __CSV_URL
+});
   </script>
 </body>
 </html>
