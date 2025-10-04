@@ -19,6 +19,12 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+  <!-- Firebase (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
   <style>
     :root{
       --glass-bg: rgba(8, 22, 60, 0.55);
@@ -59,6 +65,25 @@
   </style>
 </head>
 <body class="pb-28">
+
+  <!-- Auth Gate -->
+  <div id="authGate" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/70">
+    <div class="glass p-6 w-[min(92vw,480px)] text-center space-y-4">
+      <i class="fa-solid fa-shield-keyhole text-3xl text-[#9fd6ff]"></i>
+      <h2 class="text-xl font-bold">الوصول مقصور على المصرّح لهم</h2>
+      <p id="gateDesc" class="opacity-80 text-sm">سجّل الدخول للمتابعة</p>
+      <div class="flex gap-2 justify-center">
+        <button id="btnSignIn" class="btn btn-sm btn-brand">
+          <i class="fa-brands fa-google"></i> دخول بحساب Google
+        </button>
+        <button id="btnSignOut" class="btn btn-sm hidden">
+          <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
+        </button>
+      </div>
+      <div id="gateHelp" class="text-xs opacity-70"></div>
+    </div>
+  </div>
+
   <!-- Header -->
   <header class="sticky top-0 z-50 glass">
     <div class="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
@@ -171,7 +196,6 @@
         <div id="kpiReturn" class="text-2xl font-bold stat-num">—</div>
         <div id="kpiReturnP90" class="text-xs opacity-70">P90: —</div>
       </div>
-      <!-- KPI الخامس -->
       <div class="glass p-4">
         <div class="text-sm opacity-80">متوسط زمن من رد عرض العناية → طلب دخول ICU</div>
         <div id="kpiRespToAdmit" class="text-2xl font-bold stat-num">—</div>
@@ -307,7 +331,7 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
   </dialog>
 
-  <!-- Day Modal (from Trend click) -->
+  <!-- Day Modal -->
   <dialog id="dayModal" class="modal">
     <div class="modal-box glass max-w-4xl">
       <form method="dialog"><button class="btn btn-sm btn-circle absolute left-2 top-2">✕</button></form>
@@ -332,728 +356,672 @@
   </dialog>
 
   <script>
-    // ====== CONFIG ======
-    let CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT97py43y3VQ8klNhdFhkekfraBEOyBGVIjVD-lJWuD3x_L5_6AQ6Ec364Cz4v6dIfWh_GLNn9Luf-o/pub?gid=1881481693&single=true&output=csv";
-
-    // Column names (بعد التعديل)
-    const C = {
-      ts: 'Timestamp',
-      email: 'Email address',
-      dest: 'Destination',
-      refBy: 'Referral By',
-      mrn: 'MRNo.',
-      name: 'Patient Name',
-      regD: 'Date of Registration',
-      regT: 'Time of Registration',
-      trD: 'Date of Transfer',
-      trT: 'Time of Transfer (Physical Departure)',
-      cReqD: 'Date Consultation Request',
-      cReqT: 'Time Consultation Request',
-      cResD: 'Date Consultation Respond',
-      cResT: 'Time Consultation Respond',
-      icuOpenD: 'Date open ICU File',
-      icuOpenT: 'Time open ICU File',
-      ourRefPhysIn: 'Our Referral Physician In Hospital',
-      ourRefNurseIn: 'Our Referral Nurse In Hospital',
-      receptionIn: 'Reception Staff In Hospital',
-      recvPhysIn: 'Receiving Physician In Hospital',
-      recvNurseIn: 'Receiving Nurse In Hospital',
-      recvFor: 'Referral for ',
-      deptSend: 'Department Which Send for ',
-      wingNurseOut: 'Our Wing Nurse for Outside Transfer',
-      wingPhysOut: 'Our Wing Physician for Outside Transfer',
-      arriveRecvD: 'Date of Arrive Receiving Hospital',
-      arriveRecvT: 'Time of Arrive Receiving Hospital',
-      arriveBackD: 'Date of Arrive Back to our Hospital',
-      arriveBackT: 'Time of Arrive Back to our Hospital',
-      reason: 'Actual Reason for Transfer the case',
-      recvMRN: 'Receiving Hospital MRNo. (Not our CMH MRNo.)',
-      admReqD: 'Date of Admission Request',
-      admReqT: 'Time of Admission Request',
-      sticker: 'Attach Patient Sticker there'
-    };
-
-    const DATE_FIELDS = [C.regD, C.trD, C.cReqD, C.cResD, C.icuOpenD, C.arriveRecvD, C.arriveBackD, C.admReqD];
-
-    const SLA = {
-      consult: { good: 30, warn: 60 },
-      door:    { good: 60, warn: 180 },
-      travel:  { good: 120, warn: 240 },
-      back:    { good: 180, warn: 360 },
-      respOpen:{ good: 60, warn: 120 },
-    };
-
-    // ====== STATE ======
-    let RAW = [];
-    let DATA = [];
-    let PREF_MONTH = null; // 1..12 detected automatically
-    let AVG = {};
-
-    // ====== HELPERS ======
-    function drivePreviewUrl(u){
-      try{
-        const url = new URL(u);
-        if(!/drive\.google\.com$/.test(url.hostname)) return u;
-        const m1 = u.match(/\/file\/d\/([^/]+)\//);
-        const m2 = u.match(/[?&]id=([^&]+)/);
-        const id = (m1 && m1[1]) || (m2 && m2[1]);
-        return id ? `https://drive.google.com/file/d/${id}/preview` : u;
-      }catch{ return u; }
-    }
-    function renderAttachmentPreview(u){
-      if(!u) return '';
-      const url = u.trim();
-      const lower = url.toLowerCase();
-      const emb = drivePreviewUrl(url);
-      if(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(lower)){
-        return `<img src="${url}" alt="Attachment" class="rounded-md border border-white/10 max-h-60" />`;
-      }
-      if(/\.(pdf)$/.test(lower) || /drive\.google\.com/.test(url)){
-        return `<iframe src="${emb}" class="w-full h-64 rounded-md border border-white/10" loading="lazy" allow="autoplay"></iframe>`;
-      }
-      if(/\.(mp4|webm|ogg)$/.test(lower)){
-        return `<video src="${url}" class="w-full rounded-md border border-white/10" controls></video>`;
-      }
-      if(/\.(mp3|wav|m4a|ogg)$/.test(lower)){
-        return `<audio src="${url}" class="w-full" controls></audio>`;
-      }
-      return '';
-    }
-
-    const $ = (s, p=document)=>p.querySelector(s);
-    const $$ = (s, p=document)=>Array.from(p.querySelectorAll(s));
-
-    function text(v){ return (v==null? '': String(v).trim()); }
-    function isEmpty(v){ return !v || String(v).trim()===''; }
-
-    function detectPreferredMonth(rows){
-      const cnt = Array(13).fill(0);
-      for(const r of rows){
-        for(const f of DATE_FIELDS){
-          const s = text(r[f]); if(!s) continue;
-          const m = s.replace(/[.\s]/g,'').replace(/[\/]/g,'-').match(/^(\d{1,4})-(\d{1,2})-(\d{1,4})$/);
-          if(!m) continue;
-          const a = +m[1], b = +m[2];
-          if(m[1].length === 4){ if(b>=1 && b<=12) cnt[b]++; continue; }
-          if(a>=1 && a<=12) cnt[a]++;
-          if(b>=1 && b<=12) cnt[b]++;
-        }
-      }
-      let imax = 1, vmax = 0;
-      for(let i=1;i<=12;i++){ if(cnt[i]>vmax){ vmax = cnt[i]; imax = i; } }
-      return vmax>0? imax : null;
-    }
-
-    function parseTime(t){
-      if(!t) return {h:0,m:0,s:0};
-      const parts = String(t).trim().split(':');
-      const h = parseInt(parts[0]||'0',10);
-      const m = parseInt(parts[1]||'0',10);
-      const s = parseInt(parts[2]||'0',10);
-      return {h: isFinite(h)?h:0, m: isFinite(m)?m:0, s: isFinite(s)?s:0};
-    }
-
-    function parseDateSmart(s){
-      if(!s) return null;
-      s = String(s).trim().replace(/[.\s]/g,'').replace(/[\/]/g,'-');
-      let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-      if(m){ const y=+m[1], mo=+m[2], d=+m[3]; return new Date(y, mo-1, d); }
-      m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-      if(m){
-        let a=+m[1], b=+m[2]; let y = +m[3]; if(y<100) y += 2000;
-        if(a>12 && b<=12){ return new Date(y, b-1, a); }
-        if(b>12 && a<=12){ return new Date(y, a-1, b); }
-        if(a>12 && b>12){ return null; }
-        if(PREF_MONTH){ if(a===PREF_MONTH) return new Date(y, a-1, b); if(b===PREF_MONTH) return new Date(y, b-1, a); }
-        return new Date(y, b-1, a);
-      }
-      const d = new Date(s);
-      return isNaN(d)? null : d;
-    }
-
-    function combineDateTime(dStr, tStr){
-      const d = parseDateSmart(dStr);
-      if(!d) return null;
-      const {h,m,s} = parseTime(tStr);
-      d.setHours(h||0, m||0, s||0, 0);
-      return d;
-    }
-
-    function fmtDDMMYYYY(d){
-      if(!(d instanceof Date) || isNaN(d)) return '';
-      const dd = String(d.getDate()).padStart(2,'0');
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const yy = d.getFullYear();
-      return `${dd}-${mm}-${yy}`;
-    }
-    function humanMinutes(mins){
-      if(mins==null || !isFinite(mins)) return '—';
-      mins = Math.round(mins);
-      const d = Math.floor(mins/1440); mins -= d*1440;
-      const h = Math.floor(mins/60); const m = mins%60;
-      if(d>0) return `${d}ي ${h}س ${m}د`;
-      if(h>0) return `${h}س ${m}د`;
-      return `${m}د`;
-    }
-    function diffMinutes(a,b){
-      if(!(a instanceof Date) || !(b instanceof Date)) return null;
-      const ms = b - a; if(!isFinite(ms) || ms < 0) return null;
-      return ms / 60000;
-    }
-
-    function percentile(arr, p){
-      const v = arr.filter(x=>x!=null && isFinite(x)).sort((x,y)=>x-y);
-      if(v.length===0) return null;
-      if(p<=0) return v[0]; if(p>=100) return v[v.length-1];
-      const idx = (p/100)*(v.length-1);
-      const lo = Math.floor(idx), hi = Math.ceil(idx);
-      if(lo===hi) return v[lo];
-      const w = idx - lo;
-      return v[lo]*(1-w) + v[hi]*w;
-    }
-
-    function avgOf(rows, key){ const a = rows.map(r=>r[key]).filter(x=>x!=null); return a.length? a.reduce((s,x)=>s+x,0)/a.length : null; }
-    function splitAvg(rows){
-      const I = rows.filter(r=>!r.__external), E = rows.filter(r=>r.__external);
-      return {
-        doorToDep:   { I: avgOf(I,'__doorToDep'),   E: avgOf(E,'__doorToDep') },
-        consultRT:   { I: avgOf(I,'__consultRT'),   E: avgOf(E,'__consultRT') },
-        travel:      { I: avgOf(I,'__travel'),      E: avgOf(E,'__travel') },
-        backTime:    { I: avgOf(I,'__backTime'),    E: avgOf(E,'__backTime') },
-        respToOpen:  { I: avgOf(I,'__respToOpen'),  E: avgOf(E,'__respToOpen') },
-        respToAdmit: { I: avgOf(I,'__respToAdmit'), E: avgOf(E,'__respToAdmit') },
-        admitToOpen: { I: avgOf(I,'__admitToOpen'), E: avgOf(E,'__admitToOpen') },
-      };
-    }
-
-    function toCSV(rows){ return Papa.unparse(rows); }
-
-    function normUnit(x){
-      x = text(x).toUpperCase();
-      if(!x) return null;
-      if(/ICU|عناية/.test(x)) return 'ICU';
-      if(/ER|ED|طوارئ/.test(x)) return 'ER';
-      return null;
-    }
-
-    // ====== LOADING ======
-    async function loadCSVFromUrl(url){
-      return new Promise((resolve, reject)=>{
-        Papa.parse(url, { download: true, header: true, skipEmptyLines: true, complete: (res)=> resolve(res.data), error: (err)=> reject(err) });
-      });
-    }
-    async function loadCSVFromFile(file){
-      return new Promise((resolve, reject)=>{
-        Papa.parse(file, { header: true, skipEmptyLines: true, complete: (res)=> resolve(res.data), error: (err)=> reject(err) });
-      });
-    }
-
-    function normalizeRows(rows){
-      PREF_MONTH = detectPreferredMonth(rows);
-      if(PREF_MONTH){ const chip = $('#prefMonthChip'); chip.textContent = `تم اكتشاف الشهر الشائع: ${String(PREF_MONTH).padStart(2,'0')}`; chip.classList.remove('hidden'); }
-
-      return rows.map(r=>{
-        const reg = combineDateTime(r[C.regD], r[C.regT]);
-        const tr  = combineDateTime(r[C.trD], r[C.trT]);
-        const cRq = combineDateTime(r[C.cReqD], r[C.cReqT]);
-        const cRs = combineDateTime(r[C.cResD], r[C.cResT]);
-
-        // Admission Request (بعد رد عرض العناية)
-        const admReq = combineDateTime(r[C.admReqD], r[C.admReqT]);
-
-        const icu = combineDateTime(r[C.icuOpenD], r[C.icuOpenT]);
-        const arrRecv = combineDateTime(r[C.arriveRecvD], r[C.arriveRecvT]);
-        const arrBack = combineDateTime(r[C.arriveBackD], r[C.arriveBackT]);
-
-        const doorToDep   = diffMinutes(reg, tr);
-        const consultRT   = diffMinutes(cRq, cRs);
-        const travel      = diffMinutes(tr, arrRecv);
-        const backTime    = diffMinutes(arrRecv, arrBack);
-
-        // مراحل ما بعد الرد:
-        const respToAdmit = diffMinutes(cRs, admReq); // رد عرض العناية → طلب دخول
-        const admitToOpen = diffMinutes(admReq, icu); // طلب دخول → فتح ICU
-        const respToOpen  = diffMinutes(cRs, icu);    // للمقارنة القديمة
-
-        const external = !isEmpty(r[C.recvMRN]);
-
-        return {
-          ...r,
-          __reg: reg, __tr: tr, __cRq: cRq, __cRs: cRs, __admReq: admReq, __icu: icu,
-          __arrRecv: arrRecv, __arrBack: arrBack,
-          __doorToDep: doorToDep, __consultRT: consultRT, __travel: travel,
-          __backTime: backTime, __respToAdmit: respToAdmit, __admitToOpen: admitToOpen, __respToOpen: respToOpen,
-          __external: external,
-          __destUnit: normUnit(r[C.dest]),
-          __refUnit: normUnit(r[C.refBy]),
-          __recvPhys: text(r[C.recvPhysIn]),
-          __reception: text(r[C.receptionIn]),
-          __ourPhys: text(r[C.ourRefPhysIn]),
-          __ourNurse: text(r[C.ourRefNurseIn]),
-          __wingPhys: text(r[C.wingPhysOut]),
-          __wingNurse: text(r[C.wingNurseOut])
-        };
-      });
-    }
-
-    function applyFilters(rows){
-      const type = $('#selType').value;
-      const selDest = $('#selDest').value;
-      const selRef  = $('#selRef').value;
-
-      const dFrom = $('#dateFrom').value? new Date($('#dateFrom').value) : null;
-      const dTo   = $('#dateTo').value? new Date($('#dateTo').value) : null;
-      if(dTo){ dTo.setHours(23,59,59,999); }
-
-      return rows.filter(r=>{
-        if(type==='internal' && r.__external) return false;
-        if(type==='external' && !r.__external) return false;
-        if(selDest!=='all' && r.__destUnit!==selDest) return false;
-        if(selRef!=='all' && r.__refUnit!==selRef) return false;
-        const d = r.__tr || r.__reg || r.__cRq;
-        if(!d) return false;
-        if(dFrom && d < dFrom) return false;
-        if(dTo && d > dTo) return false;
-        return true;
-      });
-    }
-
-    function computeAverages(rows){
-      const col = (k)=> rows.map(r=>r[k]).filter(x=>x!=null);
-      const avg = (a)=> a.length? a.reduce((s,x)=>s+x,0)/a.length : null;
-      AVG = {
-        doorToDep: avg(col('__doorToDep')),
-        consultRT: avg(col('__consultRT')),
-        travel:    avg(col('__travel')),
-        backTime:  avg(col('__backTime')),
-        respToOpen:avg(col('__respToOpen')),
-        respToAdmit: avg(col('__respToAdmit')),
-        admitToOpen: avg(col('__admitToOpen')),
-        _split: splitAvg(rows)
-      };
-    }
-
-    function slaClass(mins, kind){
-      if(mins==null || !isFinite(mins)) return 'bg-[rgba(255,255,255,0.06)] text-white';
-      const t = SLA[kind]||{good:0,warn:0};
-      if(mins <= t.good) return 'sla bg-[var(--good)]';
-      if(mins <= t.warn) return 'sla bg-[var(--warn)]';
-      return 'sla bg-[var(--bad)]';
-    }
-
-    // ====== RENDER ======
-    function renderStats(rows){
-      $('#rowCountChip').textContent = `صفوف بعد التصفية: ${rows.length}`;
-      $('#rowCountChip').classList.remove('hidden');
-
-      const total = rows.length;
-      const internal = rows.filter(r=>!r.__external).length;
-      const external = total - internal;
-
-      $('#statTotal').textContent = total;
-      $('#statInternal').textContent = internal;
-      $('#statExternal').textContent = external;
-
-      const complete = rows.filter(r=> r.__reg && r.__tr && (!r.__external || r.__arrRecv)).length;
-      const pct = total? Math.round((complete/total)*100): 0;
-      $('#statCompleteness').textContent = pct + '%';
-
-      // Door→Departure للـ INTERNAL فقط
-      const doorInternal = rows.filter(r=>!r.__external).map(r=>r.__doorToDep).filter(x=>x!=null);
-      const cons = rows.map(r=>r.__consultRT).filter(x=>x!=null);
-      const trav = rows.map(r=>r.__travel).filter(x=>x!=null);
-      const back = rows.map(r=>r.__backTime).filter(x=>x!=null);
-
-      const avg = (arr)=> arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length): null;
-
-      $('#kpiDoorToDep').textContent = humanMinutes(avg(doorInternal));
-      $('#kpiDoorToDepP90').textContent = 'P90: ' + humanMinutes(percentile(doorInternal, 90));
-
-      $('#kpiConsult').textContent = humanMinutes(avg(cons));
-      $('#kpiConsultP90').textContent = 'P90: ' + humanMinutes(percentile(cons, 90));
-
-      $('#kpiTravel').textContent = humanMinutes(avg(trav));
-      $('#kpiTravelP90').textContent = 'P90: ' + humanMinutes(percentile(trav, 90));
-
-      $('#kpiReturn').textContent = humanMinutes(avg(back));
-      $('#kpiReturnP90').textContent = 'P90: ' + humanMinutes(percentile(back, 90));
-
-      // KPI الخامس: رد عرض العناية → طلب دخول ICU
-      const respToAdmitArr = rows.map(r=>r.__respToAdmit).filter(x=>x!=null);
-      $('#kpiRespToAdmit').textContent = humanMinutes(avg(respToAdmitArr));
-      $('#kpiRespToAdmitP90').textContent = 'P90: ' + humanMinutes(percentile(respToAdmitArr, 90));
-
-      computeAverages(rows);
-    }
-
-    let trendChart, destTypeChart, docChart, recChart, hospitalsChart, extDeptChart, extReasonChart;
-
-    function destroyCharts(){
-      for (const ch of [trendChart, destTypeChart, docChart, recChart, hospitalsChart, extDeptChart, extReasonChart]) {
-        if (ch) ch.destroy();
-      }
-    }
-
-    function renderCharts(rows){
-      destroyCharts();
-
-      // === Trend
-      const byDayI = new Map();
-      const byDayE = new Map();
-      for(const r of rows){
-        const d = r.__tr || r.__reg || r.__cRq; if(!d) continue;
-        const key = fmtDDMMYYYY(d);
-        (r.__external? byDayE: byDayI).set(key, ((r.__external? byDayE: byDayI).get(key)||0)+1);
-      }
-      const allKeys = new Set([...byDayI.keys(), ...byDayE.keys()]);
-      const labels = Array.from(allKeys).sort((a,b)=>{
-        const [ad,am,ay] = a.split('-').map(Number);
-        const [bd,bm,by] = b.split('-').map(Number);
-        return new Date(ay,am-1,ad) - new Date(by,bm-1,bd);
-      });
-      const dataI = labels.map(k=>byDayI.get(k)||0);
-      const dataE = labels.map(k=>byDayE.get(k)||0);
-      trendChart = new Chart($('#chartTrend'), {
-        type: 'line',
-        data: { labels, datasets: [
-          { label: 'داخلي', data: dataI, tension:0.3, fill:true, borderColor: getComputedStyle(document.documentElement).getPropertyValue('--internal').trim(), backgroundColor: 'rgba(32,227,178,0.18)' },
-          { label: 'خارجي', data: dataE, tension:0.3, fill:true, borderColor: getComputedStyle(document.documentElement).getPropertyValue('--external').trim(), backgroundColor: 'rgba(255,122,162,0.18)' },
-        ]},
-        options: { responsive:true, plugins:{ tooltip:{enabled:true} }, scales:{ x:{ ticks:{ autoSkip:true } }, y:{ beginAtZero:true, precision:0 } }, onClick: (evt, els)=>{
-          if(!els.length) return; const idx = els[0].index; const day = labels[idx]; openDayModal(day, rows);
-        } }
-      });
-
-      // === Destination × Type × Referral By (شبْه مصفوفة)
-      const groups = ['ICU','ICU','ER','ER']; // ref ICU→dest ICU/ER, ref ER→dest ICU/ER
-      const internal = [0,0,0,0];
-      const external = [0,0,0,0];
-      for (const r of rows) {
-        const destU = r.__destUnit;  const refU  = r.__refUnit;
-        if (!destU || !refU) continue;
-        const idx = (refU === 'ICU' && destU === 'ICU') ? 0 :
-                    (refU === 'ICU' && destU === 'ER')  ? 1 :
-                    (refU === 'ER'  && destU === 'ICU') ? 2 : 3;
-        if (r.__external) external[idx]++; else internal[idx]++;
-      }
-      destTypeChart = new Chart($('#chartDestType'), {
-        type: 'bar',
-        data: {
-          labels: groups,
-          datasets: [
-            { label: 'داخلي', data: internal, backgroundColor: 'rgba(32,227,178,0.85)' },
-            { label: 'خارجي', data: external, backgroundColor: 'rgba(255,122,162,0.85)' }
-          ]
-        },
-        options: { responsive: true, plugins: { tooltip: { enabled: true } }, scales: { x: { stacked: false }, y: { beginAtZero: true, precision: 0 } } }
-      });
-
-      // === People Maps
-      // أطباء ICU — متوسط زمن رد عرض العناية (consultRT) لكل طبيب مستقبِل
-      const docs = new Map(), dcnt = new Map();
-      for(const r of rows){
-        if(r.__recvPhys && r.__consultRT!=null){
-          docs.set(r.__recvPhys, (docs.get(r.__recvPhys)||0)+r.__consultRT);
-          dcnt.set(r.__recvPhys, (dcnt.get(r.__recvPhys)||0)+1);
-        }
-      }
-      // موظفو الاستقبال — Admission Request -> Open ICU
-      const recs = new Map(), rcnt = new Map();
-      for(const r of rows){
-        if(r.__reception && r.__admitToOpen!=null){
-          recs.set(r.__reception, (recs.get(r.__reception)||0) + r.__admitToOpen);
-          rcnt.set(r.__reception, (rcnt.get(r.__reception)||0) + 1);
-        }
-      }
-
-      // External transfers focus
-      const ext = rows.filter(r => r.__external);
-      const hospMap = new Map();
-      for (const r of ext) {
-        const k = text(r[C.recvFor]) || 'غير محدد';
-        hospMap.set(k, (hospMap.get(k) || 0) + 1);
-      }
-      const hospArr = Array.from(hospMap.entries()).sort((a,b)=> b[1]-a[1]).slice(0,12);
-      if (document.getElementById('chartHospitals')) {
-        hospitalsChart = new Chart(document.getElementById('chartHospitals'), {
-          type: 'bar',
-          data: { labels: hospArr.map(x=>x[0]), datasets: [{ label: 'حالات خارجية', data: hospArr.map(x=>x[1]) }] },
-          options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, precision: 0 } } }
-        });
-      }
-
-      const edMap = new Map();
-      for (const r of ext) {
-        const k = text(r[C.deptSend]) || 'غير محدد';
-        edMap.set(k, (edMap.get(k) || 0) + 1);
-      }
-      const edArr = Array.from(edMap.entries()).sort((a,b)=> b[1]-a[1]).slice(0,12);
-      if (document.getElementById('chartExtDepts')) {
-        extDeptChart = new Chart(document.getElementById('chartExtDepts'), {
-          type: 'bar',
-          data: { labels: edArr.map(x=>x[0]), datasets: [{ label: 'أقسام خارجية', data: edArr.map(x=>x[1]) }] },
-          options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, precision: 0 } } }
-        });
-      }
-
-      const erMap = new Map();
-      for (const r of ext) {
-        const k = text(r[C.reason]) || 'غير محدد';
-        erMap.set(k, (erMap.get(k) || 0) + 1);
-      }
-      const erLabels = Array.from(erMap.keys());
-      const erVals   = erLabels.map(k => erMap.get(k));
-      if (document.getElementById('chartExtReasons')) {
-        extReasonChart = new Chart(document.getElementById('chartExtReasons'), {
-          type: 'doughnut',
-          data: { labels: erLabels, datasets: [{ data: erVals }] },
-          options: { plugins: { legend: { position: 'bottom' } } }
-        });
-      }
-
-      const docAvg = Array.from(docs, ([k,sum])=>({name:k, avg: sum/dcnt.get(k)})).filter(x=>isFinite(x.avg));
-      const recAvg = Array.from(recs, ([k,sum])=>({name:k, avg: sum/rcnt.get(k)})).filter(x=>isFinite(x.avg));
-
-      function renderPeopleChart(canvas, data, fastest){
-        const sorted = data.slice().sort((a,b)=> fastest? a.avg-b.avg : b.avg-a.avg).slice(0,5);
-        const labels = sorted.map(x=>x.name||'—');
-        const vals = sorted.map(x=>x.avg);
-        return new Chart(canvas, {
-          type:'bar',
-          data:{ labels, datasets:[{ label:'الدقائق', data: vals }]},
-          options:{ plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(ctx)=> humanMinutes(ctx.parsed.y) } } }, scales:{ y:{ beginAtZero:true } } }
-        });
-      }
-      docChart = renderPeopleChart($('#chartDoc'), docAvg, false);
-      recChart = renderPeopleChart($('#chartRec'), recAvg, false);
-
-      $('#btnDocSlow').onclick = ()=>{ if(docChart) docChart.destroy(); docChart = renderPeopleChart($('#chartDoc'), docAvg, false); };
-      $('#btnDocFast').onclick = ()=>{ if(docChart) docChart.destroy(); docChart = renderPeopleChart($('#chartDoc'), docAvg, true); };
-      $('#btnRecSlow').onclick = ()=>{ if(recChart) recChart.destroy(); recChart = renderPeopleChart($('#chartRec'), recAvg, false); };
-      $('#btnRecFast').onclick = ()=>{ if(recChart) recChart.destroy(); recChart = renderPeopleChart($('#chartRec'), recAvg, true); };
-    }
-
-    function badge(val, kind){ return `<span class="${slaClass(val, kind)}">${humanMinutes(val)}</span>`; }
-
-    function renderTable(rows){
-      const body = $('#rowsBody'); body.innerHTML = '';
-      const view = rows.slice().sort((a,b)=> (b.__tr||b.__reg||0) - (a.__tr||a.__reg||0)).slice(0,50);
-      for(const r of view){
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="mono">${text(r[C.mrn])}</td>
-          <td>${text(r[C.name])||''}</td>
-          <td><span class="badge" style="background:${r.__external? 'var(--external)':'var(--internal)'}; color:#001; border:none">${r.__external? 'خارجي' : 'داخلي'}</span></td>
-          <td>${text(r[C.dest])||''}</td>
-          <td>${text(r[C.refBy])||''}</td>
-          <td>${fmtDDMMYYYY(r.__reg)}</td>
-          <td>${fmtDDMMYYYY(r.__tr)}</td>
-          <td>${badge(r.__doorToDep, 'door')}</td>
-          <td>${badge(r.__consultRT, 'consult')}</td>
-          <td>${badge(r.__admitToOpen, 'respOpen')}</td>
-          <td>${badge(r.__travel, 'travel')}</td>
-        `;
-        tr.addEventListener('click', ()=> openCaseModal(r));
-        body.appendChild(tr);
-      }
-    }
-
-    function trRow(k, v){ return `<tr><td class="opacity-70 pe-2">${k}</td><td class="font-semibold">${v}</td></tr>`; }
-
-    function openCaseModal(r){
-      $('#mTitle').textContent = `MRNo. ${text(r[C.mrn])} — ${r.__external? 'تحويل خارجي' : 'تحويل داخلي'}`;
-
-      // Basic
-      const basic = [];
-      basic.push(trRow('اسم المريض', text(r[C.name])||'—'));
-      basic.push(trRow('Destination', text(r[C.dest])||'—'));
-      basic.push(trRow('Referral By', text(r[C.refBy])||'—'));
-      basic.push(trRow('تاريخ التسجيل', fmtDDMMYYYY(r.__reg)));
-      basic.push(trRow('تاريخ التحويل', fmtDDMMYYYY(r.__tr)));
-      if (r.__admReq) {
-        basic.push(trRow('تاريخ/وقت طلب دخول ICU', `${fmtDDMMYYYY(r.__admReq)} — ${String(r.__admReq?.getHours()??'').toString().padStart(2,'0')}:${String(r.__admReq?.getMinutes()??'').toString().padStart(2,'0')}`));
-      } else {
-        basic.push(trRow('تاريخ/وقت طلب دخول ICU', '—'));
-      }
-      if(r.__external){
-        basic.push(trRow('MRN المستشفى المستقبِل', text(r[C.recvMRN])||'—'));
-        basic.push(trRow('تاريخ الوصول للمستشفى المستقبِل', fmtDDMMYYYY(r.__arrRecv)));
-        basic.push(trRow('تاريخ العودة لمستشفانا', fmtDDMMYYYY(r.__arrBack)));
-      }
-      $('#mBasic').innerHTML = basic.join('');
-
-      // Files
-      const stk = text(r[C.sticker]);
-      const files = [];
-      if(stk){
-        const preview = renderAttachmentPreview(stk);
-        if(preview) files.push(preview);
-        files.push(`<a class="link link-info" href="${stk}" target="_blank" rel="noopener">فتح المرفق</a>`);
-      } else {
-        files.push('<span class="opacity-70">لا يوجد مرفق</span>');
-      }
-      $('#mFiles').innerHTML = files.join('<br>');
-
-      // Times
-      const times = [];
-      times.push(trRow('تسجيل → خروج للتحويل', badge(r.__doorToDep, 'door')));
-      times.push(trRow('طلب عرض العناية → الرد', badge(r.__consultRT, 'consult')));
-      times.push(trRow('الخروج → وصول المستشفى المستقبِل', badge(r.__travel, 'travel')));
-      times.push(trRow('وصول المستشفى المستقبِل → العودة', badge(r.__backTime, 'back')));
-      times.push(trRow('رد عرض العناية → فتح ملف ICU', badge(r.__respToOpen, 'respOpen')));
-      times.push(trRow('رد عرض العناية → طلب دخول ICU', badge(r.__respToAdmit, 'respOpen')));
-      times.push(trRow('طلب دخول ICU → فتح ملف ICU', badge(r.__admitToOpen, 'respOpen')));
-      $('#mTimes').innerHTML = times.join('');
-
-      // Vs Avg (حسب نوع الحالة)
-      const vs = [];
-      const kind = r.__external ? 'E' : 'I';
-      vs.push(trRow('تسجيل→خروج', `${humanMinutes(r.__doorToDep)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.doorToDep[kind])})</span>`));
-      vs.push(trRow('رد عرض العناية', `${humanMinutes(r.__consultRT)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.consultRT[kind])})</span>`));
-      vs.push(trRow('الرحلة', `${humanMinutes(r.__travel)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.travel[kind])})</span>`));
-      vs.push(trRow('العودة', `${humanMinutes(r.__backTime)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.backTime[kind])})</span>`));
-      vs.push(trRow('رد عرض العناية → فتح ICU', `${humanMinutes(r.__respToOpen)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.respToOpen[kind])})</span>`));
-      vs.push(trRow('رد عرض العناية → طلب دخول ICU', `${humanMinutes(r.__respToAdmit)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.respToAdmit[kind])})</span>`));
-      vs.push(trRow('طلب دخول ICU → فتح ICU', `${humanMinutes(r.__admitToOpen)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.admitToOpen[kind])})</span>`));
-      $('#mVsAvg').innerHTML = vs.join('');
-
-      // Staff
-      const staff = [];
-      staff.push(trRow('طبيب ICU المستقبِل', `<span class="mono">${r.__recvPhys||'—'}</span>`));
-      staff.push(trRow('ممرض ICU المستقبِل', `<span class="mono">${text(r[C.recvNurseIn])||'—'}</span>`));
-      staff.push(trRow('موظف الاستقبال', `<span class="mono">${r.__reception||'—'}</span>`));
-      staff.push(trRow('الطبيب المُحيل داخل المستشفى', `<span class="mono">${r.__ourPhys||'—'}</span>`));
-      staff.push(trRow('الممرض المُحيل داخل المستشفى', `<span class="mono">${r.__ourNurse||'—'}</span>`));
-      if(r.__external){
-        staff.push(trRow('طبيب الجناح لتحويل خارجي', `<span class="mono">${r.__wingPhys||'—'}</span>`));
-        staff.push(trRow('ممرض الجناح لتحويل خارجي', `<span class="mono">${r.__wingNurse||'—'}</span>`));
-      }
-      $('#mStaff').innerHTML = staff.join('');
-
-      // All raw fields
-      const gridBox = $('#caseModal .modal-box .grid');
-      const oldAll = $('#mAllBox'); if(oldAll) oldAll.remove();
-      const allBox = document.createElement('div');
-      allBox.id = 'mAllBox';
-      allBox.className = 'glass p-3 md:col-span-2';
-      allBox.innerHTML = `
-        <h4 class="font-semibold mb-2">كل الحقول من الشيت</h4>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <tbody id="mAllFields"></tbody>
-          </table>
-        </div>
-      `;
-      gridBox.appendChild(allBox);
-      const allTbody = $('#mAllFields');
-      allTbody.innerHTML = '';
-      for(const [k, colName] of Object.entries(C)){
-        let v = text(r[colName]);
-        if (DATE_FIELDS.includes(colName)) {
-          v = fmtDDMMYYYY(parseDateSmart(r[colName]));
-        }
-        if (colName === C.sticker && v) {
-          v = `<a class="link link-info" href="${r[colName]}" target="_blank" rel="noopener">فتح</a>`;
-        }
-        allTbody.insertAdjacentHTML('beforeend', trRow(colName, v || '—'));
-      }
-
-      $('#caseModal').showModal();
-    }
-
-    function openDayModal(day, rows){
-      const list = rows.filter(r=> fmtDDMMYYYY(r.__tr || r.__reg || r.__cRq) === day );
-      $('#dTitle').textContent = `حالات يوم ${day} — ${list.length} حالة`;
-      const body = $('#dBody'); body.innerHTML = '';
-      list.slice(0,100).forEach(r=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="mono">${text(r[C.mrn])}</td>
-          <td><span class="badge" style="background:${r.__external? 'var(--external)':'var(--internal)'}; color:#001; border:none">${r.__external? 'خارجي' : 'داخلي'}</span></td>
-          <td>${text(r[C.name])||''}</td>
-          <td>${text(r[C.dest])||''}</td>
-          <td>${text(r[C.refBy])||''}</td>
-          <td>${humanMinutes(r.__consultRT)}</td>
-        `;
-        tr.addEventListener('click', ()=>{ $('#dayModal').close(); openCaseModal(r); });
-        body.appendChild(tr);
-      });
-      $('#dayModal').showModal();
-    }
-
-    function updateAll(){
-      const rows = applyFilters(DATA);
-      renderStats(rows);
-      renderCharts(rows);
-      renderTable(rows);
-    }
-
-    // ====== EXPORT ======
-    function exportFiltered(){
-      const rows = applyFilters(DATA).map(r=>({
-        [C.mrn]: r[C.mrn],
-        [C.name]: r[C.name],
-        Type: r.__external? 'External' : 'Internal',
-        Destination: r[C.dest],
-        ReferralBy: r[C.refBy],
-        [C.regD]: fmtDDMMYYYY(r.__reg),
-        [C.trD]: fmtDDMMYYYY(r.__tr),
-        DoorToDeparture_min: r.__doorToDep!=null? Math.round(r.__doorToDep): '',
-        ConsultResponse_min: r.__consultRT!=null? Math.round(r.__consultRT): '',
-        RespToAdmit_min: r.__respToAdmit!=null? Math.round(r.__respToAdmit): '',
-        AdmitToOpenICU_min: r.__admitToOpen!=null? Math.round(r.__admitToOpen): '',
-        Travel_min: r.__travel!=null? Math.round(r.__travel): '',
-        Back_min: r.__backTime!=null? Math.round(r.__backTime): '',
-        RespondToOpenICU_min: r.__respToOpen!=null? Math.round(r.__respToOpen): ''
-      }));
-      const csv = toCSV(rows);
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'transfers_filtered.csv';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
-
-    // ====== INIT ======
-    async function init(url){
-      try{
-        $('#btnReload').disabled = true;
-        const rows = await loadCSVFromUrl(url||CSV_URL);
-        RAW = rows; DATA = normalizeRows(rows); updateAll();
-      }catch(e){ console.error(e); alert('تعذر تحميل البيانات. تأكد من رابط CSV ثم أعد المحاولة.'); }
-      finally{ $('#btnReload').disabled = false; }
-    }
-
-    // events
-    $('#btnReload').addEventListener('click', ()=> init());
-    $('#btnExport').addEventListener('click', exportFiltered);
-    $('#dateFrom').addEventListener('change', updateAll);
-    $('#dateTo').addEventListener('change', updateAll);
-    $('#selType').addEventListener('change', updateAll);
-    $('#selDest').addEventListener('change', updateAll);
-    $('#selRef').addEventListener('change', updateAll);
-
-    $('#btnUpload').addEventListener('click', ()=> $('#fileInput').click());
-    $('#fileInput').addEventListener('change', async (e)=>{
-      const f = e.target.files[0]; if(!f) return;
-      const rows = await loadCSVFromFile(f);
-      RAW = rows; DATA = normalizeRows(rows); updateAll();
+/* ========= TINY DOM HELPERS (مهم: معرفة مرة واحدة فقط) ========= */
+const $  = (s, p=document)=>p.querySelector(s);
+const $$ = (s, p=document)=>Array.from(p.querySelectorAll(s));
+
+/* ====== FIREBASE GUARD ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+  authDomain: "ctwo-eee79.firebaseapp.com",
+  projectId: "ctwo-eee79",
+  storageBucket: "ctwo-eee79.appspot.com",
+  messagingSenderId: "788657051205",
+  appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+  measurementId: "G-4VTCQR4ZVR"
+};
+firebase.initializeApp(firebaseConfig);
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
+const provider = new firebase.auth.GoogleAuthProvider();
+
+function showGate(msg, mode='signin'){
+  const gate = $('#authGate');
+  const desc = $('#gateDesc');
+  if (desc && msg) desc.textContent = msg;
+  gate?.classList.remove('hidden');
+  if (mode === 'signin'){
+    $('#btnSignIn')?.classList.remove('hidden');
+    $('#btnSignOut')?.classList.add('hidden');
+  } else if (mode === 'authed') {
+    $('#btnSignIn')?.classList.add('hidden');
+    $('#btnSignOut')?.classList.remove('hidden');
+  } else if (mode === 'hide'){
+    gate?.classList.add('hidden');
+  }
+}
+
+$('#btnSignIn')?.addEventListener('click', ()=> auth.signInWithPopup(provider).catch(e=>{
+  console.error(e);
+  showGate('تعذر تسجيل الدخول. حاول مرة أخرى.', 'signin');
+}));
+$('#btnSignOut')?.addEventListener('click', ()=> auth.signOut());
+
+async function loadScriptFromStorage(path){
+  if(!path) return;
+  try{
+    const url = await storage.ref(path).getDownloadURL();
+    await new Promise((res, rej)=>{
+      const s = document.createElement('script');
+      s.src = url; s.async = true; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
     });
-    $('#btnLoadUrl').addEventListener('click', async ()=>{
-      const u = $('#txtCsvUrl').value.trim(); if(!u) return alert('أدخل رابط CSV');
-      CSV_URL = u; init(CSV_URL);
+  }catch(e){ console.warn('فشل تحميل السكربت المحمي:', e); }
+}
+
+async function resolveCsvUrl(u){
+  if(!u) return null;
+  if(/^gs:\/\//i.test(u)){
+    try{ return await storage.refFromURL(u).getDownloadURL(); }
+    catch(e){ console.warn('فشل تحويل gs:// إلى رابط تنزيل:', e); return null; }
+  }
+  return u;
+}
+
+async function startAuthorizedFlow(cfgDocPath){
+  try{
+    const snap = await db.doc(cfgDocPath).get();     // 🔒 سيُرفض تلقائياً بفضل القواعد
+    if(!snap.exists){ showGate('غير مصرح لك — تواصل مع الإدارة.', 'authed'); return; }
+
+    const cfg = snap.data() || {};
+    if (cfg.codePath) await loadScriptFromStorage(cfg.codePath);
+
+    const resolved = await resolveCsvUrl(cfg.csvUrl);
+    if(!resolved){ showGate('لم يتم ضبط رابط البيانات في الإعدادات.', 'authed'); return; }
+
+    CSV_URL = resolved;
+    $('#txtCsvUrl').value = cfg.csvUrl || '';
+
+    setDefaultRange();
+    showGate('', 'hide');
+    init(CSV_URL);
+  }catch(e){
+    console.error(e);
+    if (e?.code === 'permission-denied'){
+      showGate('غير مصرح لك — تواصل مع الإدارة.', 'authed');
+    } else {
+      showGate('خطأ غير متوقع أثناء التحقق من الصلاحيات.', 'authed');
+    }
+  }
+}
+
+auth.onAuthStateChanged(async (user)=>{
+  if(!user){
+    showGate('سجّل الدخول للمتابعة', 'signin');
+    return;
+  }
+  $('#gateHelp').textContent = `UID: ${user.uid} — ${user.email||''}`;
+  showGate('جار التحقق من صلاحياتك...', 'authed');
+  // ✅ استخدم مستند التحويلات فقط
+  await startAuthorizedFlow('config/transfersDashboard');
+});
+
+$('#btnLoadUrl')?.addEventListener('click', ()=>{
+  if(!auth.currentUser){ alert('سجّل الدخول أولاً'); return; }
+});
+
+/* ====== CONFIG ====== */
+let CSV_URL = null;
+
+const C = {
+  ts:'Timestamp', email:'Email address', dest:'Destination', refBy:'Referral By',
+  mrn:'MRNo.', name:'Patient Name',
+  regD:'Date of Registration', regT:'Time of Registration',
+  trD:'Date of Transfer', trT:'Time of Transfer (Physical Departure)',
+  cReqD:'Date Consultation Request', cReqT:'Time Consultation Request',
+  cResD:'Date Consultation Respond', cResT:'Time Consultation Respond',
+  icuOpenD:'Date open ICU File', icuOpenT:'Time open ICU File',
+  ourRefPhysIn:'Our Referral Physician In Hospital', ourRefNurseIn:'Our Referral Nurse In Hospital',
+  receptionIn:'Reception Staff In Hospital', recvPhysIn:'Receiving Physician In Hospital',
+  recvNurseIn:'Receiving Nurse In Hospital',
+  recvFor:'Referral for ', deptSend:'Department Which Send for ',
+  wingNurseOut:'Our Wing Nurse for Outside Transfer', wingPhysOut:'Our Wing Physician for Outside Transfer',
+  arriveRecvD:'Date of Arrive Receiving Hospital', arriveRecvT:'Time of Arrive Receiving Hospital',
+  arriveBackD:'Date of Arrive Back to our Hospital', arriveBackT:'Time of Arrive Back to our Hospital',
+  reason:'Actual Reason for Transfer the case',
+  recvMRN:'Receiving Hospital MRNo. (Not our CMH MRNo.)',
+  admReqD:'Date of Admission Request', admReqT:'Time of Admission Request',
+  sticker:'Attach Patient Sticker there'
+};
+const DATE_FIELDS = [C.regD, C.trD, C.cReqD, C.cResD, C.icuOpenD, C.arriveRecvD, C.arriveBackD, C.admReqD];
+const SLA = {
+  consult:{good:30,warn:60}, door:{good:60,warn:180},
+  travel:{good:120,warn:240}, back:{good:180,warn:360}, respOpen:{good:60,warn:120},
+};
+
+let RAW=[]; let DATA=[]; let PREF_MONTH=null; let AVG={};
+
+/* ====== HELPERS ====== */
+function drivePreviewUrl(u){
+  try{
+    const url = new URL(u);
+    if(!/drive\.google\.com$/.test(url.hostname)) return u;
+    const m1 = u.match(/\/file\/d\/([^/]+)\//); const m2 = u.match(/[?&]id=([^&]+)/);
+    const id = (m1 && m1[1]) || (m2 && m2[1]);
+    return id ? `https://drive.google.com/file/d/${id}/preview` : u;
+  }catch{ return u; }
+}
+function renderAttachmentPreview(u){
+  if(!u) return '';
+  const url = u.trim(); const lower = url.toLowerCase(); const emb = drivePreviewUrl(url);
+  if(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(lower)) return `<img src="${url}" class="rounded-md border border-white/10 max-h-60" />`;
+  if(/\.(pdf)$/.test(lower) || /drive\.google\.com/.test(url)) return `<iframe src="${emb}" class="w-full h-64 rounded-md border border-white/10" loading="lazy"></iframe>`;
+  if(/\.(mp4|webm|ogg)$/.test(lower)) return `<video src="${url}" class="w-full rounded-md border border-white/10" controls></video>`;
+  if(/\.(mp3|wav|m4a|ogg)$/.test(lower)) return `<audio src="${url}" class="w-full" controls></audio>`;
+  return '';
+}
+
+function text(v){ return (v==null? '': String(v).trim()); }
+function isEmpty(v){ return !v || String(v).trim()===''; }
+
+function detectPreferredMonth(rows){
+  const cnt = Array(13).fill(0);
+  for(const r of rows){
+    for(const f of DATE_FIELDS){
+      const s = text(r[f]); if(!s) continue;
+      const m = s.replace(/[.\s]/g,'').replace(/[\/]/g,'-').match(/^(\d{1,4})-(\d{1,2})-(\d{1,4})$/);
+      if(!m) continue;
+      const a = +m[1], b = +m[2];
+      if(m[1].length === 4){ if(b>=1 && b<=12) cnt[b]++; continue; }
+      if(a>=1 && a<=12) cnt[a]++; if(b>=1 && b<=12) cnt[b]++;
+    }
+  }
+  let imax=1, vmax=0; for(let i=1;i<=12;i++){ if(cnt[i]>vmax){ vmax=cnt[i]; imax=i; } }
+  return vmax>0? imax : null;
+}
+
+function parseTime(t){ if(!t) return {h:0,m:0,s:0};
+  const parts = String(t).trim().split(':');
+  const h=+parts[0]||0, m=+parts[1]||0, s=+parts[2]||0;
+  return {h:isFinite(h)?h:0, m:isFinite(m)?m:0, s:isFinite(s)?s:0};
+}
+
+function parseDateSmart(s){
+  if(!s) return null;
+  s = String(s).trim().replace(/[.\s]/g,'').replace(/[\/]/g,'-');
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m){ const y=+m[1], mo=+m[2], d=+m[3]; return new Date(y, mo-1, d); }
+  m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if(m){
+    let a=+m[1], b=+m[2]; let y=+m[3]; if(y<100) y+=2000;
+    if(a>12 && b<=12) return new Date(y, b-1, a);
+    if(b>12 && a<=12) return new Date(y, a-1, b);
+    if(a>12 && b>12)  return null;
+    if(PREF_MONTH){ if(a===PREF_MONTH) return new Date(y, a-1, b); if(b===PREF_MONTH) return new Date(y, b-1, a); }
+    return new Date(y, b-1, a);
+  }
+  const d = new Date(s); return isNaN(d)? null : d;
+}
+
+function combineDateTime(dStr, tStr){
+  const d = parseDateSmart(dStr); if(!d) return null;
+  const {h,m,s} = parseTime(tStr); d.setHours(h||0,m||0,s||0,0); return d;
+}
+
+function fmtDDMMYYYY(d){
+  if(!(d instanceof Date) || isNaN(d)) return '';
+  const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0'), yy=d.getFullYear();
+  return `${dd}-${mm}-${yy}`;
+}
+function humanMinutes(mins){
+  if(mins==null || !isFinite(mins)) return '—';
+  mins = Math.round(mins);
+  const d=Math.floor(mins/1440); mins-=d*1440;
+  const h=Math.floor(mins/60); const m=mins%60;
+  if(d>0) return `${d}ي ${h}س ${m}د`; if(h>0) return `${h}س ${m}د`; return `${m}د`;
+}
+function diffMinutes(a,b){ if(!(a instanceof Date)||!(b instanceof Date)) return null;
+  const ms=b-a; if(!isFinite(ms) || ms<0) return null; return ms/60000; }
+
+function percentile(arr,p){
+  const v=arr.filter(x=>x!=null&&isFinite(x)).sort((x,y)=>x-y);
+  if(v.length===0) return null;
+  if(p<=0) return v[0]; if(p>=100) return v[v.length-1];
+  const idx=(p/100)*(v.length-1), lo=Math.floor(idx), hi=Math.ceil(idx);
+  if(lo===hi) return v[lo]; const w=idx-lo; return v[lo]*(1-w)+v[hi]*w;
+}
+
+function avgOf(rows,key){ const a=rows.map(r=>r[key]).filter(x=>x!=null); return a.length? a.reduce((s,x)=>s+x,0)/a.length:null; }
+function splitAvg(rows){
+  const I=rows.filter(r=>!r.__external), E=rows.filter(r=>r.__external);
+  return {
+    doorToDep:{I:avgOf(I,'__doorToDep'),E:avgOf(E,'__doorToDep')},
+    consultRT:{I:avgOf(I,'__consultRT'),E:avgOf(E,'__consultRT')},
+    travel:{I:avgOf(I,'__travel'),E:avgOf(E,'__travel')},
+    backTime:{I:avgOf(I,'__backTime'),E:avgOf(E,'__backTime')},
+    respToOpen:{I:avgOf(I,'__respToOpen'),E:avgOf(E,'__respToOpen')},
+    respToAdmit:{I:avgOf(I,'__respToAdmit'),E:avgOf(E,'__respToAdmit')},
+    admitToOpen:{I:avgOf(I,'__admitToOpen'),E:avgOf(E,'__admitToOpen')},
+  };
+}
+function toCSV(rows){ return Papa.unparse(rows); }
+function normUnit(x){
+  x=text(x).toUpperCase(); if(!x) return null;
+  if(/ICU|عناية/.test(x)) return 'ICU'; if(/ER|ED|طوارئ/.test(x)) return 'ER'; return null;
+}
+
+/* ====== LOADING ====== */
+async function loadCSVFromUrl(url){
+  return new Promise((resolve,reject)=>{
+    Papa.parse(url,{download:true,header:true,skipEmptyLines:true,complete:(res)=>resolve(res.data),error:reject});
+  });
+}
+async function loadCSVFromFile(file){
+  return new Promise((resolve,reject)=>{
+    Papa.parse(file,{header:true,skipEmptyLines:true,complete:(res)=>resolve(res.data),error:reject});
+  });
+}
+
+function normalizeRows(rows){
+  PREF_MONTH = detectPreferredMonth(rows);
+  if(PREF_MONTH){ const chip=$('#prefMonthChip'); chip.textContent=`تم اكتشاف الشهر الشائع: ${String(PREF_MONTH).padStart(2,'0')}`; chip.classList.remove('hidden'); }
+
+  return rows.map(r=>{
+    const reg=combineDateTime(r[C.regD],r[C.regT]);
+    const tr=combineDateTime(r[C.trD],r[C.trT]);
+    const cRq=combineDateTime(r[C.cReqD],r[C.cReqT]);
+    const cRs=combineDateTime(r[C.cResD],r[C.cResT]);
+
+    const admReq=combineDateTime(r[C.admReqD],r[C.admReqT]);
+    const icu=combineDateTime(r[C.icuOpenD],r[C.icuOpenT]);
+    const arrRecv=combineDateTime(r[C.arriveRecvD],r[C.arriveRecvT]);
+    const arrBack=combineDateTime(r[C.arriveBackD],r[C.arriveBackT]);
+
+    const doorToDep=diffMinutes(reg,tr);
+    const consultRT=diffMinutes(cRq,cRs);
+    const travel=diffMinutes(tr,arrRecv);
+    const backTime=diffMinutes(arrRecv,arrBack);
+
+    const respToAdmit=diffMinutes(cRs,admReq);
+    const admitToOpen=diffMinutes(admReq,icu);
+    const respToOpen=diffMinutes(cRs,icu);
+
+    const external=!isEmpty(r[C.recvMRN]);
+
+    return {
+      ...r,
+      __reg:reg, __tr:tr, __cRq:cRq, __cRs:cRs, __admReq:admReq, __icu:icu,
+      __arrRecv:arrRecv, __arrBack:arrBack,
+      __doorToDep:doorToDep, __consultRT:consultRT, __travel:travel, __backTime:backTime,
+      __respToAdmit:respToAdmit, __admitToOpen:admitToOpen, __respToOpen:respToOpen,
+      __external:external,
+      __destUnit:normUnit(r[C.dest]),
+      __refUnit:normUnit(r[C.refBy]),
+      __recvPhys:text(r[C.recvPhysIn]),
+      __reception:text(r[C.receptionIn]),
+      __ourPhys:text(r[C.ourRefPhysIn]),
+      __ourNurse:text(r[C.ourRefNurseIn]),
+      __wingPhys:text(r[C.wingPhysOut]),
+      __wingNurse:text(r[C.wingNurseOut])
+    };
+  });
+}
+
+function applyFilters(rows){
+  const type=$('#selType').value;
+  const selDest=$('#selDest').value;
+  const selRef=$('#selRef').value;
+
+  const dFrom=$('#dateFrom').value? new Date($('#dateFrom').value):null;
+  const dTo=$('#dateTo').value? new Date($('#dateTo').value):null;
+  if(dTo){ dTo.setHours(23,59,59,999); }
+
+  return rows.filter(r=>{
+    if(type==='internal' && r.__external) return false;
+    if(type==='external' && !r.__external) return false;
+    if(selDest!=='all' && r.__destUnit!==selDest) return false;
+    if(selRef!=='all' && r.__refUnit!==selRef) return false;
+    const d=r.__tr||r.__reg||r.__cRq; if(!d) return false;
+    if(dFrom && d<dFrom) return false;
+    if(dTo && d>dTo) return false;
+    return true;
+  });
+}
+
+function computeAverages(rows){
+  const col=(k)=>rows.map(r=>r[k]).filter(x=>x!=null);
+  const avg=(a)=>a.length? a.reduce((s,x)=>s+x,0)/a.length:null;
+  AVG={
+    doorToDep:avg(col('__doorToDep')),
+    consultRT:avg(col('__consultRT')),
+    travel:avg(col('__travel')),
+    backTime:avg(col('__backTime')),
+    respToOpen:avg(col('__respToOpen')),
+    respToAdmit:avg(col('__respToAdmit')),
+    admitToOpen:avg(col('__admitToOpen')),
+    _split:splitAvg(rows)
+  };
+}
+
+function slaClass(mins,kind){
+  if(mins==null || !isFinite(mins)) return 'bg-[rgba(255,255,255,0.06)] text-white';
+  const t=SLA[kind]||{good:0,warn:0};
+  if(mins<=t.good) return 'sla bg-[var(--good)]';
+  if(mins<=t.warn) return 'sla bg-[var(--warn)]';
+  return 'sla bg-[var(--bad)]';
+}
+
+/* ====== RENDER ====== */
+function renderStats(rows){
+  $('#rowCountChip').textContent=`صفوف بعد التصفية: ${rows.length}`;
+  $('#rowCountChip').classList.remove('hidden');
+
+  const total=rows.length;
+  const internal=rows.filter(r=>!r.__external).length;
+  const external=total-internal;
+
+  $('#statTotal').textContent=total;
+  $('#statInternal').textContent=internal;
+  $('#statExternal').textContent=external;
+
+  const complete=rows.filter(r=> r.__reg && r.__tr && (!r.__external || r.__arrRecv)).length;
+  const pct=total? Math.round((complete/total)*100):0;
+  $('#statCompleteness').textContent=pct+'%';
+
+  const doorInternal=rows.filter(r=>!r.__external).map(r=>r.__doorToDep).filter(x=>x!=null);
+  const cons=rows.map(r=>r.__consultRT).filter(x=>x!=null);
+  const trav=rows.map(r=>r.__travel).filter(x=>x!=null);
+  const back=rows.map(r=>r.__backTime).filter(x=>x!=null);
+  const avg=(arr)=>arr.length? (arr.reduce((a,b)=>a+b,0)/arr.length):null;
+
+  $('#kpiDoorToDep').textContent=humanMinutes(avg(doorInternal));
+  $('#kpiDoorToDepP90').textContent='P90: '+humanMinutes(percentile(doorInternal,90));
+
+  $('#kpiConsult').textContent=humanMinutes(avg(cons));
+  $('#kpiConsultP90').textContent='P90: '+humanMinutes(percentile(cons,90));
+
+  $('#kpiTravel').textContent=humanMinutes(avg(trav));
+  $('#kpiTravelP90').textContent='P90: '+humanMinutes(percentile(trav,90));
+
+  $('#kpiReturn').textContent=humanMinutes(avg(back));
+  $('#kpiReturnP90').textContent='P90: '+humanMinutes(percentile(back,90));
+
+  const respToAdmitArr=rows.map(r=>r.__respToAdmit).filter(x=>x!=null);
+  $('#kpiRespToAdmit').textContent=humanMinutes(avg(respToAdmitArr));
+  $('#kpiRespToAdmitP90').textContent='P90: '+humanMinutes(percentile(respToAdmitArr,90));
+
+  computeAverages(rows);
+}
+
+let trendChart, destTypeChart, docChart, recChart, hospitalsChart, extDeptChart, extReasonChart;
+
+function destroyCharts(){ for(const ch of [trendChart,destTypeChart,docChart,recChart,hospitalsChart,extDeptChart,extReasonChart]){ if(ch) ch.destroy(); } }
+
+function renderCharts(rows){
+  destroyCharts();
+
+  // Trend
+  const byDayI=new Map(), byDayE=new Map();
+  for(const r of rows){
+    const d=r.__tr || r.__reg || r.__cRq; if(!d) continue;
+    const key=fmtDDMMYYYY(d);
+    (r.__external? byDayE:byDayI).set(key, ((r.__external? byDayE:byDayI).get(key)||0)+1);
+  }
+  const allKeys=new Set([...byDayI.keys(),...byDayE.keys()]);
+  const labels=Array.from(allKeys).sort((a,b)=>{
+    const [ad,am,ay]=a.split('-').map(Number); const [bd,bm,by]=b.split('-').map(Number);
+    return new Date(ay,am-1,ad)-new Date(by,bm-1,bd);
+  });
+  const dataI=labels.map(k=>byDayI.get(k)||0);
+  const dataE=labels.map(k=>byDayE.get(k)||0);
+  trendChart=new Chart($('#chartTrend'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'داخلي',data:dataI,tension:0.3,fill:true,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--internal').trim(),backgroundColor:'rgba(32,227,178,0.18)'},
+      {label:'خارجي',data:dataE,tension:0.3,fill:true,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--external').trim(),backgroundColor:'rgba(255,122,162,0.18)'},
+    ]},
+    options:{responsive:true,plugins:{tooltip:{enabled:true}},scales:{x:{ticks:{autoSkip:true}},y:{beginAtZero:true,precision:0}},
+      onClick:(evt,els)=>{ if(!els.length) return; const idx=els[0].index; const day=labels[idx]; openDayModal(day,rows); } }
+  });
+
+  // Destination × Type × Referral By
+  const groups=['ICU','ICU','ER','ER'];
+  const internal=[0,0,0,0], external=[0,0,0,0];
+  for(const r of rows){
+    const destU=r.__destUnit, refU=r.__refUnit; if(!destU||!refU) continue;
+    const idx=(refU==='ICU'&&destU==='ICU')?0:(refU==='ICU'&&destU==='ER')?1:(refU==='ER'&&destU==='ICU')?2:3;
+    if(r.__external) external[idx]++; else internal[idx]++;
+  }
+  destTypeChart=new Chart($('#chartDestType'),{
+    type:'bar',
+    data:{labels:groups,datasets:[
+      {label:'داخلي',data:internal,backgroundColor:'rgba(32,227,178,0.85)'},
+      {label:'خارجي',data:external,backgroundColor:'rgba(255,122,162,0.85)'}
+    ]},
+    options:{responsive:true,plugins:{tooltip:{enabled:true}},scales:{x:{stacked:false},y:{beginAtZero:true,precision:0}}}
+  });
+
+  // People
+  const docs=new Map(), dcnt=new Map();
+  for(const r of rows){ if(r.__recvPhys && r.__consultRT!=null){ docs.set(r.__recvPhys,(docs.get(r.__recvPhys)||0)+r.__consultRT); dcnt.set(r.__recvPhys,(dcnt.get(r.__recvPhys)||0)+1); } }
+  const recs=new Map(), rcnt=new Map();
+  for(const r of rows){ if(r.__reception && r.__admitToOpen!=null){ recs.set(r.__reception,(recs.get(r.__reception)||0)+r.__admitToOpen); rcnt.set(r.__reception,(rcnt.get(r.__reception)||0)+1); } }
+
+  const ext=rows.filter(r=>r.__external);
+  const hospMap=new Map(); for(const r of ext){ const k=text(r[C.recvFor])||'غير محدد'; hospMap.set(k,(hospMap.get(k)||0)+1); }
+  const hospArr=Array.from(hospMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  if(document.getElementById('chartHospitals')){
+    hospitalsChart=new Chart(document.getElementById('chartHospitals'),{
+      type:'bar', data:{labels:hospArr.map(x=>x[0]),datasets:[{label:'حالات خارجية',data:hospArr.map(x=>x[1])}]},
+      options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,precision:0}}}
     });
+  }
 
-    // set default date range to last 60 days
-    (function setDefaultRange(){
-      const to = new Date(); const from = new Date(); from.setDate(from.getDate()-60);
-      $('#dateTo').value = to.toISOString().slice(0,10);
-      $('#dateFrom').value = from.toISOString().slice(0,10);
-    })();
+  const edMap=new Map(); for(const r of ext){ const k=text(r[C.deptSend])||'غير محدد'; edMap.set(k,(edMap.get(k)||0)+1); }
+  const edArr=Array.from(edMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  if(document.getElementById('chartExtDepts')){
+    extDeptChart=new Chart(document.getElementById('chartExtDepts'),{
+      type:'bar', data:{labels:edArr.map(x=>x[0]),datasets:[{label:'أقسام خارجية',data:edArr.map(x=>x[1])}]},
+      options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,precision:0}}}
+    });
+  }
 
-    // Go!
-    init();
+  const erMap=new Map(); for(const r of ext){ const k=text(r[C.reason])||'غير محدد'; erMap.set(k,(erMap.get(k)||0)+1); }
+  const erLabels=Array.from(erMap.keys()); const erVals=erLabels.map(k=>erMap.get(k));
+  if(document.getElementById('chartExtReasons')){
+    extReasonChart=new Chart(document.getElementById('chartExtReasons'),{
+      type:'doughnut', data:{labels:erLabels,datasets:[{data:erVals}]},
+      options:{plugins:{legend:{position:'bottom'}}}
+    });
+  }
+
+  const docAvg=Array.from(docs,([k,sum])=>({name:k,avg:sum/dcnt.get(k)})).filter(x=>isFinite(x.avg));
+  const recAvg=Array.from(recs,([k,sum])=>({name:k,avg:sum/rcnt.get(k)})).filter(x=>isFinite(x.avg));
+
+  function renderPeopleChart(canvas,data,fastest){
+    const sorted=data.slice().sort((a,b)=> fastest? a.avg-b.avg : b.avg-a.avg).slice(0,5);
+    const labels=sorted.map(x=>x.name||'—'); const vals=sorted.map(x=>x.avg);
+    return new Chart(canvas,{type:'bar',data:{labels,datasets:[{label:'الدقائق',data:vals}]},
+      options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>humanMinutes(ctx.parsed.y)}}},scales:{y:{beginAtZero:true}}}});
+  }
+  docChart=renderPeopleChart($('#chartDoc'),docAvg,false);
+  recChart=renderPeopleChart($('#chartRec'),recAvg,false);
+
+  $('#btnDocSlow').onclick=()=>{ if(docChart) docChart.destroy(); docChart=renderPeopleChart($('#chartDoc'),docAvg,false); };
+  $('#btnDocFast').onclick=()=>{ if(docChart) docChart.destroy(); docChart=renderPeopleChart($('#chartDoc'),docAvg,true); };
+  $('#btnRecSlow').onclick=()=>{ if(recChart) recChart.destroy(); recChart=renderPeopleChart($('#chartRec'),recAvg,false); };
+  $('#btnRecFast').onclick=()=>{ if(recChart) recChart.destroy(); recChart=renderPeopleChart($('#chartRec'),recAvg,true); };
+}
+
+function badge(val,kind){ return `<span class="${slaClass(val,kind)}">${humanMinutes(val)}</span>`; }
+
+function renderTable(rows){
+  const body=$('#rowsBody'); body.innerHTML='';
+  const view=rows.slice().sort((a,b)=> (b.__tr||b.__reg||0)-(a.__tr||a.__reg||0)).slice(0,50);
+  for(const r of view){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="mono">${text(r[C.mrn])}</td>
+      <td>${text(r[C.name])||''}</td>
+      <td><span class="badge" style="background:${r.__external?'var(--external)':'var(--internal)'}; color:#001; border:none">${r.__external?'خارجي':'داخلي'}</span></td>
+      <td>${text(r[C.dest])||''}</td>
+      <td>${text(r[C.refBy])||''}</td>
+      <td>${fmtDDMMYYYY(r.__reg)}</td>
+      <td>${fmtDDMMYYYY(r.__tr)}</td>
+      <td>${badge(r.__doorToDep,'door')}</td>
+      <td>${badge(r.__consultRT,'consult')}</td>
+      <td>${badge(r.__admitToOpen,'respOpen')}</td>
+      <td>${badge(r.__travel,'travel')}</td>`;
+    tr.addEventListener('click',()=>openCaseModal(r));
+    body.appendChild(tr);
+  }
+}
+
+function trRow(k,v){ return `<tr><td class="opacity-70 pe-2">${k}</td><td class="font-semibold">${v}</td></tr>`; }
+
+function openCaseModal(r){
+  $('#mTitle').textContent=`MRNo. ${text(r[C.mrn])} — ${r.__external?'تحويل خارجي':'تحويل داخلي'}`;
+
+  const basic=[];
+  basic.push(trRow('اسم المريض', text(r[C.name])||'—'));
+  basic.push(trRow('Destination', text(r[C.dest])||'—'));
+  basic.push(trRow('Referral By', text(r[C.refBy])||'—'));
+  basic.push(trRow('تاريخ التسجيل', fmtDDMMYYYY(r.__reg)));
+  basic.push(trRow('تاريخ التحويل', fmtDDMMYYYY(r.__tr)));
+  if(r.__admReq){
+    basic.push(trRow('تاريخ/وقت طلب دخول ICU', `${fmtDDMMYYYY(r.__admReq)} — ${String(r.__admReq?.getHours()??'').toString().padStart(2,'0')}:${String(r.__admReq?.getMinutes()??'').toString().padStart(2,'0')}`));
+  }else{
+    basic.push(trRow('تاريخ/وقت طلب دخول ICU', '—'));
+  }
+  if(r.__external){
+    basic.push(trRow('MRN المستشفى المستقبِل', text(r[C.recvMRN])||'—'));
+    basic.push(trRow('تاريخ الوصول للمستشفى المستقبِل', fmtDDMMYYYY(r.__arrRecv)));
+    basic.push(trRow('تاريخ العودة لمستشفانا', fmtDDMMYYYY(r.__arrBack)));
+  }
+  $('#mBasic').innerHTML=basic.join('');
+
+  const stk=text(r[C.sticker]); const files=[];
+  if(stk){ const preview=renderAttachmentPreview(stk); if(preview) files.push(preview); files.push(`<a class="link link-info" href="${stk}" target="_blank" rel="noopener">فتح المرفق</a>`); }
+  else { files.push('<span class="opacity-70">لا يوجد مرفق</span>'); }
+  $('#mFiles').innerHTML=files.join('<br>');
+
+  const times=[];
+  times.push(trRow('تسجيل → خروج للتحويل', badge(r.__doorToDep,'door')));
+  times.push(trRow('طلب عرض العناية → الرد', badge(r.__consultRT,'consult')));
+  times.push(trRow('الخروج → وصول المستشفى المستقبِل', badge(r.__travel,'travel')));
+  times.push(trRow('وصول المستشفى المستقبِل → العودة', badge(r.__backTime,'back')));
+  times.push(trRow('رد عرض العناية → فتح ملف ICU', badge(r.__respToOpen,'respOpen')));
+  times.push(trRow('رد عرض العناية → طلب دخول ICU', badge(r.__respToAdmit,'respOpen')));
+  times.push(trRow('طلب دخول ICU → فتح ملف ICU', badge(r.__admitToOpen,'respOpen')));
+  $('#mTimes').innerHTML=times.join('');
+
+  const vs=[]; const kind=r.__external?'E':'I';
+  vs.push(trRow('تسجيل→خروج', `${humanMinutes(r.__doorToDep)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.doorToDep[kind])})</span>`));
+  vs.push(trRow('رد عرض العناية', `${humanMinutes(r.__consultRT)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.consultRT[kind])})</span>`));
+  vs.push(trRow('الرحلة', `${humanMinutes(r.__travel)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.travel[kind])})</span>`));
+  vs.push(trRow('العودة', `${humanMinutes(r.__backTime)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.backTime[kind])})</span>`));
+  vs.push(trRow('رد عرض العناية → فتح ICU', `${humanMinutes(r.__respToOpen)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.respToOpen[kind])})</span>`));
+  vs.push(trRow('رد عرض العناية → طلب دخول ICU', `${humanMinutes(r.__respToAdmit)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.respToAdmit[kind])})</span>`));
+  vs.push(trRow('طلب دخول ICU → فتح ICU', `${humanMinutes(r.__admitToOpen)} <span class="opacity-70">(متوسط ${r.__external?'خارجي':'داخلي'} ${humanMinutes(AVG._split.admitToOpen[kind])})</span>`));
+  $('#mVsAvg').innerHTML=vs.join('');
+
+  const staff=[];
+  staff.push(trRow('طبيب ICU المستقبِل', `<span class="mono">${r.__recvPhys||'—'}</span>`));
+  staff.push(trRow('ممرض ICU المستقبِل', `<span class="mono">${text(r[C.recvNurseIn])||'—'}</span>`));
+  staff.push(trRow('موظف الاستقبال', `<span class="mono">${r.__reception||'—'}</span>`));
+  staff.push(trRow('الطبيب المُحيل داخل المستشفى', `<span class="mono">${r.__ourPhys||'—'}</span>`));
+  staff.push(trRow('الممرض المُحيل داخل المستشفى', `<span class="mono">${r.__ourNurse||'—'}</span>`));
+  if(r.__external){
+    staff.push(trRow('طبيب الجناح لتحويل خارجي', `<span class="mono">${r.__wingPhys||'—'}</span>`));
+    staff.push(trRow('ممرض الجناح لتحويل خارجي', `<span class="mono">${r.__wingNurse||'—'}</span>`));
+  }
+  $('#mStaff').innerHTML=staff.join('');
+
+  // ملخص كل الحقول
+  const gridBox=$('#caseModal .modal-box .grid');
+  $('#mAllBox')?.remove();
+  const allBox=document.createElement('div');
+  allBox.id='mAllBox'; allBox.className='glass p-3 md:col-span-2';
+  allBox.innerHTML=`<h4 class="font-semibold mb-2">كل الحقول من الشيت</h4>
+    <div class="overflow-x-auto"><table class="w-full text-sm"><tbody id="mAllFields"></tbody></table></div>`;
+  gridBox.appendChild(allBox);
+  const allTbody=$('#mAllFields'); allTbody.innerHTML='';
+  for(const [k,colName] of Object.entries(C)){
+    let v=text(r[colName]);
+    if(DATE_FIELDS.includes(colName)) v=fmtDDMMYYYY(parseDateSmart(r[colName]));
+    if(colName===C.sticker && v) v=`<a class="link link-info" href="${r[colName]}" target="_blank" rel="noopener">فتح</a>`;
+    allTbody.insertAdjacentHTML('beforeend', trRow(colName, v || '—'));
+  }
+
+  $('#caseModal').showModal();
+}
+
+function openDayModal(day,rows){
+  const list=rows.filter(r=> fmtDDMMYYYY(r.__tr||r.__reg||r.__cRq)===day );
+  $('#dTitle').textContent=`حالات يوم ${day} — ${list.length} حالة`;
+  const body=$('#dBody'); body.innerHTML='';
+  list.slice(0,100).forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="mono">${text(r[C.mrn])}</td>
+      <td><span class="badge" style="background:${r.__external?'var(--external)':'var(--internal)'}; color:#001; border:none">${r.__external?'خارجي':'داخلي'}</span></td>
+      <td>${text(r[C.name])||''}</td>
+      <td>${text(r[C.dest])||''}</td>
+      <td>${text(r[C.refBy])||''}</td>
+      <td>${humanMinutes(r.__consultRT)}</td>`;
+    tr.addEventListener('click',()=>{ $('#dayModal').close(); openCaseModal(r); });
+    body.appendChild(tr);
+  });
+  $('#dayModal').showModal();
+}
+
+
+function updateAll(){
+  const rows=applyFilters(DATA);
+  renderStats(rows); renderCharts(rows); renderTable(rows);
+}
+
+/* ====== EXPORT ====== */
+function exportFiltered(){
+  const rows=applyFilters(DATA).map(r=>({
+    [C.mrn]:r[C.mrn], [C.name]:r[C.name],
+    Type:r.__external?'External':'Internal',
+    Destination:r[C.dest], ReferralBy:r[C.refBy],
+    [C.regD]:fmtDDMMYYYY(r.__reg), [C.trD]:fmtDDMMYYYY(r.__tr),
+    DoorToDeparture_min:r.__doorToDep!=null?Math.round(r.__doorToDep):'',
+    ConsultResponse_min:r.__consultRT!=null?Math.round(r.__consultRT):'',
+    RespToAdmit_min:r.__respToAdmit!=null?Math.round(r.__respToAdmit):'',
+    AdmitToOpenICU_min:r.__admitToOpen!=null?Math.round(r.__admitToOpen):'',
+    Travel_min:r.__travel!=null?Math.round(r.__travel):'',
+    Back_min:r.__backTime!=null?Math.round(r.__backTime):'',
+    RespondToOpenICU_min:r.__respToOpen!=null?Math.round(r.__respToOpen):''
+  }));
+  const csv=toCSV(rows);
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='transfers_filtered.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ====== INIT ====== */
+async function init(url){
+  try{
+    $('#btnReload').disabled=true;
+    const rows=await loadCSVFromUrl(url||CSV_URL);
+    RAW=rows; DATA=normalizeRows(rows); updateAll();
+  }catch(e){ console.error(e); alert('تعذر تحميل البيانات. تأكد من رابط CSV ثم أعد المحاولة.'); }
+  finally{ $('#btnReload').disabled=false; }
+}
+
+// events
+$('#btnReload').addEventListener('click',()=>init());
+$('#btnExport').addEventListener('click',exportFiltered);
+$('#dateFrom').addEventListener('change',updateAll);
+$('#dateTo').addEventListener('change',updateAll);
+$('#selType').addEventListener('change',updateAll);
+$('#selDest').addEventListener('change',updateAll);
+$('#selRef').addEventListener('change',updateAll);
+$('#btnUpload').addEventListener('click',()=>$('#fileInput').click());
+$('#fileInput').addEventListener('change',async (e)=>{ const f=e.target.files[0]; if(!f) return;
+  const rows=await loadCSVFromFile(f); RAW=rows; DATA=normalizeRows(rows); updateAll(); });
+$('#btnLoadUrl').addEventListener('click',async ()=>{ const u=$('#txtCsvUrl').value.trim(); if(!u) return alert('أدخل رابط CSV'); CSV_URL=u; init(CSV_URL); });
+
+// default last 60 days
+function setDefaultRange(){
+  const to=new Date(); const from=new Date(); from.setDate(from.getDate()-60);
+  $('#dateTo').value=to.toISOString().slice(0,10);
+  $('#dateFrom').value=from.toISOString().slice(0,10);
+}
   </script>
 </body>
 </html>
