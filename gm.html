@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" dir="ltr" data-theme="dark">
 <head>
@@ -44,7 +45,6 @@
     <nav class="glass rounded-2xl p-2 mb-5 overflow-x-auto no-scrollbar">
       <div id="formTabs" class="flex gap-2 min-w-max">
         <button class="tab tab-active rounded-xl px-4 py-2 bg-gradient-to-br from-cyan-600 to-cyan-900 text-white" data-form="transfer"><i class="fa-solid fa-ambulance mr-2"></i>Transfer Outside</button>
-                <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-900 text-white" data-form="icu"><i class="fa-solid fa-hospital-user mr-2"></i>ICU Boarding</button>
 
         <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-red-600 to-red-900 text-white" data-form="death"><i class="fa-solid fa-heart-circle-xmark mr-2"></i>Death</button>
         <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-purple-600 to-purple-900 text-white" data-form="code"><i class="fa-solid fa-bell mr-2"></i>Code</button>
@@ -422,5 +422,43 @@ toggleCodeExtras();
       output_admission.innerText = msg; output_admission.classList.remove('hidden');
     }
   </script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
 </body>
 </html>
