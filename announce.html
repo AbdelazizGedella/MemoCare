@@ -1,0 +1,267 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>مُعلِن الأكواد — Code Announcer</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Cairo", sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-200">
+  <div class="max-w-3xl mx-auto p-5">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold text-cyan-300">مُعلِن الأكواد — Code Announcer</h1>
+      <p class="text-sm text-slate-400">Code Announce Made Easy.</p>
+    </header>
+
+    <section class="grid md:grid-cols-2 gap-4">
+      <div class="bg-slate-800/60 rounded-xl p-4 shadow">
+        <h2 class="font-semibold mb-3 text-slate-100">النص المُعلن</h2>
+        <label class="block text-sm mb-1">السطر 1 (مقدمة)</label>
+        <input id="line1" class="w-full mb-3 px-3 py-2 rounded bg-slate-900 border border-slate-700" value="Attention Please">
+
+        <label class="block text-sm mb-1">السطر 2 (الكود)</label>
+        <input id="line2" class="w-full mb-3 px-3 py-2 rounded bg-slate-900 border border-slate-700" value="Code Blue">
+
+        <label class="block text-sm mb-1">السطر 3 (المكان)</label>
+        <input id="line3" class="w-full mb-3 px-3 py-2 rounded bg-slate-900 border border-slate-700" value="P3 - Resuscitation Area Bed 1">
+
+        <div class="grid grid-cols-2 gap-3 mt-2">
+          <div>
+            <label class="block text-sm mb-1">عدد مرات التكرار</label>
+            <input id="repeatCount" type="number" min="1" max="10" value="3" class="w-full px-3 py-2 rounded bg-slate-900 border border-slate-700">
+          </div>
+          <div>
+            <label class="block text-sm mb-1">الفاصل بين التكرارات (ثوانٍ)</label>
+            <input id="gapSeconds" type="number" min="0" max="15" value="3" class="w-full px-3 py-2 rounded bg-slate-900 border border-slate-700">
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 rounded-xl p-4 shadow">
+        <h2 class="font-semibold mb-3 text-slate-100">الصوت والإعدادات</h2>
+
+        <label class="block text-sm mb-1">اختيار الصوت (EN-US)</label>
+        <select id="voiceSelect" class="w-full mb-3 px-3 py-2 rounded bg-slate-900 border border-slate-700"></select>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm mb-1">السرعة (0.7–1.4)</label>
+            <input id="rate" type="number" step="0.1" min="0.7" max="1.4" value="1.0" class="w-full px-3 py-2 rounded bg-slate-900 border border-slate-700">
+          </div>
+          <div>
+            <label class="block text-sm mb-1">حدة الصوت (0.8–1.2)</label>
+            <input id="pitch" type="number" step="0.1" min="0.8" max="1.2" value="1.0" class="w-full px-3 py-2 rounded bg-slate-900 border border-slate-700">
+          </div>
+        </div>
+
+        <div class="mt-4 flex items-center gap-3">
+          <input id="playChime" type="checkbox" checked class="checkbox checkbox-sm checkbox-info" />
+          <label for="playChime" class="text-sm">تشغيل نغمة تنبيه قصيرة قبل الإعلان</label>
+        </div>
+
+        <div class="mt-5 flex gap-3">
+          <button id="btnPlay" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-900 font-semibold">تشغيل</button>
+          <button id="btnStop" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-slate-900 font-semibold">إيقاف</button>
+          <button id="btnTone" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold">جرّب النغمة</button>
+        </div>
+
+        <p id="status" class="mt-4 text-xs text-slate-400">جاهز.</p>
+      </div>
+    </section>
+
+    <footer class="mt-8 text-center text-xs text-slate-500">
+      يعمل بالمتصفح باستخدام <span class="font-semibold text-slate-300">Web Speech API</span> + <span class="font-semibold text-slate-300">Web Audio</span>.
+    </footer>
+  </div>
+
+<script>
+(() => {
+  const synth = window.speechSynthesis;
+  let voices = [];
+  let stopRequested = false;
+  let chimeOsc = null;
+  let chimeGain = null;
+  let audioCtx = null;
+
+  function log(msg) {
+    document.getElementById('status').textContent = msg;
+  }
+
+  function loadVoices() {
+    voices = synth.getVoices();
+    const select = document.getElementById('voiceSelect');
+    select.innerHTML = '';
+
+    // Filter EN-US voices first, then others
+    const enUS = voices.filter(v => /en[-_]US/i.test(v.lang));
+    const others = voices.filter(v => !/en[-_]US/i.test(v.lang));
+
+    const ordered = [...enUS, ...others];
+    ordered.forEach((v, idx) => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = `${v.name} — ${v.lang}`;
+      select.appendChild(opt);
+    });
+
+    // Try to pick a good default voice
+    const preferred = [
+      "Microsoft Aria Online (Natural) - English (United States)",
+      "Microsoft Jenny Online (Natural) - English (United States)",
+      "Google US English",
+      "Samantha",
+      "Allison",
+    ];
+    for (const p of preferred) {
+      const match = ordered.find(v => v.name.includes(p));
+      if (match) {
+        select.value = match.name;
+        break;
+      }
+    }
+  }
+
+  if (typeof speechSynthesis !== "undefined") {
+    loadVoices();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  } else {
+    log("⚠️ متصفحك لا يدعم Web Speech API.");
+  }
+
+  function playChime(durationMs = 1500) {
+    if (!document.getElementById('playChime').checked) return Promise.resolve();
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+
+    chimeOsc = audioCtx.createOscillator();
+    chimeGain = audioCtx.createGain();
+
+    chimeOsc.type = "sine";
+    chimeOsc.frequency.value = 660; // نغمة لطيفة
+    chimeGain.gain.setValueAtTime(0.0001, now);
+
+    chimeOsc.connect(chimeGain).connect(audioCtx.destination);
+
+    // Envelope: quick attack, short sustain, gentle release
+    const attack = 0.05, sustainLevel = 0.25, sustain = (durationMs/1000) - (attack + 0.15);
+    chimeGain.gain.exponentialRampToValueAtTime(0.6, now + attack);
+    chimeGain.gain.exponentialRampToValueAtTime(sustainLevel, now + attack + Math.max(0.05, sustain));
+    chimeGain.gain.exponentialRampToValueAtTime(0.0001, now + (durationMs/1000));
+
+    chimeOsc.start(now);
+    chimeOsc.stop(now + (durationMs/1000));
+
+    return new Promise(resolve => {
+      chimeOsc.onended = () => {
+        chimeOsc = null;
+        chimeGain = null;
+        resolve();
+      };
+    });
+  }
+
+  function stopChime() {
+    try {
+      if (chimeOsc) chimeOsc.stop();
+      if (chimeGain) chimeGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.02);
+    } catch {}
+    chimeOsc = null;
+    chimeGain = null;
+  }
+
+  function speakOnce(lines, voice, rate, pitch) {
+    return new Promise(async (resolve) => {
+      if (stopRequested) return resolve();
+
+      const [l1, l2, l3] = lines;
+      const seq = [
+        { text: l1, pause: 500 },
+        { text: l2, pause: 400 },
+        { text: l3, pause: 0  },
+      ];
+
+      for (const item of seq) {
+        if (stopRequested) break;
+        const u = new SpeechSynthesisUtterance(item.text);
+        u.lang = (voice && voice.lang) || "en-US";
+        if (voice) u.voice = voice;
+        u.rate = rate;
+        u.pitch = pitch;
+
+        await new Promise((res) => {
+          u.onend = () => setTimeout(res, item.pause);
+          u.onerror = () => setTimeout(res, item.pause);
+          synth.speak(u);
+        });
+      }
+      resolve();
+    });
+  }
+
+  async function playSequence() {
+    stopRequested = false;
+
+    const line1 = document.getElementById('line1').value.trim();
+    const line2 = document.getElementById('line2').value.trim();
+    const line3 = document.getElementById('line3').value.trim();
+    const repeatCount = Math.max(1, parseInt(document.getElementById('repeatCount').value || '1', 10));
+    const gapSeconds = Math.max(0, parseFloat(document.getElementById('gapSeconds').value || '0'));
+    const rate = Math.min(1.4, Math.max(0.7, parseFloat(document.getElementById('rate').value || '1')));
+    const pitch = Math.min(1.2, Math.max(0.8, parseFloat(document.getElementById('pitch').value || '1')));
+
+    const selectedName = document.getElementById('voiceSelect').value;
+    const voice = voices.find(v => v.name === selectedName) || voices.find(v => /en[-_]US/i.test(v.lang));
+
+    if (!('speechSynthesis' in window)) {
+      log("⚠️ متصفحك لا يدعم Web Speech API.");
+      return;
+    }
+
+    // Prevent overlapping
+    synth.cancel();
+    stopChime();
+
+    log(`تشغيل الإعلان × ${repeatCount} ...`);
+    for (let i = 0; i < repeatCount; i++) {
+      if (stopRequested) break;
+      // play chime before each repeat
+      await playChime(1500);
+      if (stopRequested) break;
+      await speakOnce([line1, line2, line3], voice, rate, pitch);
+      if (stopRequested) break;
+      if (i < repeatCount - 1 && gapSeconds > 0) {
+        log(`استراحة ${gapSeconds} ثوانٍ قبل التكرار التالي (${i+2}/${repeatCount})...`);
+        await new Promise(r => setTimeout(r, gapSeconds * 1000));
+      }
+    }
+    if (!stopRequested) log("انتهى.");
+  }
+
+  function stopAll() {
+    stopRequested = true;
+    try { speechSynthesis.cancel(); } catch {}
+    stopChime();
+    log("تم الإيقاف.");
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', () => {
+    playSequence();
+  });
+  document.getElementById('btnStop').addEventListener('click', stopAll);
+  document.getElementById('btnTone').addEventListener('click', () => { playChime(1200); });
+
+  // Helpful: stop when navigating away
+  window.addEventListener('beforeunload', stopAll);
+})();
+</script>
+</body>
+</html>
