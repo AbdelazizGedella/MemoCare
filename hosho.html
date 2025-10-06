@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة متابعة تغييرات الترياج (CTAS) — v2</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <!-- Charts + CSV Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Firebase (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
+  <style>
+    /* CTAS color pills */
+    .badge-ctas1 { background:#1e40af !important; color:#fff; }   /* Blue */
+    .badge-ctas2 { background:#b91c1c !important; color:#fff; }   /* Red  */
+    .badge-ctas3 { background:#f59e0b !important; color:#000; }   /* Yellow */
+    .badge-ctas4 { background:#10b981 !important; color:#001; }   /* Green */
+    .badge-ctas5 { background:#ffffff !important; color:#111; }   /* White */
+
+    #tblOver tbody tr { border-inline-start: 3px solid #ef4444; }
+    #tblUnder tbody tr{ border-inline-start: 3px solid #f59e0b; }
+    #tblAcc tbody tr  { border-inline-start: 3px solid #10b981; }
+
+    :root{ --glass-bg: rgba(255,255,255,0.06); --glass-bd: rgba(255,255,255,0.12); }
+    html, body { background:#07102F; color:#fff; font-family:'Cairo', system-ui, sans-serif; }
+    .glass { background: var(--glass-bg); border: 1px solid var(--glass-bd); backdrop-filter: blur(8px); border-radius: 18px; }
+    .kpi { display:flex; align-items:center; gap:12px; padding:16px; }
+    .kpi .num { font-size: 28px; font-weight: 700; }
+    .kpi .lbl { font-size: 12px; opacity: .85; }
+    .card-title { font-weight:700; }
+    .table :where(th,td){ white-space:nowrap; }
+    .badge-ctas { border:1px solid var(--glass-bd); background: rgba(255,255,255,.08); }
+    .btn-glass { background: linear-gradient(135deg,#0b3af5 0%,#0f1c3c 100%); border:0; color:#fff; }
+    .btn-glass:hover{ filter: brightness(1.1); }
+    .chart-wrap { height: 180px; }
+    @media (min-width: 640px){ .chart-wrap{ height: 220px; } }
+    @media (min-width: 1024px){ .chart-wrap{ height: 240px; } }
+  </style>
+</head>
+<body class="pb-28">
+  <!-- 🔒 Auth Gate Overlay (لا يغيّر خصائص الصفحة؛ مجرد طبقة حماية) -->
+  <div id="authGate" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/70">
+    <div class="glass p-6 w-[min(92vw,480px)] text-center space-y-4">
+      <i class="fa-solid fa-shield-keyhole text-3xl text-cyan-200"></i>
+      <h2 class="text-xl font-bold">الوصول مقصور على المصرَّح لهم</h2>
+      <p id="gateDesc" class="opacity-80 text-sm">سجّل الدخول للمتابعة</p>
+      <div class="flex gap-2 justify-center">
+        <button id="btnSignIn" class="btn btn-sm btn-glass">
+          <i class="fa-brands fa-google"></i> دخول بحساب Google
+        </button>
+        <button id="btnSignOut" class="btn btn-sm hidden">
+          <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
+        </button>
+      </div>
+      <div id="gateHelp" class="text-xs opacity-70"></div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 w-full glass">
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-cyan-300 text-xl"></i>
+        <h1 class="text-base sm:text-xl md:text-2xl font-bold">لوحة متابعة تغييرات الترياج (CTAS)</h1>
+      </div>
+      <div class="flex items-center gap-2 text-xs opacity-80">
+        <span id="lastUpdated">—</span>
+        <button id="btnRefresh" class="btn btn-xs sm:btn-sm btn-glass"><i class="fa-solid fa-rotate"></i> تحديث</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-2 sm:px-4 mt-4 space-y-4">
+    <!-- Controls -->
+    <section class="glass p-3 sm:p-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="form-control w-40">
+          <div class="label"><span class="label-text">من تاريخ</span></div>
+          <input id="dateFrom" type="date" class="input input-sm input-bordered" />
+        </label>
+        <label class="form-control w-40">
+          <div class="label"><span class="label-text">إلى تاريخ</span></div>
+          <input id="dateTo" type="date" class="input input-sm input-bordered" />
+        </label>
+        <label class="form-control flex-1 sm:flex-none w-full sm:w-56">
+          <div class="label"><span class="label-text">بحث (ملف/اسم/ممرضة/طبيب/سبب)</span></div>
+          <input id="qText" type="text" placeholder="ابحث.." class="input input-sm input-bordered" />
+        </label>
+        <button id="btnClear" class="btn btn-sm">مسح الفلاتر</button>
+        <div class="ms-auto text-xs opacity-80">تُحدّث تلقائياً كل 5 دقائق</div>
+      </div>
+      <div id="activeFilters" class="flex flex-wrap gap-2 mt-2"></div>
+    </section>
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="glass kpi">
+        <i class="fa-solid fa-list text-cyan-300"></i>
+        <div>
+          <div class="num" id="kpiTotal">0</div>
+          <div class="lbl">إجمالي التغييرات</div>
+          <div id="kpiReviewSplit" class="text-[11px] opacity-80 mt-1"></div>
+        </div>
+      </div>
+      <div class="glass kpi"><i class="fa-solid fa-arrow-trend-up text-amber-300"></i><div><div class="num" id="kpiUnder">0</div><div class="lbl">Under-triage (زادت الخطورة)</div></div></div>
+      <div class="glass kpi"><i class="fa-solid fa-arrow-trend-down text-emerald-300"></i><div><div class="num" id="kpiOver">0</div><div class="lbl">Over-triage (قلت الخطورة)</div></div></div>
+      <div class="glass kpi"><i class="fa-solid fa-check text-emerald-300"></i><div><div class="num" id="kpiAccurate">0</div><div class="lbl">Accurate (قرار الأول كان تمام)</div></div></div>
+    </section>
+
+    <!-- Benchmarks + Under/Over (smaller pie) -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Benchmarks Card -->
+      <div class="glass p-4">
+        <div class="card-title mb-1">Benchmark (<span id="bmMonth">—</span>)</div>
+        <div class="text-xs opacity-80 mb-2">
+          الإجمالي المرجعي (B2): <span id="bmTotal">—</span>
+          <span id="bmSource" class="ms-1"></span>
+        </div>
+        <div>
+          <div class="flex items-center justify-between text-xs"><span>Over-triage ≤ 35%</span><span id="bmOverPct">—%</span></div>
+          <progress id="bmOverProg" class="progress progress-success w-full" value="0" max="100"></progress>
+          <div id="bmOverStatus" class="text-xs mt-1"></div>
+        </div>
+        <div class="mt-3">
+          <div class="flex items-center justify-between text-xs"><span>Under-triage ≤ 5%</span><span id="bmUnderPct">—%</span></div>
+          <progress id="bmUnderProg" class="progress progress-warning w-full" value="0" max="100"></progress>
+          <div id="bmUnderStatus" class="text-xs mt-1"></div>
+        </div>
+        <div class="mt-3 text-[11px] opacity-70">ملاحظة: لو لم يتم ضبط رابط B2، يتم تقدير الإجمالي من بيانات التغييرات (قد يكون أقل من الإجمالي الحقيقي).</div>
+      </div>
+
+      <!-- Under/Over Pie (with role toggle) -->
+      <div class="glass p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="card-title">نِسَب Under/Over</div>
+          <div class="join">
+            <button id="roleNurse" class="btn btn-xs join-item btn-active" title="حسب التمريض">تمريض</button>
+            <button id="rolePhys"  class="btn btn-xs join-item" title="حسب الأطباء">أطباء</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chUnderOver"></canvas></div>
+        <div id="uoHint" class="text-[11px] opacity-70 mt-2">العرض الحالي: تمريض (Initial Triage was)</div>
+      </div>
+    </section>
+
+    <!-- Charts Row 1 -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="glass p-4">
+        <div class="card-title mb-2">أسباب التغيير (Top 10) — اضغط للفلترة</div>
+        <div class="chart-wrap"><canvas id="chReasons"></canvas></div>
+      </div>
+      <div class="glass p-4">
+        <div class="card-title mb-2">أكثر الممرضين/ات ارتباطًا بالتغيير (Top 10) — اضغط للفلترة</div>
+        <div class="chart-wrap"><canvas id="chNurses"></canvas></div>
+        <div class="text-[11px] opacity-70 mt-1">يعتمد على Initial Triage was + Responsible Triage Nurse</div>
+      </div>
+    </section>
+
+    <!-- Charts Row 2 -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="glass p-4">
+        <div class="card-title mb-2">أكثر الأطباء ارتباطًا بالتغيير (Top 10) — اضغط للفلترة</div>
+        <div class="chart-wrap"><canvas id="chDocs"></canvas></div>
+        <div class="text-[11px] opacity-70 mt-1">يعتمد على Physician Triage was + Responsible Physician</div>
+      </div>
+      <div class="glass p-4">
+        <div class="card-title mb-2">اتجاه شهري للتغييرات — اضغط على الشهر لعرض الحالات</div>
+        <div class="chart-wrap"><canvas id="chMonthly"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Table -->
+    <section class="glass p-3 sm:p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="card-title">آخر الحالات</div>
+        <div class="text-xs opacity-70">اضغط على صف لعرض التفاصيل</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table table-zebra table-sm" id="tbl">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>نموذج Pre-Reg</th>
+              <th>CTAS قبل</th>
+              <th>Initial Triage was</th>
+              <th>CTAS بعد</th>
+              <th>Physician Triage was</th>
+              <th>السبب</th>
+              <th>ممرضة الترياج</th>
+              <th>الطبيب</th>
+              <th>MRN</th>
+              <th>المريض</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Definitions -->
+    <section class="glass p-4">
+      <div class="card-title mb-2">تعريفات سريعة</div>
+      <div class="text-sm leading-7 space-y-2">
+        <div class="flex items-start gap-2">
+          <span class="badge badge-error">Over-Triage</span>
+          <span>الحالة اتقيّمت أول مرة على إنها أشد من اللازم (CTAS أعلى من الحاجة)، وبعد المراجعة اتضح إنها أقل خطورة مما سُجِّل في البداية.</span>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="badge badge-warning">Under-Triage</span>
+          <span>الحالة اتقيّمت أول مرة على إنها أخف من اللازم (CTAS أقل من الحاجة)، وبعد المراجعة اتضح إنها أكثر خطورة مما سُجِّل في البداية — وده الأكثر خطورة على سلامة المريض.</span>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="badge badge-success">Accurate-Triage</span>
+          <span>قرار الترياج الأولي كان مناسب للحالة (ولسبب كان غير ظاهر بالخارج او مرصود تم تغير درجة خطورة الحالة).</span>
+        </div>
+        <div class="flex items-start gap-2">
+          <span class="badge badge-info">For Review</span>
+          <span>حالات معلّمة للمراجعة — لا تُحتسب ضمن Under/Over/Accurate لحين التأكيد،</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- For Review -->
+    <section class="glass p-4">
+      <div class="flex items-center justify-between">
+        <div class="card-title text-sky-300">For Review — حالات للمراجعة</div>
+        <button class="btn btn-xs" id="btnReviewAll">عرض الكل</button>
+      </div>
+      <div class="text-xs opacity-70">الحالات المعلّمة "For Review" لا تدخل ضمن المؤشرات، وتُعرض كتنبيه فقط.</div>
+      <div class="overflow-x-auto mt-2">
+        <table class="table table-zebra table-xs" id="tblReview">
+          <thead>
+            <tr>
+              <th>التاريخ</th><th>MRN</th><th>المريض</th><th>د/م</th><th>من ➜ إلى</th><th>السبب</th><th>FB</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Triaged Tables (Accurate / Over / Under) -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Over -->
+      <div class="glass p-4 order-2 lg:order-1">
+        <div class="flex items-center justify-between">
+          <div class="card-title text-red-300">Over-Triage</div>
+          <button class="btn btn-xs" id="btnOverAll">عرض الكل</button>
+        </div>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-zebra table-xs" id="tblOver">
+            <thead>
+              <tr>
+                <th>التاريخ</th><th>MRN</th><th>المريض</th><th>د/م</th><th>من ➜ إلى</th><th>السبب</th><th>FB</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Accurate -->
+      <div class="glass p-4 order-1 lg:order-2">
+        <div class="flex items-center justify-between">
+          <div class="card-title text-emerald-300">Accurate</div>
+          <button class="btn btn-xs" id="btnAccAll">عرض الكل</button>
+        </div>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-zebra table-xs" id="tblAcc">
+            <thead>
+              <tr>
+                <th>التاريخ</th><th>MRN</th><th>المريض</th><th>د/م</th><th>من ➜ إلى</th><th>السبب</th><th>FB</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Under -->
+      <div class="glass p-4 order-3 lg:order-3">
+        <div class="flex items-center justify-between">
+          <div class="card-title text-amber-300">Under-Triage</div>
+          <button class="btn btn-xs" id="btnUnderAll">عرض الكل</button>
+        </div>
+        <div class="overflow-x-auto mt-2">
+          <table class="table table-zebra table-xs" id="tblUnder">
+            <thead>
+              <tr>
+                <th>التاريخ</th><th>MRN</th><th>المريض</th><th>د/م</th><th>من ➜ إلى</th><th>السبب</th><th>FB</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Full List Modal -->
+    <dialog id="dlgTriaged" class="modal">
+      <div class="modal-box max-w-6xl glass">
+        <form method="dialog"><button class="btn btn-sm btn-circle absolute left-2 top-2">✕</button></form>
+        <h3 class="font-bold text-lg mb-4" id="dlgTriagedTitle">القائمة</h3>
+        <div id="cardsWrap" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </dialog>
+  </main>
+
+  <!-- Details Modal -->
+  <dialog id="dlgDetails" class="modal">
+    <div class="modal-box max-w-3xl glass">
+      <form method="dialog"><button class="btn btn-sm btn-circle absolute left-2 top-2">✕</button></form>
+      <h3 class="font-bold text-lg mb-2">تفاصيل الحالة</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <div><span class="opacity-80">التاريخ:</span> <span id="dDate"></span></div>
+        <div><span class="opacity-80">MRN:</span> <span id="dMRN"></span></div>
+        <div><span class="opacity-80">المريض:</span> <span id="dName"></span></div>
+        <div><span class="opacity-80">ممرضة الترياج:</span> <span id="dNurse"></span></div>
+        <div><span class="opacity-80">الطبيب:</span> <span id="dDoc"></span></div>
+        <div><span class="opacity-80">التغيير:</span> <span id="dChange"></span></div>
+        <div class="sm:col-span-2"><span class="opacity-80">Initial Triage was:</span> <span id="dInit"></span></div>
+        <div class="sm:col-span-2"><span class="opacity-80">Physician Triage was:</span> <span id="dPhys"></span></div>
+        <div class="sm:col-span-2"><span class="opacity-80">السبب:</span> <span id="dReason"></span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btnOpenPre" class="btn btn-sm btn-glass" target="_blank"><i class="fa-regular fa-file-lines"></i> فتح النموذج في تبويب</button>
+        <button id="btnEmbedPre" class="btn btn-sm"><i class="fa-solid fa-eye"></i> عرض داخل الصفحة</button>
+      </div>
+      <div id="embedWrap" class="mt-3 hidden">
+        <iframe id="embedFrame" class="w-full h-[60vh] rounded-xl" loading="lazy"></iframe>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Loading -->
+  <div id="loading" class="toast toast-top toast-center" style="display:none;">
+    <div class="alert alert-info glass"><span>جاري تحميل البيانات...</span></div>
+  </div>
+
+  <script>
+  // ===================== CONFIG (Firebase Guard) =====================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+    authDomain: "ctwo-eee79.firebaseapp.com",
+    projectId: "ctwo-eee79",
+    storageBucket: "ctwo-eee79.appspot.com",
+    messagingSenderId: "788657051205",
+    appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+    measurementId: "G-4VTCQR4ZVR"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth    = firebase.auth();
+  const db      = firebase.firestore();
+  const storage = firebase.storage();
+  const provider = new firebase.auth.GoogleAuthProvider();
+
+  const $  = (s,p=document)=>p.querySelector(s);
+  const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
+
+  function showGate(msg, mode='signin'){
+    const gate = $('#authGate');
+    const desc = $('#gateDesc');
+    if (desc && msg) desc.textContent = msg;
+    gate.classList.remove('hidden');
+    if (mode === 'signin'){
+      $('#btnSignIn')?.classList.remove('hidden');
+      $('#btnSignOut')?.classList.add('hidden');
+    } else if (mode === 'authed') {
+      $('#btnSignIn')?.classList.add('hidden');
+      $('#btnSignOut')?.classList.remove('hidden');
+    } else if (mode === 'hide') {
+      gate.classList.add('hidden');
+    }
+  }
+  $('#btnSignIn')?.addEventListener('click', ()=> auth.signInWithPopup(provider).catch(()=> showGate('تعذر تسجيل الدخول. حاول مرة أخرى.','signin')));
+  $('#btnSignOut')?.addEventListener('click', ()=> auth.signOut());
+
+  async function loadScriptFromStorage(path){
+    if(!path) return;
+    try{
+      const url = await storage.ref(path).getDownloadURL();
+      await new Promise((res, rej)=>{
+        const s = document.createElement('script');
+        s.src = url; s.async = true; s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }catch(e){ console.warn('فشل تحميل السكربت المحمي:', e); }
+  }
+  async function resolveUrl(u){
+    if(!u) return null;
+    if(/^gs:\/\//i.test(u)){
+      try { return await storage.refFromURL(u).getDownloadURL(); }
+      catch(e){ console.warn('gs:// failed:', e); return null; }
+    }
+    return u;
+  }
+  async function startAuthorizedFlow(){
+    try{
+      const snap = await db.doc('config/ctasDashboard').get(); // 🔒 محمي بقواعدك
+      if(!snap.exists){ showGate('لم يتم ضبط إعدادات CTAS في Firestore.', 'authed'); return; }
+      const cfg = snap.data() || {};
+      if (cfg.codePath) await loadScriptFromStorage(cfg.codePath);
+
+      CSV_URL = await resolveUrl(cfg.csvUrl);
+      BENCHMARK_B2_URL = await resolveUrl(cfg.b2Url);
+
+      if(!CSV_URL){ showGate('رابط البيانات غير مضبوط في الإعدادات.', 'authed'); return; }
+
+      showGate('', 'hide');
+      // ابدأ التحميل الأول ثم المؤقّت الدوري
+      refresh();
+      if (!window.__ctasInterval){
+        window.__ctasInterval = setInterval(refresh, AUTO_REFRESH_MS);
+      }
+    }catch(e){
+      if (e?.code === 'permission-denied') showGate('غير مُصرّح لك — تواصل مع الإدارة.', 'authed');
+      else showGate('خطأ غير متوقع أثناء التحقق من الصلاحيات.', 'authed');
+    }
+  }
+  auth.onAuthStateChanged((user)=>{
+    if(!user){ showGate('سجّل الدخول للمتابعة', 'signin'); return; }
+    $('#gateHelp').textContent = `UID: ${user.uid} — ${user.email||''}`;
+    showGate('جار التحقق من صلاحياتك...', 'authed');
+    startAuthorizedFlow();
+  });
+
+  // ===================== ORIGINAL PAGE SETTINGS =====================
+  const AUTO_REFRESH_MS = 5 * 60 * 1000;
+  const OVER_OK_MAX = 0.35;  // 35%
+  const UNDER_OK_MAX = 0.05; // 5%
+
+  // سيتم ضبطهم من Firestore/Storage
+  let CSV_URL = null;
+  let BENCHMARK_B2_URL = null;
+
+  // ===================== UTILITIES =====================
+  const fmtDate = (d)=>{
+    if(!d) return '';
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = d.getFullYear();
+    return `${dd}-${mm}-${yy}`;
+  };
+  function parseDateFlexible(val){
+    if(!val) return null;
+    const s = String(val).trim();
+    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+    if(m){
+      const [, Y, M, D] = m.map(Number);
+      return new Date(Y, M-1, D);
+    }
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+    if(m){
+      let D = parseInt(m[1],10);
+      let M = parseInt(m[2],10);
+      let Y = m[3].length === 2 ? parseInt('20'+m[3],10) : parseInt(m[3],10);
+      return new Date(Y, M-1, D);
+    }
+    if(/^\d+(\.\d+)?$/.test(s)){
+      const n = Number(s);
+      if(n > 25569){
+        const ms = Math.round((n - 25569) * 86400000);
+        const d = new Date(ms);
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      }
+    }
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
+  function cleanStr(x){ return String(x||'').trim(); }
+  function parseCTAS(s){
+    const m = String(s||'').match(/([1-5])/);
+    return m ? parseInt(m[1],10) : NaN;
+  }
+
+  // القرار من نص الحقل
+  function kindFromInit(init){
+    const s = String(init||'').toLowerCase();
+    if (/for\s*review/.test(s) || /مراجعة|للمراجعة/.test(s)) return 'review';
+    if (/under/.test(s) || /أندر|اقل|تقليل/.test(s)) return 'under';
+    if (/over/.test(s)  || /أوفر|أعلى|زيادة/.test(s)) return 'over';
+    if (/accurate/.test(s) || /اكيرت|صحيح|تمام/.test(s)) return 'accurate';
+    return 'na';
+  }
+  function labelFromKind(k){
+    return k==='under' ? 'Under'
+      : k==='over' ? 'Over'
+      : k==='accurate' ? 'Accurate'
+      : k==='review' ? 'For Review'
+      : '';
+  }
+
+  function isAccurateToken(s){
+    return /accurate/i.test(String(s||'')); // يمسك "Accurate" أو "Accurate Triage"
+  }
+  function changeLabel(from,to, accurateFlag=false){
+    const f = parseCTAS(from), t = parseCTAS(to);
+    if (accurateFlag || isAccurateToken(from) || isAccurateToken(to)) {
+      return {label:`Accurate — إلى ${isFinite(t)?t:'?'} ➜ من ${isFinite(f)?f:'?'}`, kind:'accurate'};
+    }
+    if(!isFinite(f) || !isFinite(t)){
+      return {label:'غير محدد', kind:'na'};
+    }
+    if(t < f) return {label:`Under — إلى ${t} ➜ من ${f}`, kind:'under'};
+    if(t > f) return {label:`Over — إلى ${t}➜ من ${f}`,  kind:'over'};
+    return {label:`Accurate — إلى ${t} ➜ من ${t}`, kind:'accurate'};
+  }
+
+  function ctasBadge(num){
+    const n = parseCTAS(num);
+    const cls = n===1?'badge-ctas1': n===2?'badge-ctas2': n===3?'badge-ctas3': n===4?'badge-ctas4': n===5?'badge-ctas5':'';
+    return n ? `<span class="badge ${cls}">CTAS ${n}</span>` : '—';
+  }
+
+  function makeCaseCard(e){
+    const changeClass =
+      e.changeKind==='over'     ? 'badge-error'   :
+      e.changeKind==='under'    ? 'badge-warning' :
+      e.changeKind==='accurate' ? 'badge-success' :
+      e.changeKind==='review'   ? 'badge-info'    :
+                                  'badge-ghost';
+    const card = document.createElement('div');
+    card.className = 'p-4 rounded-2xl border border-[var(--glass-bd)] bg-[var(--glass-bg)]';
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="text-sm opacity-80">${fmtDate(e.date)} — ${e.mrn||''}</div>
+        <span class="badge ${changeClass}">${e.changeText||'—'}</span>
+      </div>
+      <div class="mt-1 font-semibold">${e.name||''}</div>
+      <div class="text-xs mt-1 opacity-80">${(e.doc? 'د.'+e.doc : '')}${(e.doc&&e.nurse)?' / ':''}${(e.nurse? 'م/'+e.nurse : '')}</div>
+      <div class="flex items-center gap-2 mt-3">
+        <div>${ctasBadge(e.from)}</div>
+        <div class="opacity-70">إلى</div>
+        <div>${ctasBadge(e.to)}</div>
+      </div>
+      <div class="text-sm mt-2"><span class="opacity-80">السبب:</span> ${e.reason||'—'}</div>
+      ${e.feedback ? `<div class="text-sm mt-1"><span class="opacity-80">Feedback:</span> ${e.feedback}</div>` : ''}
+      <div class="mt-3 flex gap-2">
+        ${e.pre ? `<a class="btn btn-ghost btn-xs" href="${e.pre}" target="_blank"><i class="fa-regular fa-file-lines"></i> النموذج</a>` : ''}
+        <button class="btn btn-ghost btn-xs" data-open-details>تفاصيل</button>
+      </div>
+    `;
+    card.querySelector('[data-open-details]')?.addEventListener('click', ()=> openDetails(e));
+    return card;
+  }
+
+  function embedFromDriveUrl(url){
+    if(!url) return null;
+    try{
+      const u = new URL(url);
+      const host = u.hostname;
+      if(host.includes('drive.google.com')){
+        const m = url.match(/\/d\/([A-Za-z0-9_-]{10,})/);
+        const id = m? m[1] : (u.searchParams.get('id') || null);
+        if(id){ return `https://drive.google.com/file/d/${id}/preview`; }
+      }
+      if(host.includes('docs.google.com')){ return url; }
+    }catch(e){ /* ignore */ }
+    return null;
+  }
+  function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+
+  // ===================== STATE =====================
+  let RAW_ROWS = []; // original rows
+  let ENTRIES = [];  // normalized entries
+  let charts = { underOver:null, reasons:null, nurses:null, docs:null, monthly:null };
+  let ACTIVE_FILTER = null; // function(e) => boolean
+  let ACTIVE_FILTER_CHIPS = []; // [{label, clear:fn}]
+  let BM_TOTAL = null; // إجمالي الشهر المرجعي (B2)
+  let BM_SOURCE = '';
+
+  // دور عرض Under/Over: 'nurse' أو 'phys'
+  let ROLE_MODE = 'nurse';
+
+  // ===================== LOAD =====================
+  async function loadCSV(url){
+    return new Promise((resolve, reject)=>{
+      Papa.parse(url, { download:true, header:true, skipEmptyLines:true, complete: r=>resolve(r.data), error: reject });
+    });
+  }
+  async function loadB2(){
+    BM_TOTAL = null; BM_SOURCE = 'تقديري';
+    if(!BENCHMARK_B2_URL) return;
+    try{
+      const data = await new Promise((resolve, reject)=>{
+        Papa.parse(BENCHMARK_B2_URL, {
+          download: true,
+          header: false,
+          skipEmptyLines: false,
+          complete: (res)=> resolve(res.data),
+          error: reject
+        });
+      });
+      let raw = (data?.[1]?.[1] ?? '').toString().trim();
+      let val = parseFloat(raw.replace(/[^\d.\-]/g,''));
+      if(!isFinite(val) || val<=0){
+        outer: for(const row of (data||[])){
+          for(const cell of (row||[])){
+            const num = parseFloat(String(cell??'').replace(/[^\d.\-]/g,''));
+            if(isFinite(num) && num>0){ val = num; break outer; }
+          }
+        }
+      }
+      if(isFinite(val) && val>0){ BM_TOTAL = val; BM_SOURCE = 'B2'; }
+      else { BM_TOTAL = null; BM_SOURCE = 'تقديري'; }
+    }catch(e){
+      BM_TOTAL = null; BM_SOURCE = 'تقديري';
+    }
+  }
+
+  // ==== tolerant header matching (en/ar, case/space-insensitive) ====
+  const normalizeKey = s => String(s||'')
+    .toLowerCase()
+    .replace(/\s+/g,' ')
+    .replace(/[^\w\u0600-\u06FF]+/g,'')
+    .trim();
+
+  function pickField(row, candidates){
+    const keys = Object.keys(row||{});
+    const normMap = new Map(keys.map(k => [normalizeKey(k), k]));
+    for(const c of candidates){
+      const nk = normalizeKey(c);
+      if(normMap.has(nk)) return row[normMap.get(nk)];
+    }
+    for(const k of keys){
+      const nk = normalizeKey(k);
+      for(const c of candidates){
+        const nc = normalizeKey(c);
+        if(nk.includes(nc)) return row[k];
+      }
+    }
+    return '';
+  }
+
+  function normalizeRows(rows){
+    return rows.map(r=>{
+      const dateStr = pickField(r, [
+        'Date','التاريخ','Triage Date','Visit Date','Created Date','Encounter Date','Date & Time'
+      ]);
+      const date = parseDateFlexible(dateStr);
+
+      const mrn   = cleanStr(pickField(r, ['MRNo.','MRN','رقم الملف','File No','File Number']));
+      const name  = cleanStr(pickField(r, ['Patient Name','اسم المريض','Name']));
+      const nurse = cleanStr(pickField(r, [
+        'Responsible Triage Nurse','Responsible Nurse','Triage Nurse','ممرضة الترياج'
+      ]));
+      const doc   = cleanStr(pickField(r, [
+        'Responsible Phyiscian','Responsible Physician','Physician','Doctor','الطبيب'
+      ]));
+
+      const from  = cleanStr(pickField(r, ['Changed From','من','CTAS From']));
+      const to    = cleanStr(pickField(r, ['Changed To','إلى','CTAS To']));
+
+      const init  = cleanStr(pickField(r, [
+        'Initial Triage was','Initial Triage Was','Initial triage was','Initial Triage',
+        'Initial triage','Initial Triage status','Initial decision','الترياج المبدئي',
+        'قرار الترياج المبدئي'
+      ]));
+
+      // ⬇️ الحقل الجديد: Physician Triage was
+      const phys  = cleanStr(pickField(r, [
+        'Physician Triage was','Physician triage was','Physician Triage','Physician decision',
+        'تقييم الطبيب','قرار الطبيب','طبيب الترياج'
+      ]));
+
+      const reason   = cleanStr(pickField(r, ['Reason','السبب']));
+      const pre      = cleanStr(pickField(r, [
+        'Pre-Registration Form','Pre-Registeration Form','Form','النموذج'
+      ]));
+      const feedback = cleanStr(pickField(r, ['Feedback','تعليق','ملاحظات الطبيب']));
+
+      const kindNurse = kindFromInit(init); // under/over/accurate/review/na
+      const kindPhys  = kindFromInit(phys);
+
+      // الكارد والجدول العامين ما زالوا معتمدين على قرار التمريض (كما كان سابقًا)
+      const label = labelFromKind(kindNurse);
+
+      return {
+        date, mrn, name, nurse, doc,
+        from, to,
+        init, phys,
+        reason, pre, feedback,
+        changeKind: kindNurse,            // للحفاظ على سلوك الصفحة القديم
+        changeKindNurse: kindNurse,       // صريح للتمريض
+        changeKindPhys:  kindPhys,        // صريح للأطباء
+        changeText: label
+      };
+    }).filter(x=> x.date || x.mrn || x.name);
+  }
+
+  function applyFilters(){
+    const q = cleanStr($('#qText').value).toLowerCase();
+    const df = $('#dateFrom').value? new Date($('#dateFrom').value) : null;
+    const dt = $('#dateTo').value? new Date($('#dateTo').value) : null;
+    return ENTRIES.filter(e=>{
+      if(df && e.date && e.date < df) return false;
+      if(dt && e.date && e.date > dt) return false;
+      if(q){
+        const blob = `${e.mrn} ${e.name} ${e.nurse} ${e.doc} ${e.reason}`.toLowerCase();
+        if(!blob.includes(q)) return false;
+      }
+      if(ACTIVE_FILTER && !ACTIVE_FILTER(e)) return false;
+      return true;
+    });
+  }
+
+  function tallyBy(arr, key, whereFn){
+    const m = new Map();
+    for(const a of arr){
+      if(whereFn && !whereFn(a)) continue;
+      const k = (typeof key==='function')? key(a) : (a[key]||'');
+      const kk = (k||'').trim();
+      if(!kk) continue;
+      m.set(kk, (m.get(kk)||0)+1);
+    }
+    return [...m.entries()].sort((a,b)=> b[1]-a[1]);
+  }
+
+  // نسخة تعتمد على حقل نوع القرار المطلوب (تمريض/أطباء)
+  function tallyKindsByKind(arr, byKey, kindField){
+    const map = new Map();
+    for(const a of arr){
+      const k = cleanStr(a[byKey]); if(!k) continue;
+      const kind = a[kindField];
+      const curr = map.get(k) || { under:0, over:0, accurate:0 };
+      if(kind==='under')    curr.under++;
+      else if(kind==='over') curr.over++;
+      else if(kind==='accurate') curr.accurate++;
+      map.set(k, curr);
+    }
+    const out = [...map.entries()].map(([label, v])=>({
+      label, under:v.under, over:v.over, accurate:v.accurate,
+      total: v.under + v.over + v.accurate
+    }));
+    out.sort((A,B)=> B.total - A.total);
+    return out;
+  }
+
+  function groupMonthly(arr){
+    const m = new Map();
+    for(const a of arr){ if(!a.date) continue; const k = monthKey(a.date); m.set(k, (m.get(k)||0)+1); }
+    const out = [...m.entries()].sort((a,b)=> a[0].localeCompare(b[0]));
+    return { labels: out.map(x=>x[0]), values: out.map(x=>x[1]) };
+  }
+
+  // ===================== RENDER =====================
+  function renderKPIs(view){
+    // KPIs الأساسية تعتمد على قرار التمريض للحفاظ على نفس السلوك السابق
+    const under   = view.filter(x=>x.changeKind==='under').length;
+    const over    = view.filter(x=>x.changeKind==='over').length;
+    const accurate= view.filter(x=>x.changeKind==='accurate').length;
+    const total   = under + over + accurate;
+
+    $('#kpiTotal').textContent    = total;
+    $('#kpiUnder').textContent    = under;
+    $('#kpiOver').textContent     = over;
+    $('#kpiAccurate').textContent = accurate;
+
+    // عداد المراجعات: تمريض vs أطباء
+    const reviewNurse = view.filter(x=>x.changeKindNurse==='review').length;
+    const reviewPhys  = view.filter(x=>x.changeKindPhys==='review').length;
+    $('#kpiReviewSplit').textContent = `للمراجعة — تمريض: ${reviewNurse} | أطباء: ${reviewPhys}`;
+  }
+
+  function ensureChart(ctxRef){ const el = document.getElementById(ctxRef); return el? el.getContext('2d') : null; }
+  function makeGradient(ctx){
+    const g = ctx.createLinearGradient(0,0,0,200);
+    g.addColorStop(0,'rgba(99,102,241,0.4)');
+    g.addColorStop(1,'rgba(99,102,241,0.03)');
+    return g;
+  }
+  function kindFromDatasetLabel(lbl){
+    const s = String(lbl||'').toLowerCase();
+    if(s.includes('under')) return 'under';
+    if(s.includes('over'))  return 'over';
+    return 'accurate';
+  }
+
+  function drawCharts(view){
+    for(const k of Object.keys(charts)){ if(charts[k]){ charts[k].destroy(); charts[k]=null; } }
+
+    // Under/Over (smaller doughnut) — حسب ROLE_MODE
+    {
+      const under = view.filter(x=> (ROLE_MODE==='phys' ? x.changeKindPhys==='under' : x.changeKindNurse==='under')).length;
+      const over  = view.filter(x=> (ROLE_MODE==='phys' ? x.changeKindPhys==='over'  : x.changeKindNurse==='over' )).length;
+      const acc   = view.filter(x=> (ROLE_MODE==='phys' ? x.changeKindPhys==='accurate': x.changeKindNurse==='accurate')).length;
+
+      const ctx = ensureChart('chUnderOver');
+      charts.underOver = new Chart(ctx, {
+        type:'doughnut',
+        data:{
+          labels:['Over','Under','Accurate'],
+          datasets:[{ data:[over, under, acc], backgroundColor:['#ef4444','#f59e0b','#10b981'] }]
+        },
+        options:{ cutout:'72%', maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#fff' } } } }
+      });
+
+      $('#uoHint').textContent = ROLE_MODE==='phys'
+        ? 'العرض الحالي: أطباء (Physician Triage was)'
+        : 'العرض الحالي: تمريض (Initial Triage was)';
+    }
+
+    // Reasons Top10 (clickable) — عام
+    {
+      const top = tallyBy(view,'reason').slice(0,10);
+      const ctx = ensureChart('chReasons');
+      charts.reasons = new Chart(ctx, {
+        type:'bar',
+        data:{ labels: top.map(x=>x[0]), datasets:[{ label:'عدد الحالات', data: top.map(x=>x[1]) }] },
+        options:{
+          indexAxis:'y', maintainAspectRatio:false,
+          scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } }, plugins:{ legend:{ display:false } },
+          onClick: (e)=>{
+            const p = charts.reasons.getElementsAtEventForMode(e,'nearest',{intersect:true},true)[0];
+            if(!p) return; const label = charts.reasons.data.labels[p.index];
+            setActiveFilter(`السبب: ${label}`, (row)=> cleanStr(row.reason)===cleanStr(label));
+          }
+        }
+      });
+    }
+
+    // Nurses Top10 (stacked, clickable) — يعتمد على changeKindNurse
+    {
+      const agg = tallyKindsByKind(view,'nurse','changeKindNurse').slice(0,10);
+      const ctx = ensureChart('chNurses');
+      charts.nurses = new Chart(ctx, {
+        type:'bar',
+        data:{
+          labels: agg.map(x=>x.label),
+          datasets:[
+            { label:'Under',    data: agg.map(x=>x.under),    backgroundColor:'#f59e0b', stack:'s' },
+            { label:'Over',     data: agg.map(x=>x.over),     backgroundColor:'#ef4444', stack:'s' },
+            { label:'Accurate', data: agg.map(x=>x.accurate), backgroundColor:'#10b981', stack:'s' },
+          ]
+        },
+        options:{
+          maintainAspectRatio:false,
+          scales:{ x:{ stacked:true, ticks:{ color:'#fff' } }, y:{ stacked:true, ticks:{ color:'#fff' } } },
+          plugins:{ legend:{ labels:{ color:'#fff' } } },
+          onClick: (e)=>{
+            const pts = charts.nurses.getElementsAtEventForMode(e,'nearest',{intersect:true},true);
+            if(!pts.length) return;
+            const { datasetIndex, index } = pts[0];
+            const person = charts.nurses.data.labels[index];
+            const dsLabel = charts.nurses.data.datasets[datasetIndex].label;
+            const kind = kindFromDatasetLabel(dsLabel); // under/over/accurate
+            setActiveFilter(`الممرضة/الممرض: ${person} × ${dsLabel}`, (row)=>
+              cleanStr(row.nurse)===cleanStr(person) && row.changeKindNurse===kind
+            );
+          }
+        }
+      });
+    }
+
+    // Doctors Top10 (stacked, clickable) — يعتمد على changeKindPhys
+    {
+      const agg = tallyKindsByKind(view,'doc','changeKindPhys').slice(0,10);
+      const ctx = ensureChart('chDocs');
+      charts.docs = new Chart(ctx, {
+        type:'bar',
+        data:{
+          labels: agg.map(x=>x.label),
+          datasets:[
+            { label:'Under',    data: agg.map(x=>x.under),    backgroundColor:'#f59e0b', stack:'s' },
+            { label:'Over',     data: agg.map(x=>x.over),     backgroundColor:'#ef4444', stack:'s' },
+            { label:'Accurate', data: agg.map(x=>x.accurate), backgroundColor:'#10b981', stack:'s' },
+          ]
+        },
+        options:{
+          maintainAspectRatio:false,
+          scales:{ x:{ stacked:true, ticks:{ color:'#fff' } }, y:{ stacked:true, ticks:{ color:'#fff' } } },
+          plugins:{ legend:{ labels:{ color:'#fff' } } },
+          onClick: (e)=>{
+            const pts = charts.docs.getElementsAtEventForMode(e,'nearest',{intersect:true},true);
+            if(!pts.length) return;
+            const { datasetIndex, index } = pts[0];
+            const person = charts.docs.data.labels[index];
+            const dsLabel = charts.docs.data.datasets[datasetIndex].label;
+            const kind = kindFromDatasetLabel(dsLabel);
+            setActiveFilter(`الطبيب: ${person} × ${dsLabel}`, (row)=>
+              cleanStr(row.doc)===cleanStr(person) && row.changeKindPhys===kind
+            );
+          }
+        }
+      });
+    }
+
+    // Monthly (area, clickable) — كما هو
+    {
+      const g = groupMonthly(view);
+      const ctx = ensureChart('chMonthly');
+      const gradient = makeGradient(ctx);
+      charts.monthly = new Chart(ctx, {
+        type:'line',
+        data:{ labels: g.labels, datasets:[{ label:'إجمالي التغييرات', data: g.values, tension:.35, fill:true, backgroundColor: gradient, borderColor:'#6366f1', pointRadius:3 }] },
+        options:{ maintainAspectRatio:false, scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } }, plugins:{ legend:{ display:false } },
+          onClick: (e)=>{
+            const p = charts.monthly.getElementsAtEventForMode(e,'nearest',{intersect:true},true)[0];
+            if(!p) return; const label = charts.monthly.data.labels[p.index];
+            const [yy,mm] = label.split('-').map(Number);
+            const start = new Date(yy, mm-1, 1); const end = new Date(yy, mm, 0, 23,59,59);
+            $('#dateFrom').value = start.toISOString().slice(0,10);
+            $('#dateTo').value   = end.toISOString().slice(0,10);
+            updateAll();
+            document.getElementById('tbl').scrollIntoView({behavior:'smooth', block:'start'});
+          }
+        }
+      });
+    }
+  }
+
+  function renderTable(view){
+    const TB = $('#tbl tbody');
+    TB.innerHTML = '';
+    const frag = document.createDocumentFragment();
+
+    for(const e of view){
+      const tr = document.createElement('tr');
+      const changeClass =
+        e.changeKind==='over'     ? 'badge-error'   :
+        e.changeKind==='under'    ? 'badge-warning' :
+        e.changeKind==='accurate' ? 'badge-success' : 'badge-ghost';
+
+      // ترتيب الأعمدة حسب المطلوب
+      tr.innerHTML = `
+        <td>${fmtDate(e.date)}</td>
+        <td>${e.pre? `<a class="btn btn-ghost btn-xs" href="${e.pre}" target="_blank"><i class="fa-regular fa-file-lines"></i> فتح</a>` : '—'}</td>
+        <td>${ctasBadge(e.from)}</td>
+        <td><span class="badge ${e.changeKindNurse==='review'?'badge-info':'badge-ghost'}">${e.init||'—'}</span></td>
+        <td>${ctasBadge(e.to)}</td>
+        <td><span class="badge ${e.changeKindPhys==='review'?'badge-info':'badge-ghost'}">${e.phys||'—'}</span></td>
+        <td title="${e.reason||''}">${(e.reason||'').slice(0,40)}${(e.reason||'').length>40?'…':''}</td>
+        <td>${e.nurse||''}</td>
+        <td>${e.doc||''}</td>
+        <td>${e.mrn||''}</td>
+        <td>${e.name||''}</td>
+      `;
+      tr.className = 'hover:cursor-pointer';
+      tr.addEventListener('click', ()=> openDetails(e));
+      frag.appendChild(tr);
+    }
+    TB.appendChild(frag);
+  }
+
+  function joinWho(e){
+    const d = e.doc ? ('د.'+e.doc) : '';
+    const n = e.nurse ? ('م/'+e.nurse) : '';
+    return (d && n) ? (d+' / '+n) : (d || n || '');
+  }
+  function arrowCell(e){
+    const f = isFinite(parseCTAS(e.from)) ? parseCTAS(e.from) : (isAccurateToken(e.from)?'Acc':'?');
+    const t = isFinite(parseCTAS(e.to))   ? parseCTAS(e.to)   : (isAccurateToken(e.to)?'Acc':'?');
+    return `إلى <b>${t}</b> ➜ من <b>${f}</b>`;
+  }
+  function fillSmallTable(tbody, rows){
+    tbody.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for(const e of rows){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${fmtDate(e.date)}</td>
+        <td>${e.mrn||''}</td>
+        <td>${e.name||''}</td>
+        <td>${joinWho(e)}</td>
+        <td>${arrowCell(e)}</td>
+        <td title="${e.reason||''}">${(e.reason||'').slice(0,30)}${(e.reason||'').length>30?'…':''}</td>
+        <td title="${e.feedback||''}">${(e.feedback||'').slice(0,20)}${(e.feedback||'').length>20?'…':''}</td>
+      `;
+      frag.appendChild(tr);
+    }
+    tbody.appendChild(frag);
+  }
+  function openTriagedModal(title, rows){
+    $('#dlgTriagedTitle').textContent = title;
+    const wrap = $('#cardsWrap');
+    wrap.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for(const e of rows){ frag.appendChild(makeCaseCard(e)); }
+    wrap.appendChild(frag);
+    $('#dlgTriaged').showModal();
+  }
+
+  function renderReview(view){
+    const rev = view.filter(x=>x.changeKind==='review')
+                    .sort((a,b)=> (b.date||0)-(a.date||0));
+    const tb = $('#tblReview tbody');
+    if(tb){
+      fillSmallTable(tb, rev.slice(0,15));
+    }
+    const btn = document.getElementById('btnReviewAll');
+    if(btn){
+      btn.onclick = ()=> openTriagedModal('قائمة For Review', rev);
+    }
+  }
+
+  function renderTriagedTables(view){
+    const over = view.filter(x=>x.changeKind==='over').sort((a,b)=>(b.date||0)-(a.date||0));
+    const under = view.filter(x=>x.changeKind==='under').sort((a,b)=>(b.date||0)-(a.date||0));
+    const acc   = view.filter(x=>x.changeKind==='accurate').sort((a,b)=>(b.date||0)-(a.date||0));
+
+    fillSmallTable($('#tblOver tbody'),  over.slice(0,15));
+    fillSmallTable($('#tblUnder tbody'), under.slice(0,15));
+    fillSmallTable($('#tblAcc tbody'),   acc.slice(0,15));
+
+    $('#btnOverAll').onclick  = ()=> openTriagedModal('قائمة Over-Triage',  over);
+    $('#btnUnderAll').onclick = ()=> openTriagedModal('قائمة Under-Triage', under);
+    $('#btnAccAll').onclick   = ()=> openTriagedModal('قائمة Accurate',     acc);
+  }
+
+  function openDetails(e){
+    $('#dDate').textContent = fmtDate(e.date);
+    $('#dMRN').textContent = e.mrn||'';
+    $('#dName').textContent = e.name||'';
+    $('#dNurse').textContent = e.nurse||'';
+    $('#dDoc').textContent = e.doc||'';
+    $('#dChange').textContent = e.changeText||'';
+    $('#dReason').textContent = e.reason||'';
+    $('#dInit').textContent   = e.init || '—';
+    $('#dPhys').textContent   = e.phys || '—';
+
+    const openBtn = $('#btnOpenPre');
+    const embedBtn = $('#btnEmbedPre');
+    const wrap = $('#embedWrap');
+    const frame = $('#embedFrame');
+
+    if(e.pre){
+      openBtn.disabled = false; embedBtn.disabled = false;
+      openBtn.onclick = ()=> window.open(e.pre, '_blank');
+      embedBtn.onclick = ()=>{
+        const preview = embedFromDriveUrl(e.pre);
+        if(preview){ frame.src = preview; wrap.classList.remove('hidden'); }
+        else { wrap.classList.add('hidden'); window.open(e.pre, '_blank'); }
+      };
+    } else {
+      openBtn.disabled = true; embedBtn.disabled = true; $('#embedWrap').classList.add('hidden');
+    }
+    $('#dlgDetails').showModal();
+  }
+
+  // ============ Benchmarks ============
+  function computeMonthCounts(entries, yy, mm){
+    const list = entries.filter(x=> x.date && x.date.getFullYear()===yy && (x.date.getMonth()+1)===mm);
+    const over = list.filter(x=>x.changeKind==='over').length;
+    const under = list.filter(x=>x.changeKind==='under').length;
+    return { over, under, list };
+  }
+  function setStatus(el, pct, max){
+    const txt = isFinite(pct)? (pct*100).toFixed(1)+'%' : '—%';
+    el.textContent = txt;
+  }
+  function statusMsg(pct, max){
+    if(!isFinite(pct)) return '—';
+    if(pct <= max) return '✅ ضمن الحد';
+    if(pct <= max + 0.02) return '⚠️ قريب من الحد';
+    return '❌ أعلى من الحد';
+  }
+
+  function getActiveMonth(){
+    const dfVal = $('#dateFrom').value, dtVal = $('#dateTo').value;
+    if (dfVal && dtVal){
+      const df = new Date(dfVal), dt = new Date(dtVal);
+      if (df.getFullYear()===dt.getFullYear() && df.getMonth()===dt.getMonth()){
+        return { yy: df.getFullYear(), mm: df.getMonth()+1 };
+      }
+    }
+    if (dfVal && !dtVal){
+      const d = new Date(dfVal); return { yy: d.getFullYear(), mm: d.getMonth()+1 };
+    }
+    if (!dfVal && dtVal){
+      const d = new Date(dtVal); return { yy: d.getFullYear(), mm: d.getMonth()+1 };
+    }
+    const dates = ENTRIES.filter(x => x.date).map(x => x.date).sort((a,b)=> b - a);
+    const d = dates[0] || new Date();
+    return { yy: d.getFullYear(), mm: d.getMonth()+1 };
+  }
+  function setBmMonthLabel(yy, mm){
+    const d = new Date(yy, mm-1, 1);
+    const txt = new Intl.DateTimeFormat('ar-EG', { month:'long', year:'numeric' }).format(d);
+    $('#bmMonth').textContent = txt;
+  }
+  function renderBenchmarks(){
+    const { yy, mm } = getActiveMonth();
+    setBmMonthLabel(yy, mm);
+
+    const { over, under, list } = computeMonthCounts(ENTRIES, yy, mm);
+
+    let total = BM_TOTAL;
+    let source = BM_SOURCE || '';
+
+    if(!isFinite(total) || total<=0){
+      const monthRows = list;
+      const uniq = new Set(monthRows.map(x => x.mrn || `${+x.date}`));
+      total = Math.max(uniq.size, monthRows.length);
+      source = 'تقديري';
+    }
+
+    $('#bmTotal').textContent = total;
+    $('#bmSource').textContent = source==='B2' ? '(من الخلية B2)' : '(تقدير من البيانات)';
+
+    const overPct  = total ? over  / total : NaN;
+    const underPct = total ? under / total : NaN;
+
+    setStatus($('#bmOverPct'),  overPct,  OVER_OK_MAX);
+    setStatus($('#bmUnderPct'), underPct, UNDER_OK_MAX);
+
+    $('#bmOverProg').value  = isFinite(overPct)  ? (overPct*100)  : 0;
+    $('#bmUnderProg').value = isFinite(underPct) ? (underPct*100) : 0;
+
+    $('#bmOverStatus').textContent  = statusMsg(overPct,  OVER_OK_MAX);
+    $('#bmUnderStatus').textContent = statusMsg(underPct, UNDER_OK_MAX);
+  }
+
+  // ============ Active Filters (chips) ============
+  function setActiveFilter(label, fn){
+    ACTIVE_FILTER = fn;
+    ACTIVE_FILTER_CHIPS = [{ label, clear: ()=>{ ACTIVE_FILTER=null; ACTIVE_FILTER_CHIPS=[]; updateAll(); } }];
+    renderChips();
+    updateAll();
+    document.getElementById('tbl').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function renderChips(){
+    const wrap = $('#activeFilters');
+    wrap.innerHTML = '';
+    for(const chip of ACTIVE_FILTER_CHIPS){
+      const el = document.createElement('div');
+      el.className = 'badge badge-outline gap-2';
+      el.innerHTML = `${chip.label} <button class="btn btn-ghost btn-xs" title="إزالة" aria-label="إزالة">✕</button>`;
+      el.querySelector('button').onclick = chip.clear;
+      wrap.appendChild(el);
+    }
+  }
+
+  function updateAll(){
+    const view = applyFilters();
+    renderKPIs(view);
+    drawCharts(view);
+    renderTable(view.slice().sort((a,b)=> (b.date||0)-(a.date||0)));
+    renderTriagedTables(view);
+    renderBenchmarks();
+    renderReview(view);
+  }
+
+  async function refresh(){
+    if(!CSV_URL){ return; } // لسه لم تُحمّل الإعدادات
+    $('#loading').style.display='';
+    try{
+      await loadB2();
+      RAW_ROWS = await loadCSV(CSV_URL);
+      ENTRIES = normalizeRows(RAW_ROWS);
+      updateAll();
+      $('#lastUpdated').textContent = 'آخر تحديث: ' + new Date().toLocaleString('ar-EG');
+    } catch(e){
+      console.error(e);
+      alert('تعذر تحميل البيانات. تأكد من روابط Google Sheets (Share to web) أو ملفات Storage (gs://).');
+    } finally {
+      $('#loading').style.display='none';
+    }
+  }
+
+  // ===================== INIT =====================
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // لا نستدعي refresh هنا لكي يعمل فقط بعد التفويض وقراءة الإعدادات
+    $('#btnRefresh').addEventListener('click', refresh);
+    $('#btnClear').addEventListener('click', ()=>{
+      $('#qText').value=''; $('#dateFrom').value=''; $('#dateTo').value='';
+      ACTIVE_FILTER=null; ACTIVE_FILTER_CHIPS=[]; renderChips(); updateAll();
+    });
+    $('#qText').addEventListener('input', ()=> updateAll());
+    $('#dateFrom').addEventListener('change', ()=> updateAll());
+    $('#dateTo').addEventListener('change', ()=> updateAll());
+
+    // تبديل وضع عرض Under/Over
+    const nurseBtn = $('#roleNurse');
+    const physBtn  = $('#rolePhys');
+    nurseBtn?.addEventListener('click', ()=>{
+      ROLE_MODE='nurse';
+      nurseBtn.classList.add('btn-active');
+      physBtn.classList.remove('btn-active');
+      drawCharts(applyFilters());
+    });
+    physBtn?.addEventListener('click', ()=>{
+      ROLE_MODE='phys';
+      physBtn.classList.add('btn-active');
+      nurseBtn.classList.remove('btn-active');
+      drawCharts(applyFilters());
+    });
+  });
+  </script>
+</body>
+</html>
