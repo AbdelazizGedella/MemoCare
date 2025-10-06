@@ -110,7 +110,14 @@
 
     <!-- KPIs -->
     <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div class="glass kpi"><i class="fa-solid fa-list text-cyan-300"></i><div><div class="num" id="kpiTotal">0</div><div class="lbl">إجمالي التغييرات</div></div></div>
+      <div class="glass kpi">
+        <i class="fa-solid fa-list text-cyan-300"></i>
+        <div>
+          <div class="num" id="kpiTotal">0</div>
+          <div class="lbl">إجمالي التغييرات</div>
+          <div id="kpiReviewSplit" class="text-[11px] opacity-80 mt-1"></div>
+        </div>
+      </div>
       <div class="glass kpi"><i class="fa-solid fa-arrow-trend-up text-amber-300"></i><div><div class="num" id="kpiUnder">0</div><div class="lbl">Under-triage (زادت الخطورة)</div></div></div>
       <div class="glass kpi"><i class="fa-solid fa-arrow-trend-down text-emerald-300"></i><div><div class="num" id="kpiOver">0</div><div class="lbl">Over-triage (قلت الخطورة)</div></div></div>
       <div class="glass kpi"><i class="fa-solid fa-check text-emerald-300"></i><div><div class="num" id="kpiAccurate">0</div><div class="lbl">Accurate (قرار الأول كان تمام)</div></div></div>
@@ -138,10 +145,17 @@
         <div class="mt-3 text-[11px] opacity-70">ملاحظة: لو لم يتم ضبط رابط B2، يتم تقدير الإجمالي من بيانات التغييرات (قد يكون أقل من الإجمالي الحقيقي).</div>
       </div>
 
-      <!-- Under/Over Pie (smaller) -->
+      <!-- Under/Over Pie (with role toggle) -->
       <div class="glass p-4">
-        <div class="card-title mb-2">نِسَب Under/Over</div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="card-title">نِسَب Under/Over</div>
+          <div class="join">
+            <button id="roleNurse" class="btn btn-xs join-item btn-active" title="حسب التمريض">تمريض</button>
+            <button id="rolePhys"  class="btn btn-xs join-item" title="حسب الأطباء">أطباء</button>
+          </div>
+        </div>
         <div class="chart-wrap"><canvas id="chUnderOver"></canvas></div>
+        <div id="uoHint" class="text-[11px] opacity-70 mt-2">العرض الحالي: تمريض (Initial Triage was)</div>
       </div>
     </section>
 
@@ -154,6 +168,7 @@
       <div class="glass p-4">
         <div class="card-title mb-2">أكثر الممرضين/ات ارتباطًا بالتغيير (Top 10) — اضغط للفلترة</div>
         <div class="chart-wrap"><canvas id="chNurses"></canvas></div>
+        <div class="text-[11px] opacity-70 mt-1">يعتمد على Initial Triage was + Responsible Triage Nurse</div>
       </div>
     </section>
 
@@ -162,6 +177,7 @@
       <div class="glass p-4">
         <div class="card-title mb-2">أكثر الأطباء ارتباطًا بالتغيير (Top 10) — اضغط للفلترة</div>
         <div class="chart-wrap"><canvas id="chDocs"></canvas></div>
+        <div class="text-[11px] opacity-70 mt-1">يعتمد على Physician Triage was + Responsible Physician</div>
       </div>
       <div class="glass p-4">
         <div class="card-title mb-2">اتجاه شهري للتغييرات — اضغط على الشهر لعرض الحالات</div>
@@ -180,15 +196,16 @@
           <thead>
             <tr>
               <th>التاريخ</th>
-              <th>MRN</th>
-              <th>المريض</th>
+              <th>نموذج Pre-Reg</th>
+              <th>CTAS قبل</th>
+              <th>Initial Triage was</th>
+              <th>CTAS بعد</th>
+              <th>Physician Triage was</th>
+              <th>السبب</th>
               <th>ممرضة الترياج</th>
               <th>الطبيب</th>
-              <th>CTAS قبل</th>
-              <th>CTAS بعد</th>
-              <th>التغيير</th>
-              <th>السبب</th>
-              <th>نموذج Pre-Reg</th>
+              <th>MRN</th>
+              <th>المريض</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -317,6 +334,8 @@
         <div><span class="opacity-80">ممرضة الترياج:</span> <span id="dNurse"></span></div>
         <div><span class="opacity-80">الطبيب:</span> <span id="dDoc"></span></div>
         <div><span class="opacity-80">التغيير:</span> <span id="dChange"></span></div>
+        <div class="sm:col-span-2"><span class="opacity-80">Initial Triage was:</span> <span id="dInit"></span></div>
+        <div class="sm:col-span-2"><span class="opacity-80">Physician Triage was:</span> <span id="dPhys"></span></div>
         <div class="sm:col-span-2"><span class="opacity-80">السبب:</span> <span id="dReason"></span></div>
       </div>
       <div class="divider"></div>
@@ -472,7 +491,7 @@
     return m ? parseInt(m[1],10) : NaN;
   }
 
-  // القرار من عمود Initial Triage was فقط
+  // القرار من نص الحقل
   function kindFromInit(init){
     const s = String(init||'').toLowerCase();
     if (/for\s*review/.test(s) || /مراجعة|للمراجعة/.test(s)) return 'review';
@@ -502,7 +521,7 @@
     }
     if(t < f) return {label:`Under — إلى ${t} ➜ من ${f}`, kind:'under'};
     if(t > f) return {label:`Over — إلى ${t}➜ من ${f}`,  kind:'over'};
-    return {label:`Accurate — إلى ${t} ➜ من ${f}`, kind:'accurate'};
+    return {label:`Accurate — إلى ${t} ➜ من ${t}`, kind:'accurate'};
   }
 
   function ctasBadge(num){
@@ -568,6 +587,9 @@
   let BM_TOTAL = null; // إجمالي الشهر المرجعي (B2)
   let BM_SOURCE = '';
 
+  // دور عرض Under/Over: 'nurse' أو 'phys'
+  let ROLE_MODE = 'nurse';
+
   // ===================== LOAD =====================
   async function loadCSV(url){
     return new Promise((resolve, reject)=>{
@@ -628,6 +650,18 @@
     return '';
   }
 
+  // يعرض فقط [الرقم] + أول اسم من خانة "ممرضة الترياج"
+function formatNurseDisplay(nurse){
+  const s = String(nurse||'').trim();
+  if(!s) return '';
+  const idMatch = s.match(/\[([^\]]+)\]/);
+  const id = idMatch ? idMatch[1].trim() : '';
+  const withoutBrackets = s.replace(/\[[^\]]*\]/g,'').trim();
+  const firstName = withoutBrackets.split(/\s+/)[0] || '';
+  return (id ? `[${id}] ` : '') + firstName;
+}
+
+
   function normalizeRows(rows){
     return rows.map(r=>{
       const dateStr = pickField(r, [
@@ -653,17 +687,34 @@
         'قرار الترياج المبدئي'
       ]));
 
+      // ⬇️ الحقل الجديد: Physician Triage was
+      const phys  = cleanStr(pickField(r, [
+        'Physician Triage was','Physician triage was','Physician Triage','Physician decision',
+        'تقييم الطبيب','قرار الطبيب','طبيب الترياج'
+      ]));
+
       const reason   = cleanStr(pickField(r, ['Reason','السبب']));
       const pre      = cleanStr(pickField(r, [
         'Pre-Registration Form','Pre-Registeration Form','Form','النموذج'
       ]));
       const feedback = cleanStr(pickField(r, ['Feedback','تعليق','ملاحظات الطبيب']));
 
-      const kind  = kindFromInit(init);       // under/over/accurate/na
-      const label = labelFromKind(kind);      // "Under" / "Over" / "Accurate"
+      const kindNurse = kindFromInit(init); // under/over/accurate/review/na
+      const kindPhys  = kindFromInit(phys);
 
-      return { date, mrn, name, nurse, doc, from, to, init, reason, pre, feedback,
-               changeKind: kind, changeText: label };
+      // الكارد والجدول العامين ما زالوا معتمدين على قرار التمريض (كما كان سابقًا)
+      const label = labelFromKind(kindNurse);
+
+      return {
+        date, mrn, name, nurse, doc,
+        from, to,
+        init, phys,
+        reason, pre, feedback,
+        changeKind: kindNurse,            // للحفاظ على سلوك الصفحة القديم
+        changeKindNurse: kindNurse,       // صريح للتمريض
+        changeKindPhys:  kindPhys,        // صريح للأطباء
+        changeText: label
+      };
     }).filter(x=> x.date || x.mrn || x.name);
   }
 
@@ -695,14 +746,16 @@
     return [...m.entries()].sort((a,b)=> b[1]-a[1]);
   }
 
-  function tallyKindsBy(arr, byKey){
+  // نسخة تعتمد على حقل نوع القرار المطلوب (تمريض/أطباء)
+  function tallyKindsByKind(arr, byKey, kindField){
     const map = new Map();
     for(const a of arr){
       const k = cleanStr(a[byKey]); if(!k) continue;
+      const kind = a[kindField];
       const curr = map.get(k) || { under:0, over:0, accurate:0 };
-      if(a.changeKind==='under')    curr.under++;
-      else if(a.changeKind==='over') curr.over++;
-      else if(a.changeKind==='accurate') curr.accurate++;
+      if(kind==='under')    curr.under++;
+      else if(kind==='over') curr.over++;
+      else if(kind==='accurate') curr.accurate++;
       map.set(k, curr);
     }
     const out = [...map.entries()].map(([label, v])=>({
@@ -722,32 +775,21 @@
 
   // ===================== RENDER =====================
   function renderKPIs(view){
+    // KPIs الأساسية تعتمد على قرار التمريض للحفاظ على نفس السلوك السابق
     const under   = view.filter(x=>x.changeKind==='under').length;
     const over    = view.filter(x=>x.changeKind==='over').length;
     const accurate= view.filter(x=>x.changeKind==='accurate').length;
-    const total   = under + over + accurate; // نتجاهل review في الإجمالي
-    const review  = view.filter(x=>x.changeKind==='review').length;
+    const total   = under + over + accurate;
 
     $('#kpiTotal').textContent    = total;
     $('#kpiUnder').textContent    = under;
     $('#kpiOver').textContent     = over;
     $('#kpiAccurate').textContent = accurate;
 
-    const setReviewFlag = (targetId)=>{
-      const parent = document.getElementById(targetId)?.parentElement;
-      if(!parent) return;
-      let badge = parent.querySelector('.rev-flag');
-      if(!badge){
-        badge = document.createElement('span');
-        badge.className = 'rev-flag badge badge-info badge-sm ms-2';
-        parent.appendChild(badge);
-      }
-      badge.textContent = `للمراجعة: ${review}`;
-      badge.style.display = review>0 ? 'inline-flex' : 'none';
-    };
-    setReviewFlag('kpiTotal');
-    setReviewFlag('kpiUnder');
-    setReviewFlag('kpiOver');
+    // عداد المراجعات: تمريض vs أطباء
+    const reviewNurse = view.filter(x=>x.changeKindNurse==='review').length;
+    const reviewPhys  = view.filter(x=>x.changeKindPhys==='review').length;
+    $('#kpiReviewSplit').textContent = `للمراجعة — تمريض: ${reviewNurse} | أطباء: ${reviewPhys}`;
   }
 
   function ensureChart(ctxRef){ const el = document.getElementById(ctxRef); return el? el.getContext('2d') : null; }
@@ -767,24 +809,28 @@
   function drawCharts(view){
     for(const k of Object.keys(charts)){ if(charts[k]){ charts[k].destroy(); charts[k]=null; } }
 
-    // Under/Over (smaller doughnut)
+    // Under/Over (smaller doughnut) — حسب ROLE_MODE
     {
-      const under = view.filter(x=>x.changeKind==='under').length;
-      const over  = view.filter(x=>x.changeKind==='over').length;
-      const accurate = view.filter(x=>x.changeKind==='accurate').length;
+      const under = view.filter(x=> (ROLE_MODE==='phys' ? x.changeKindPhys==='under' : x.changeKindNurse==='under')).length;
+      const over  = view.filter(x=> (ROLE_MODE==='phys' ? x.changeKindPhys==='over'  : x.changeKindNurse==='over' )).length;
+      const acc   = view.filter(x=> (ROLE_MODE==='phys' ? x.changeKindPhys==='accurate': x.changeKindNurse==='accurate')).length;
 
       const ctx = ensureChart('chUnderOver');
       charts.underOver = new Chart(ctx, {
         type:'doughnut',
         data:{
           labels:['Over','Under','Accurate'],
-          datasets:[{ data:[over, under, accurate], backgroundColor:['#ef4444','#f59e0b','#10b981'] }]
+          datasets:[{ data:[over, under, acc], backgroundColor:['#ef4444','#f59e0b','#10b981'] }]
         },
         options:{ cutout:'72%', maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#fff' } } } }
       });
+
+      $('#uoHint').textContent = ROLE_MODE==='phys'
+        ? 'العرض الحالي: أطباء (Physician Triage was)'
+        : 'العرض الحالي: تمريض (Initial Triage was)';
     }
 
-    // Reasons Top10 (clickable)
+    // Reasons Top10 (clickable) — عام
     {
       const top = tallyBy(view,'reason').slice(0,10);
       const ctx = ensureChart('chReasons');
@@ -803,9 +849,9 @@
       });
     }
 
-    // Nurses Top10 (stacked, clickable)
+    // Nurses Top10 (stacked, clickable) — يعتمد على changeKindNurse
     {
-      const agg = tallyKindsBy(view,'nurse').slice(0,10);
+      const agg = tallyKindsByKind(view,'nurse','changeKindNurse').slice(0,10);
       const ctx = ensureChart('chNurses');
       charts.nurses = new Chart(ctx, {
         type:'bar',
@@ -829,16 +875,16 @@
             const dsLabel = charts.nurses.data.datasets[datasetIndex].label;
             const kind = kindFromDatasetLabel(dsLabel); // under/over/accurate
             setActiveFilter(`الممرضة/الممرض: ${person} × ${dsLabel}`, (row)=>
-              cleanStr(row.nurse)===cleanStr(person) && row.changeKind===kind
+              cleanStr(row.nurse)===cleanStr(person) && row.changeKindNurse===kind
             );
           }
         }
       });
     }
 
-    // Doctors Top10 (stacked, clickable)
+    // Doctors Top10 (stacked, clickable) — يعتمد على changeKindPhys
     {
-      const agg = tallyKindsBy(view,'doc').slice(0,10);
+      const agg = tallyKindsByKind(view,'doc','changeKindPhys').slice(0,10);
       const ctx = ensureChart('chDocs');
       charts.docs = new Chart(ctx, {
         type:'bar',
@@ -862,14 +908,14 @@
             const dsLabel = charts.docs.data.datasets[datasetIndex].label;
             const kind = kindFromDatasetLabel(dsLabel);
             setActiveFilter(`الطبيب: ${person} × ${dsLabel}`, (row)=>
-              cleanStr(row.doc)===cleanStr(person) && row.changeKind===kind
+              cleanStr(row.doc)===cleanStr(person) && row.changeKindPhys===kind
             );
           }
         }
       });
     }
 
-    // Monthly (area, clickable)
+    // Monthly (area, clickable) — كما هو
     {
       const g = groupMonthly(view);
       const ctx = ensureChart('chMonthly');
@@ -893,36 +939,41 @@
     }
   }
 
-  function renderTable(view){
-    const TB = $('#tbl tbody');
-    TB.innerHTML = '';
-    const frag = document.createDocumentFragment();
+function renderTable(view){
+  const TB = $('#tbl tbody');
+  TB.innerHTML = '';
+  const frag = document.createDocumentFragment();
 
-    for(const e of view){
-      const tr = document.createElement('tr');
-      const changeClass =
-        e.changeKind==='over'     ? 'badge-error'   :
-        e.changeKind==='under'    ? 'badge-warning' :
-        e.changeKind==='accurate' ? 'badge-success' : 'badge-ghost';
+  for(const e of view){
+    const tr = document.createElement('tr');
 
-      tr.innerHTML = `
-        <td>${fmtDate(e.date)}</td>
-        <td>${e.mrn||''}</td>
-        <td>${e.name||''}</td>
-        <td>${e.nurse||''}</td>
-        <td>${e.doc||''}</td>
-        <td>${ctasBadge(e.from)}</td>
-        <td>${ctasBadge(e.to)}</td>
-        <td><span class="badge ${changeClass}">${e.changeText||'—'}</span></td>
-        <td title="${e.reason||''}">${(e.reason||'').slice(0,40)}${(e.reason||'').length>40?'…':''}</td>
-        <td>${e.pre? '<i class="fa-regular fa-file-lines"></i>':'—'}</td>
-      `;
-      tr.className = 'hover:cursor-pointer';
-      tr.addEventListener('click', ()=> openDetails(e));
-      frag.appendChild(tr);
-    }
-    TB.appendChild(frag);
+    // ألوان بادج "Initial Triage was" حسب قرار التمريض
+    const initBadgeClass =
+      e.changeKindNurse==='accurate' ? 'badge-success' :
+      e.changeKindNurse==='under'    ? 'badge-warning' :
+      e.changeKindNurse==='over'     ? 'badge-error'   :
+      e.changeKindNurse==='review'   ? 'badge-info'    :
+                                       'badge-ghost';
+
+    tr.innerHTML = `
+      <td>${fmtDate(e.date)}</td>
+      <td>${e.pre? `<a class="btn btn-ghost btn-xs" href="${e.pre}" target="_blank"><i class="fa-regular fa-file-lines"></i> فتح</a>` : '—'}</td>
+      <td>${ctasBadge(e.from)}</td>
+      <td><span class="badge ${initBadgeClass}">${e.init || '—'}</span></td>
+      <td>${ctasBadge(e.to)}</td>
+      <td><span class="badge ${e.changeKindPhys==='review'?'badge-info':'badge-ghost'}">${e.phys||'—'}</span></td>
+      <td title="${e.reason||''}">${(e.reason||'').slice(0,40)}${(e.reason||'').length>40?'…':''}</td>
+      <td>${formatNurseDisplay(e.nurse)}</td>
+      <td>${e.doc||''}</td>
+      <td>${e.mrn||''}</td>
+      <td>${e.name||''}</td>
+    `;
+    tr.className = 'hover:cursor-pointer';
+    tr.addEventListener('click', ()=> openDetails(e));
+    frag.appendChild(tr);
   }
+  TB.appendChild(frag);
+}
 
   function joinWho(e){
     const d = e.doc ? ('د.'+e.doc) : '';
@@ -997,6 +1048,8 @@
     $('#dDoc').textContent = e.doc||'';
     $('#dChange').textContent = e.changeText||'';
     $('#dReason').textContent = e.reason||'';
+    $('#dInit').textContent   = e.init || '—';
+    $('#dPhys').textContent   = e.phys || '—';
 
     const openBtn = $('#btnOpenPre');
     const embedBtn = $('#btnEmbedPre');
@@ -1148,6 +1201,22 @@
     $('#qText').addEventListener('input', ()=> updateAll());
     $('#dateFrom').addEventListener('change', ()=> updateAll());
     $('#dateTo').addEventListener('change', ()=> updateAll());
+
+    // تبديل وضع عرض Under/Over
+    const nurseBtn = $('#roleNurse');
+    const physBtn  = $('#rolePhys');
+    nurseBtn?.addEventListener('click', ()=>{
+      ROLE_MODE='nurse';
+      nurseBtn.classList.add('btn-active');
+      physBtn.classList.remove('btn-active');
+      drawCharts(applyFilters());
+    });
+    physBtn?.addEventListener('click', ()=>{
+      ROLE_MODE='phys';
+      physBtn.classList.add('btn-active');
+      nurseBtn.classList.remove('btn-active');
+      drawCharts(applyFilters());
+    });
   });
   </script>
 </body>
