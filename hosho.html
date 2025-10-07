@@ -61,8 +61,11 @@
     .badge-neon { background: linear-gradient(135deg, rgba(24,224,255,.18), rgba(53,255,178,.18)); border: 1px solid rgba(24,224,255,.25); color: var(--ink); }
     .kbd { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
 
-    /* Calendar grid: responsive cards */
-    #calendar { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
+    /* ======= Layout: 3 columns months (responsive) ======= */
+    #calendar { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+    @media (min-width: 768px) { #calendar { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1280px) { #calendar { grid-template-columns: repeat(3, 1fr); } } /* ثابت ٣ أعمدة على الكبير */
+
     @media (max-width: 420px) { .day-cell { min-height: 70px; } }
 
     /* Heat overlay (yellow -> red) */
@@ -92,6 +95,7 @@
   </style>
 </head>
 <body class="min-h-screen">
+  <!-- ======= Header ======= -->
   <header class="container mx-auto px-4 pt-6">
     <div class="glass neon-border p-4 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
@@ -105,38 +109,27 @@
     </div>
   </header>
 
-  <main class="container mx-auto px-4 pb-12 mt-6 grid lg:grid-cols-[1fr_360px] gap-4">
-    <!-- Calendar + Filters -->
-    <section class="space-y-4">
-      <div class="glass neon-border p-4">
-        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-          <div class="flex items-center gap-2">
-            <span class="badge badge-neon">السنة: 2026</span>
-            <span class="badge badge-neon">Hijri داخل كل يوم</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="input input-bordered flex items-center gap-2 w-full md:w-80">
-              <i class="fa-solid fa-magnifying-glass text-cyan-300"></i>
-              <input id="searchBox" type="text" class="grow" placeholder="بحث بالاسم الأول أو الرقم الوظيفي..." />
-            </label>
-            <button id="clearSearch" class="btn btn-ghost">مسح</button>
-          </div>
+  <!-- ======= Main (no side column) ======= -->
+  <main class="container mx-auto px-4 pb-12 mt-6 space-y-4">
+    <!-- Filters -->
+    <section class="glass neon-border p-4">
+      <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div class="flex items-center gap-2">
+          <span class="badge badge-neon">السنة: 2026</span>
+          <span class="badge badge-neon">Hijri داخل كل يوم</span>
         </div>
-      </div>
-
-      <div id="calendar"></div>
-
-      <div class="glass neon-border p-4 legend">
-        <div class="flex items-center gap-3 flex-wrap">
-          <span class="dot"></span> يوم به إجازات — اللون يقوى مع الزحمة حتى الأحمر
-          <span class="pill">X = Restricted Days (Ramadan & Zulhijjah)</span>
-          <span class="pill">الأعمدة: ID / From / To / Leave Balance</span>
+        <div class="flex items-center gap-2">
+          <label class="input input-bordered flex items-center gap-2 w-full md:w-80">
+            <i class="fa-solid fa-magnifying-glass text-cyan-300"></i>
+            <input id="searchBox" type="text" class="grow" placeholder="بحث بالاسم الأول أو الرقم الوظيفي..." />
+          </label>
+          <button id="clearSearch" class="btn btn-ghost">مسح</button>
         </div>
       </div>
     </section>
 
-    <!-- Side Panel -->
-    <aside class="space-y-4">
+    <!-- ======= Top widgets under the title ======= -->
+    <section class="space-y-4">
       <div class="glass neon-border p-4">
         <h3 class="text-lg font-bold mb-2">ملخص سريع</h3>
         <div class="stats shadow">
@@ -162,10 +155,24 @@
         <h3 class="text-lg font-bold mb-3">قائمة الإجازات (2026)</h3>
         <div class="overflow-y-auto max-h-[60vh]" id="leaveList"></div>
       </div>
-    </aside>
+    </section>
+
+    <!-- ======= Months grid (3 columns responsive) ======= -->
+    <section>
+      <div id="calendar"></div>
+    </section>
+
+    <!-- Legend -->
+    <section class="glass neon-border p-4 legend">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="dot"></span> يوم به إجازات — اللون يقوى مع الزحمة حتى الأحمر
+        <span class="pill">X = Restricted Days (Ramadan & Zulhijjah)</span>
+        <span class="pill">الأعمدة: ID / From / To / Leave Balance</span>
+      </div>
+    </section>
   </main>
 
-  <!-- Drawer Modal -->
+  <!-- ======= Drawer Modal ======= -->
   <div class="drawer drawer-end z-50">
     <input id="drawerToggle" type="checkbox" class="drawer-toggle hidden" />
     <div class="drawer-side">
@@ -212,7 +219,7 @@
       if (!v) return null;
       if (v instanceof Date) return v;
       let s = String(v).trim();
-      // Normalize Arabic numerals if present
+      // Normalize Arabic numerals
       s = s.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
       // DD-MM-YYYY
       let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
@@ -240,7 +247,7 @@
     const between  = (d,a,b)=> +clampDay(d) >= +clampDay(a) && +clampDay(d) <= +clampDay(b);
     const isRestricted = (d)=> RESTRICTED.some(r => between(d, r.start, r.end));
 
-    // Deterministic color per employee (HSL from hash)
+    // Deterministic color per employee
     function empColor(empNumber) {
       const s = String(empNumber||'0');
       let h = 0; for (let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) % 360;
@@ -262,26 +269,21 @@
         const monthStart = new Date(year, m, 1);
         const monthEnd   = new Date(year, m+1, 0);
 
-        // Aggregates for this month
+        // Aggregates
         const aggByEmp = new Map(); // empNumber -> { firstName, empNumber, daysInMonth, balance }
-        const overlapByEmp = new Set(); // empNumbers with month overlap
+        const overlapByEmp = new Set();
         const employeesSet = new Set();
 
-        // Build aggregates and overlap flags
         entries.forEach(e => {
           if (!e.from || !e.to) return;
-          if (e.to < monthStart || e.from > monthEnd) return; // no intersection
+          if (e.to < monthStart || e.from > monthEnd) return;
 
           const segStart = new Date(Math.max(e.from, monthStart));
           const segEnd   = new Date(Math.min(e.to, monthEnd));
           const segDays  = daysDiffInclusive(segStart, segEnd);
 
           employeesSet.add(e.empNumber);
-
-          // Overlap with month boundaries?
-          if (e.from < monthStart || e.to > monthEnd) {
-            overlapByEmp.add(e.empNumber);
-          }
+          if (e.from < monthStart || e.to > monthEnd) overlapByEmp.add(e.empNumber);
 
           const cur = aggByEmp.get(e.empNumber) || { firstName: e.firstName, empNumber: e.empNumber, daysInMonth: 0, balance: e.balance };
           cur.daysInMonth += segDays;
@@ -293,7 +295,7 @@
         const conflictDetected = uniqueEmpCount > 3;
         const overlapDetected  = overlapByEmp.size > 0;
 
-        // ==== Month card ====
+        // Month card
         const monthBox = document.createElement('div');
         monthBox.className = 'glass neon-border p-3';
 
@@ -320,19 +322,19 @@
         `;
         const grid = gridWrap.querySelector('.grid');
 
-        // Start offset: JS 0=Sun..6=Sat => Sat as first col
-        const jsDay = monthStart.getDay();          // 0..6
-        const startOffset = (jsDay + 1) % 7;        // Sat=0, Sun=1, ...
+        // Start offset: JS 0=Sun..6=Sat => Sat first
+        const jsDay = monthStart.getDay();
+        const startOffset = (jsDay + 1) % 7;
         const daysInMonth = new Date(year, m+1, 0).getDate();
 
-        // Blanks before day 1
+        // Blanks
         for (let i=0; i<startOffset; i++) {
           const blank = document.createElement('div');
           blank.className = 'day-cell opacity-30';
           grid.appendChild(blank);
         }
 
-        // Build day cells
+        // Days
         for (let d=1; d<=daysInMonth; d++) {
           const cellDate = new Date(year, m, d);
           const key = dateKey(cellDate);
@@ -342,18 +344,18 @@
           cell.className = 'day-cell text-left';
           cell.dataset.date = key;
 
-          // Heat level (1..5)
+          // Heat
           const c = items.length;
           let heat = (c >= 5) ? 5 : (c >= 4) ? 4 : (c >= 3) ? 3 : (c >= 2) ? 2 : (c >= 1) ? 1 : 0;
           if (heat) cell.setAttribute('data-heat', String(heat));
 
-          // Restricted mark
+          // Restricted
           if (isRestricted(cellDate)) cell.classList.add('restricted');
 
           // Hijri
           const hijriStr = fmtHijri.format(cellDate);
 
-          // Employee highlight bars when searching
+          // Highlight bars (search)
           let matchEmpNumbers = [];
           if (filteredIdx) {
             const matchIdxs = items.filter(i => filteredIdx.has(i));
@@ -361,7 +363,7 @@
             matchEmpNumbers = [...set];
           }
 
-          // Render cell
+          // Render
           cell.innerHTML = `
             <div class="heat"></div>
             <div class="flex items-baseline justify-between">
@@ -383,10 +385,10 @@
           grid.appendChild(cell);
         }
 
-        // Append grid first
+        // Append calendar
         monthBox.appendChild(gridWrap);
 
-        // Employees this month — FULL WIDTH under the calendar
+        // Employees this month — full width under calendar
         const tableBox = document.createElement('div');
         tableBox.className = 'glass neon-border p-3 mt-3';
         const rows = [...aggByEmp.values()].sort((a,b)=>b.daysInMonth-a.daysInMonth);
@@ -433,7 +435,7 @@
         `;
         monthBox.appendChild(tableBox);
 
-        // Add to calendar
+        // Add to grid
         calEl.appendChild(monthBox);
       }
     }
@@ -504,7 +506,7 @@
       // Total leaves
       document.getElementById('statCount').textContent = entries.length;
 
-      // Distinct covered days (clamped to 2026)
+      // Distinct covered days in 2026
       const covered = new Set();
       entries.forEach(e => {
         if (!e.from || !e.to) return;
@@ -517,7 +519,7 @@
       });
       document.getElementById('statDays').textContent = covered.size;
 
-      // Distinct employees (year)
+      // Distinct employees
       const emps = new Set(entries.map(e => e.empNumber).filter(Boolean));
       document.getElementById('statEmployees').textContent = emps.size;
     }
@@ -590,7 +592,7 @@
         renderList();
       });
 
-      buildCalendar(); // Initial empty
+      buildCalendar(); // initial empty grid
       if (CSV_URL) await boot();
     }
 
