@@ -28,27 +28,41 @@
       --neon2: #35ffb2;
       --accent: #1f3b6b;
     }
-    html, body { background: radial-gradient(1200px 600px at 80% -10%, #0b2340 10%, #0b1220 60%, #070b14 100%); font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); }
+    html, body {
+      background: radial-gradient(1200px 600px at 80% -10%, #0b2340 10%, #0b1220 60%, #070b14 100%);
+      font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+      color: var(--ink);
+    }
     .glass { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.03); border-radius: 16px; }
     .neon { text-shadow: 0 0 8px rgba(24,224,255,.45), 0 0 18px rgba(24,224,255,.25); }
     .neon-border { position: relative; }
-    .neon-border::after { content: ""; position: absolute; inset: 0; border-radius: 16px; padding: 1px; background: linear-gradient(135deg, rgba(24,224,255,.35), rgba(53,255,178,.25)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+    .neon-border::after {
+      content: ""; position: absolute; inset: 0; border-radius: 16px; padding: 1px;
+      background: linear-gradient(135deg, rgba(24,224,255,.35), rgba(53,255,178,.25));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+    }
 
     .month-title { color: var(--ink); }
     .hijri-mini { font-size: 0.7rem; color: var(--ink-dim); }
-    .day-cell { min-height: 84px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 10px; padding: 6px; position: relative; transition: transform .12s ease, box-shadow .12s ease, border-color .2s ease; overflow: hidden; }
+    .day-cell {
+      min-height: 84px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 10px; padding: 6px;
+      position: relative; transition: transform .12s ease, box-shadow .12s ease, border-color .2s ease; overflow: hidden;
+    }
     .day-cell:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,.35); border-color: rgba(24,224,255,.35); }
     .day-num { font-weight: 700; }
-    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 4px; background: linear-gradient(135deg, var(--neon), var(--neon2)); box-shadow: 0 0 8px rgba(24,224,255,.6), 0 0 12px rgba(53,255,178,.35); }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 4px;
+      background: linear-gradient(135deg, var(--neon), var(--neon2));
+      box-shadow: 0 0 8px rgba(24,224,255,.6), 0 0 12px rgba(53,255,178,.35);
+    }
     .pill { border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 2px 8px; font-size: .75rem; color: var(--ink); background: rgba(24, 224, 255, 0.08); white-space: nowrap; }
     .legend { color: var(--ink-dim); }
     .badge-neon { background: linear-gradient(135deg, rgba(24,224,255,.18), rgba(53,255,178,.18)); border: 1px solid rgba(24,224,255,.25); color: var(--ink); }
     .kbd { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
 
-    /* Responsive Grids */
+    /* Calendar grid: responsive cards */
     #calendar { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
-    .month-content { display: grid; grid-template-columns: 1fr; gap: .75rem; }
-    @media (min-width: 1024px) { .month-content { grid-template-columns: 1fr 240px; } }
     @media (max-width: 420px) { .day-cell { min-height: 70px; } }
 
     /* Heat overlay (yellow -> red) */
@@ -61,18 +75,18 @@
 
     /* Restricted "X" mark */
     .day-cell.restricted::after {
-      content: "×";
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 26px; line-height: 1;
-      color: rgba(239, 68, 68, .78);
-      text-shadow: 0 0 10px rgba(239, 68, 68, .5);
+      content: "×"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 26px; line-height: 1; color: rgba(239, 68, 68, .78); text-shadow: 0 0 10px rgba(239, 68, 68, .5);
       pointer-events: none;
     }
 
+    /* Employee highlight bars (when searching) */
+    .emp-bars { position:absolute; left:0; right:0; bottom:0; height:5px; display:flex; overflow:hidden; border-radius: 0 0 10px 10px; }
+    .emp-bar { flex:1 0 auto; }
+
     /* Small table styling */
-    .mini-table { width: 100%; font-size: .8rem; }
-    .mini-table th, .mini-table td { padding: .35rem .4rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+    .mini-table { width: 100%; font-size: .82rem; border-collapse: collapse; }
+    .mini-table th, .mini-table td { padding: .45rem .5rem; border-bottom: 1px solid rgba(255,255,255,.06); }
     .mini-table th { color: var(--ink-dim); font-weight: 600; }
     .mini-table tbody tr:hover { background: rgba(255,255,255,.04); }
   </style>
@@ -132,6 +146,11 @@
             <div class="stat-desc">إجمالي السجلات</div>
           </div>
           <div class="stat">
+            <div class="stat-title">عدد الموظفين</div>
+            <div id="statEmployees" class="stat-value text-cyan-300">0</div>
+            <div class="stat-desc">قدّموا إجازات في 2026</div>
+          </div>
+          <div class="stat">
             <div class="stat-title">أيام مغطّاة</div>
             <div id="statDays" class="stat-value text-cyan-300">0</div>
             <div class="stat-desc">Distinct days</div>
@@ -167,7 +186,7 @@
     const urlParams = new URLSearchParams(location.search);
     const CSV_URL = urlParams.get('csv') || CSV_URL_DEFAULT;
 
-    // Ramadan & Zulhijjah restricted ranges (inclusive)
+    // Restricted ranges (inclusive)
     const RESTRICTED = [
       { start: "2026-02-15", end: "2026-03-25" }, // Ramadan
       { start: "2026-05-01", end: "2026-06-01" }, // Zulhijjah
@@ -182,7 +201,6 @@
 
     // ======== HELPERS ========
     function parseEmployee(raw) {
-      // Example: "[12345] Ahmed S" => { number: "12345", firstName: "Ahmed" }
       const m = String(raw || '').match(/\[(\d+)\]\s*([^\s]+)?/);
       return {
         number: m ? m[1] : '',
@@ -194,32 +212,18 @@
       if (!v) return null;
       if (v instanceof Date) return v;
       let s = String(v).trim();
-
       // Normalize Arabic numerals if present
       s = s.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
-
-      // Accept "DD-MM-YYYY" (primary)
+      // DD-MM-YYYY
       let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-      if (m) {
-        const dd = +m[1], mm = +m[2]-1, yy = +m[3] < 100 ? 2000 + (+m[3]) : +m[3];
-        return new Date(yy, mm, dd);
-      }
-
-      // Accept "DD/MM/YYYY"
+      if (m) { const dd=+m[1], mm=+m[2]-1, yy=+m[3] < 100 ? 2000+(+m[3]) : +m[3]; return new Date(yy, mm, dd); }
+      // DD/MM/YYYY
       m = s.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
-      if (m) {
-        const dd = +m[1], mm = +m[2]-1, yy = +m[3] < 100 ? 2000 + (+m[3]) : +m[3];
-        return new Date(yy, mm, dd);
-      }
-
-      // Accept "YYYY-MM-DD"
+      if (m) { const dd=+m[1], mm=+m[2]-1, yy=+m[3] < 100 ? 2000+(+m[3]) : +m[3]; return new Date(yy, mm, dd); }
+      // YYYY-MM-DD
       m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-      if (m) {
-        const yy = +m[1], mm = +m[2]-1, dd = +m[3];
-        return new Date(yy, mm, dd);
-      }
-
-      // Fallback to Date.parse (last resort)
+      if (m) { const yy=+m[1], mm=+m[2]-1, dd=+m[3]; return new Date(yy, mm, dd); }
+      // Fallback
       const d = new Date(s);
       if (!isNaN(d)) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
       return null;
@@ -231,14 +235,21 @@
       const d2 = new Date(b.getFullYear(), b.getMonth(), b.getDate());
       return Math.floor((d2 - d1) / 86400000) + 1;
     }
-    function clampDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-    function dateKey(d){ return d.toISOString().slice(0,10); }
-    function between(d, a, b){ const x=+clampDay(d), A=+clampDay(a), B=+clampDay(b); return x>=A && x<=B; }
-    function isRestricted(d){ return RESTRICTED.some(r => between(d, r.start, r.end)); }
+    const clampDay = (d)=> new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dateKey  = (d)=> d.toISOString().slice(0,10);
+    const between  = (d,a,b)=> +clampDay(d) >= +clampDay(a) && +clampDay(d) <= +clampDay(b);
+    const isRestricted = (d)=> RESTRICTED.some(r => between(d, r.start, r.end));
+
+    // Deterministic color per employee (HSL from hash)
+    function empColor(empNumber) {
+      const s = String(empNumber||'0');
+      let h = 0; for (let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) % 360;
+      return `hsl(${h}, 75%, 55%)`;
+    }
 
     // ======== STATE ========
     const year = 2026;
-    let entries = [];       // {empNumber, firstName, from, to, balance, days}
+    let entries = [];       // {empNumber, firstName, from, to, days, balance}
     let dayIndex = {};      // { '2026-01-01': [entryIdx, ...] }
     let filteredIdx = null; // Set<int>
 
@@ -251,11 +262,12 @@
         const monthStart = new Date(year, m, 1);
         const monthEnd   = new Date(year, m+1, 0);
 
-        // Month aggregates
-        const aggByEmp = new Map(); // empNumber -> {firstName, empNumber, daysInMonth, balance}
-        let overlapDetected = false;
+        // Aggregates for this month
+        const aggByEmp = new Map(); // empNumber -> { firstName, empNumber, daysInMonth, balance }
+        const overlapByEmp = new Set(); // empNumbers with month overlap
         const employeesSet = new Set();
 
+        // Build aggregates and overlap flags
         entries.forEach(e => {
           if (!e.from || !e.to) return;
           if (e.to < monthStart || e.from > monthEnd) return; // no intersection
@@ -265,22 +277,27 @@
           const segDays  = daysDiffInclusive(segStart, segEnd);
 
           employeesSet.add(e.empNumber);
-          if (e.from.getMonth() !== e.to.getMonth()) overlapDetected = true;
+
+          // Overlap with month boundaries?
+          if (e.from < monthStart || e.to > monthEnd) {
+            overlapByEmp.add(e.empNumber);
+          }
 
           const cur = aggByEmp.get(e.empNumber) || { firstName: e.firstName, empNumber: e.empNumber, daysInMonth: 0, balance: e.balance };
           cur.daysInMonth += segDays;
-          // Keep the most recent balance we saw (or first, both fine)
           cur.balance = e.balance ?? cur.balance;
           aggByEmp.set(e.empNumber, cur);
         });
 
-        const uniqueEmpCount = employeesSet.size;
+        const uniqueEmpCount   = employeesSet.size;
         const conflictDetected = uniqueEmpCount > 3;
+        const overlapDetected  = overlapByEmp.size > 0;
 
+        // ==== Month card ====
         const monthBox = document.createElement('div');
         monthBox.className = 'glass neon-border p-3';
 
-        // Header with badges
+        // Header
         const header = document.createElement('div');
         header.className = 'flex items-center justify-between mb-2 flex-wrap gap-2';
         header.innerHTML = `
@@ -288,37 +305,34 @@
           <div class="flex items-center gap-2 flex-wrap">
             <span class="badge badge-neon">الموظفون في الشهر: ${uniqueEmpCount}</span>
             ${conflictDetected ? `<span class="text-gray-300 text-sm font-semibold"><i class="fa-solid fa-triangle-exclamation me-1"></i>Conflict Detected</span>` : ``}
-            ${overlapDetected ? `<span class="text-amber-300 text-sm font-semibold"><i class="fa-solid fa-link me-1"></i>Overlap Detected</span>` : ``}
+            ${overlapDetected  ? `<span class="text-amber-300 text-sm font-semibold"><i class="fa-solid fa-link me-1"></i>Overlap Detected</span>` : ``}
           </div>
         `;
         monthBox.appendChild(header);
 
-        // Month content: calendar grid + side mini table
-        const container = document.createElement('div');
-        container.className = 'month-content';
-
-        // Calendar grid (Sat first)
+        // Calendar grid (Saturday first)
         const gridWrap = document.createElement('div');
-        const gridHeader = `
+        gridWrap.innerHTML = `
           <div class="grid grid-cols-7 gap-2 text-center text-xs text-slate-300 mb-2">
             <div>السبت</div><div>الأحد</div><div>الإثنين</div><div>الثلاثاء</div><div>الأربعاء</div><div>الخميس</div><div>الجمعة</div>
-          </div>`;
-        gridWrap.innerHTML = gridHeader + `<div class="grid grid-cols-7 gap-2"></div>`;
+          </div>
+          <div class="grid grid-cols-7 gap-2"></div>
+        `;
         const grid = gridWrap.querySelector('.grid');
 
-        // Start offset with Saturday as first column
-        const jsDay = monthStart.getDay();          // 0=Sun..6=Sat
-        const startOffset = (jsDay + 1) % 7;        // Sat=0, Sun=1, Mon=2, ... Fri=6
+        // Start offset: JS 0=Sun..6=Sat => Sat as first col
+        const jsDay = monthStart.getDay();          // 0..6
+        const startOffset = (jsDay + 1) % 7;        // Sat=0, Sun=1, ...
         const daysInMonth = new Date(year, m+1, 0).getDate();
 
-        // Prefill blanks
+        // Blanks before day 1
         for (let i=0; i<startOffset; i++) {
           const blank = document.createElement('div');
           blank.className = 'day-cell opacity-30';
           grid.appendChild(blank);
         }
 
-        // Build days
+        // Build day cells
         for (let d=1; d<=daysInMonth; d++) {
           const cellDate = new Date(year, m, d);
           const key = dateKey(cellDate);
@@ -330,21 +344,24 @@
 
           // Heat level (1..5)
           const c = items.length;
-          let heat = 0;
-          if (c >= 1) heat = 1;
-          if (c >= 2) heat = 2;
-          if (c >= 3) heat = 3;
-          if (c >= 4) heat = 4;
-          if (c >= 5) heat = 5;
+          let heat = (c >= 5) ? 5 : (c >= 4) ? 4 : (c >= 3) ? 3 : (c >= 2) ? 2 : (c >= 1) ? 1 : 0;
           if (heat) cell.setAttribute('data-heat', String(heat));
 
           // Restricted mark
-          if (isRestricted(cellDate)) {
-            cell.classList.add('restricted');
-          }
+          if (isRestricted(cellDate)) cell.classList.add('restricted');
 
+          // Hijri
           const hijriStr = fmtHijri.format(cellDate);
 
+          // Employee highlight bars when searching
+          let matchEmpNumbers = [];
+          if (filteredIdx) {
+            const matchIdxs = items.filter(i => filteredIdx.has(i));
+            const set = new Set(matchIdxs.map(i => entries[i].empNumber));
+            matchEmpNumbers = [...set];
+          }
+
+          // Render cell
           cell.innerHTML = `
             <div class="heat"></div>
             <div class="flex items-baseline justify-between">
@@ -360,33 +377,63 @@
               }).join('')}
               ${items.length>3 ? `<span class="badge badge-xs badge-outline">+${items.length-3}</span>` : ''}
             </div>
+            ${matchEmpNumbers.length ? `<div class="emp-bars">${matchEmpNumbers.map(emp => `<span class="emp-bar" style="background:${empColor(emp)}"></span>`).join('')}</div>` : ``}
           `;
           cell.addEventListener('click', () => openDayDrawer(cellDate));
           grid.appendChild(cell);
         }
 
-        // Mini table (employees in this month)
+        // Append grid first
+        monthBox.appendChild(gridWrap);
+
+        // Employees this month — FULL WIDTH under the calendar
         const tableBox = document.createElement('div');
-        tableBox.className = 'glass neon-border p-2';
+        tableBox.className = 'glass neon-border p-3 mt-3';
+        const rows = [...aggByEmp.values()].sort((a,b)=>b.daysInMonth-a.daysInMonth);
         tableBox.innerHTML = `
           <div class="text-sm font-bold mb-2">الموظفون خلال الشهر</div>
-          <div class="overflow-auto max-h-64">
+          <div class="overflow-auto">
             <table class="mini-table">
-              <thead><tr><th>الموظف</th><th>الأيام</th><th>الرصيد</th></tr></thead>
-              <tbody>${[...aggByEmp.values()].sort((a,b)=>b.daysInMonth-a.daysInMonth).map(r=>`
-                <tr>
-                  <td>${r.firstName} <span class="text-slate-400">[${r.empNumber}]</span></td>
-                  <td>${r.daysInMonth}</td>
-                  <td>${r.balance ?? ''}</td>
-                </tr>`).join('')}
+              <thead>
+                <tr><th>الموظف</th><th>أيام الشهر</th><th>Leave Balance</th><th>الحالة</th></tr>
+              </thead>
+              <tbody>
+                ${rows.map(r => `
+                  <tr>
+                    <td>
+                      <span class="inline-flex items-center gap-2">
+                        <i class="fa-solid fa-circle" style="font-size:8px;color:${empColor(r.empNumber)}"></i>
+                        ${r.firstName} <span class="text-slate-400">[${r.empNumber}]</span>
+                      </span>
+                    </td>
+                    <td>${r.daysInMonth}</td>
+                    <td>${r.balance ?? ''}</td>
+                    <td>
+                      <span class="badge badge-sm" style="background:rgba(24,224,255,.12);border:1px solid rgba(24,224,255,.25);">
+                        ${r.daysInMonth} / ${r.balance ?? '—'}
+                      </span>
+                    </td>
+                  </tr>
+                `).join('')}
+                ${rows.length === 0 ? `<tr><td colspan="4" class="text-center text-slate-400">لا يوجد موظفون في هذا الشهر.</td></tr>` : ``}
               </tbody>
             </table>
           </div>
+          ${overlapByEmp.size ? `
+            <div class="mt-3 text-sm">
+              <div class="text-amber-300 font-semibold mb-1"><i class="fa-solid fa-link me-1"></i>Overlap Detected</div>
+              <div class="flex flex-wrap gap-2">
+                ${[...overlapByEmp].map(emp => {
+                  const r = aggByEmp.get(emp) || { firstName: '—', empNumber: emp };
+                  return `<span class="pill" style="border-color:${empColor(emp)};background:rgba(255,255,255,.03)">${r.firstName} [${emp}]</span>`;
+                }).join('')}
+              </div>
+            </div>
+          ` : ``}
         `;
+        monthBox.appendChild(tableBox);
 
-        container.appendChild(gridWrap);
-        container.appendChild(tableBox);
-        monthBox.appendChild(container);
+        // Add to calendar
         calEl.appendChild(monthBox);
       }
     }
@@ -454,9 +501,10 @@
     }
 
     function updateStats() {
+      // Total leaves
       document.getElementById('statCount').textContent = entries.length;
 
-      // distinct covered days in 2026
+      // Distinct covered days (clamped to 2026)
       const covered = new Set();
       entries.forEach(e => {
         if (!e.from || !e.to) return;
@@ -468,6 +516,10 @@
         }
       });
       document.getElementById('statDays').textContent = covered.size;
+
+      // Distinct employees (year)
+      const emps = new Set(entries.map(e => e.empNumber).filter(Boolean));
+      document.getElementById('statEmployees').textContent = emps.size;
     }
 
     function buildDayIndex() {
@@ -491,7 +543,7 @@
       if (!s) { filteredIdx = null; return; }
       filteredIdx = new Set();
       entries.forEach((e, i) => {
-        if (e.empNumber.includes(s) || e.firstName.toLowerCase().includes(s)) {
+        if (String(e.empNumber).toLowerCase().includes(s) || String(e.firstName).toLowerCase().includes(s)) {
           filteredIdx.add(i);
         }
       });
@@ -501,7 +553,8 @@
     function loadCSV(url) {
       return new Promise((resolve, reject) => {
         if (!url) return reject(new Error("CSV URL is missing"));
-        Papa.parse(url, { header: true, download: true, skipEmptyLines: true,
+        Papa.parse(url, {
+          header: true, download: true, skipEmptyLines: true,
           complete: (res) => resolve(res.data), error: reject
         });
       });
@@ -511,9 +564,7 @@
       const emp = parseEmployee(r[COLS.id]);
       let from = parseDateAny(r[COLS.from]);
       let to   = parseDateAny(r[COLS.to]);
-
-      // Swap if reversed
-      if (from && to && from > to) { const t = from; from = to; to = t; }
+      if (from && to && from > to) { const t = from; from = to; to = t; } // swap if reversed
 
       const days = (from && to) ? daysDiffInclusive(from, to) : 0;
       const bal  = r[COLS.balance];
@@ -528,13 +579,18 @@
         boot();
       });
       document.getElementById('searchBox').addEventListener('input', (e) => {
-        applyFilter(e.target.value); buildCalendar(); renderList();
+        applyFilter(e.target.value);
+        buildCalendar();
+        renderList();
       });
       document.getElementById('clearSearch').addEventListener('click', () => {
-        const s = document.getElementById('searchBox'); s.value = ''; applyFilter(''); buildCalendar(); renderList();
+        const s = document.getElementById('searchBox'); s.value = '';
+        applyFilter('');
+        buildCalendar();
+        renderList();
       });
 
-      buildCalendar();
+      buildCalendar(); // Initial empty
       if (CSV_URL) await boot();
     }
 
