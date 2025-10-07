@@ -29,74 +29,52 @@
       --accent: #1f3b6b;
     }
     html, body { background: radial-gradient(1200px 600px at 80% -10%, #0b2340 10%, #0b1220 60%, #070b14 100%); font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); }
-    .glass {
-      background: var(--glass);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.03);
-      border-radius: 16px;
-    }
-    .neon {
-      text-shadow: 0 0 8px rgba(24,224,255,.45), 0 0 18px rgba(24,224,255,.25);
-    }
-    .neon-border {
-      position: relative;
-    }
-    .neon-border::after {
-      content: "";
-      position: absolute; inset: 0;
-      border-radius: 16px;
-      padding: 1px;
-      background: linear-gradient(135deg, rgba(24,224,255,.35), rgba(53,255,178,.25));
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor; mask-composite: exclude;
-      pointer-events: none;
-    }
+    .glass { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.03); border-radius: 16px; }
+    .neon { text-shadow: 0 0 8px rgba(24,224,255,.45), 0 0 18px rgba(24,224,255,.25); }
+    .neon-border { position: relative; }
+    .neon-border::after { content: ""; position: absolute; inset: 0; border-radius: 16px; padding: 1px; background: linear-gradient(135deg, rgba(24,224,255,.35), rgba(53,255,178,.25)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+
     .month-title { color: var(--ink); }
     .hijri-mini { font-size: 0.7rem; color: var(--ink-dim); }
-    .day-cell {
-      min-height: 84px;
-      border: 1px dashed rgba(255,255,255,0.06);
-      border-radius: 10px;
-      padding: 6px;
-      position: relative;
-      transition: transform .12s ease, box-shadow .12s ease, border-color .2s ease;
-    }
-    .day-cell:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 14px rgba(0,0,0,.35);
-      border-color: rgba(24,224,255,.35);
-    }
+    .day-cell { min-height: 84px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 10px; padding: 6px; position: relative; transition: transform .12s ease, box-shadow .12s ease, border-color .2s ease; overflow: hidden; }
+    .day-cell:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,.35); border-color: rgba(24,224,255,.35); }
     .day-num { font-weight: 700; }
-    .dot {
-      width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 4px;
-      background: linear-gradient(135deg, var(--neon), var(--neon2));
-      box-shadow: 0 0 8px rgba(24,224,255,.6), 0 0 12px rgba(53,255,178,.35);
-    }
-    .pill {
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 999px;
-      padding: 2px 8px;
-      font-size: .75rem;
-      color: var(--ink);
-      background: rgba(24, 224, 255, 0.08);
-      white-space: nowrap;
-    }
-    .grid-7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: .5rem; }
-    .grid-12 { display: grid; grid-template-columns: repeat(1, 1fr); gap: 1rem; }
-    @media (min-width: 1024px) {
-      .grid-12 { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (min-width: 1440px) {
-      .grid-12 { grid-template-columns: repeat(3, 1fr); }
-    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 4px; background: linear-gradient(135deg, var(--neon), var(--neon2)); box-shadow: 0 0 8px rgba(24,224,255,.6), 0 0 12px rgba(53,255,178,.35); }
+    .pill { border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; padding: 2px 8px; font-size: .75rem; color: var(--ink); background: rgba(24, 224, 255, 0.08); white-space: nowrap; }
     .legend { color: var(--ink-dim); }
+    .badge-neon { background: linear-gradient(135deg, rgba(24,224,255,.18), rgba(53,255,178,.18)); border: 1px solid rgba(24,224,255,.25); color: var(--ink); }
     .kbd { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
-    .badge-neon {
-      background: linear-gradient(135deg, rgba(24,224,255,.18), rgba(53,255,178,.18));
-      border: 1px solid rgba(24,224,255,.25);
-      color: var(--ink);
+
+    /* Responsive Grids */
+    #calendar { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; }
+    .month-content { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+    @media (min-width: 1024px) { .month-content { grid-template-columns: 1fr 240px; } }
+    @media (max-width: 420px) { .day-cell { min-height: 70px; } }
+
+    /* Heat overlay (yellow -> red) */
+    .heat { position:absolute; inset:0; pointer-events:none; background: transparent; }
+    .day-cell[data-heat="1"] .heat { background: rgba(250, 204, 21, .18); }   /* yellow-400 */
+    .day-cell[data-heat="2"] .heat { background: rgba(245, 158, 11, .22); }   /* amber-500 */
+    .day-cell[data-heat="3"] .heat { background: rgba(234, 88, 12, .26); }    /* orange-600 */
+    .day-cell[data-heat="4"] .heat { background: rgba(249, 115, 22, .30); }   /* orange-500 stronger */
+    .day-cell[data-heat="5"] .heat { background: rgba(239, 68, 68, .34); }    /* red-500 */
+
+    /* Restricted "X" mark */
+    .day-cell.restricted::after {
+      content: "×";
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 26px; line-height: 1;
+      color: rgba(239, 68, 68, .78);
+      text-shadow: 0 0 10px rgba(239, 68, 68, .5);
+      pointer-events: none;
     }
+
+    /* Small table styling */
+    .mini-table { width: 100%; font-size: .8rem; }
+    .mini-table th, .mini-table td { padding: .35rem .4rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+    .mini-table th { color: var(--ink-dim); font-weight: 600; }
+    .mini-table tbody tr:hover { background: rgba(255,255,255,.04); }
   </style>
 </head>
 <body class="min-h-screen">
@@ -120,7 +98,7 @@
         <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
           <div class="flex items-center gap-2">
             <span class="badge badge-neon">السنة: 2026</span>
-            <span class="badge badge-neon">التاريخ الهجري يظهر داخل كل يوم</span>
+            <span class="badge badge-neon">Hijri داخل كل يوم</span>
           </div>
           <div class="flex items-center gap-2">
             <label class="input input-bordered flex items-center gap-2 w-full md:w-80">
@@ -132,13 +110,13 @@
         </div>
       </div>
 
-      <div id="calendar" class="grid-12"></div>
+      <div id="calendar"></div>
 
       <div class="glass neon-border p-4 legend">
         <div class="flex items-center gap-3 flex-wrap">
-          <span class="dot"></span> يوم به إجازات
-          <span class="pill">الضغط على اليوم لعرض التفاصيل</span>
-          <span class="pill">الأعمدة من الشيت: ID / From / To / Leave Balance</span>
+          <span class="dot"></span> يوم به إجازات — اللون يقوى مع الزحمة حتى الأحمر
+          <span class="pill">X = Restricted Days (Ramadan & Zulhijjah)</span>
+          <span class="pill">الأعمدة: ID / From / To / Leave Balance</span>
         </div>
       </div>
     </section>
@@ -169,7 +147,6 @@
   </main>
 
   <!-- Drawer Modal -->
-  <input id="dayDrawer" type="checkbox" class="drawer-toggle" />
   <div class="drawer drawer-end z-50">
     <input id="drawerToggle" type="checkbox" class="drawer-toggle hidden" />
     <div class="drawer-side">
@@ -186,20 +163,26 @@
 
   <script>
     // ======== CONFIG ========
-    const CSV_URL_DEFAULT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-sE5u5nHWuAXw94YiFkODv4W8hqSv-zedQQOwtf-LgYUZuahh5Iy3qPaXRpruZBGr88YEjr_QxsVs/pub?output=csv"; // ضع رابط CSV هنا إن أحببت
+    const CSV_URL_DEFAULT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-sE5u5nHWuAXw94YiFkODv4W8hqSv-zedQQOwtf-LgYUZuahh5Iy3qPaXRpruZBGr88YEjr_QxsVs/pub?output=csv";
     const urlParams = new URLSearchParams(location.search);
     const CSV_URL = urlParams.get('csv') || CSV_URL_DEFAULT;
 
-    // أسماء الأعمدة المتوقعة
+    // Ramadan & Zulhijjah restricted ranges (inclusive)
+    const RESTRICTED = [
+      { start: "2026-02-15", end: "2026-03-25" }, // Ramadan
+      { start: "2026-05-01", end: "2026-06-01" }, // Zulhijjah
+    ].map(r => ({ start: new Date(r.start+"T00:00:00"), end: new Date(r.end+"T00:00:00") }));
+
+    // Columns
     const COLS = { id: 'ID', from: 'From', to: 'To', balance: 'Leave Balance' };
 
-    // ======== HELPERS ========
+    // Formatters
     const fmtHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'short' });
-    const fmtG = new Intl.DateTimeFormat('ar-EG', { day: 'numeric' });
     const fmtLong = new Intl.DateTimeFormat('ar-EG', { dateStyle: 'full' });
 
+    // ======== HELPERS ========
     function parseEmployee(raw) {
-      // مثال: "[12345] Ahmed S" => number=12345, firstName="Ahmed"
+      // Example: "[12345] Ahmed S" => { number: "12345", firstName: "Ahmed" }
       const m = String(raw || '').match(/\[(\d+)\]\s*([^\s]+)?/);
       return {
         number: m ? m[1] : '',
@@ -208,28 +191,37 @@
     }
 
     function parseDateAny(v) {
-      // يحاول قراءة تاريخ بصيغ شائعة أو من "YYYY/MM/DD" أو "DD/MM/YYYY"
       if (!v) return null;
       if (v instanceof Date) return v;
-      const s = String(v).trim().replace(/-/g,'/');
+      let s = String(v).trim();
 
-      // حاول ISO أو Date.parse
-      let d = new Date(s);
-      if (!isNaN(d)) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      // Normalize Arabic numerals if present
+      s = s.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
 
-      // DD/MM/YYYY
-      const m = s.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
+      // Accept "DD-MM-YYYY" (primary)
+      let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
       if (m) {
         const dd = +m[1], mm = +m[2]-1, yy = +m[3] < 100 ? 2000 + (+m[3]) : +m[3];
         return new Date(yy, mm, dd);
       }
 
-      // YYYY/MM/DD
-      const m2 = s.match(/^(\d{4})[\/\.](\d{1,2})[\/\.](\d{1,2})$/);
-      if (m2) {
-        const yy = +m2[1], mm = +m2[2]-1, dd = +m2[3];
+      // Accept "DD/MM/YYYY"
+      m = s.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
+      if (m) {
+        const dd = +m[1], mm = +m[2]-1, yy = +m[3] < 100 ? 2000 + (+m[3]) : +m[3];
         return new Date(yy, mm, dd);
       }
+
+      // Accept "YYYY-MM-DD"
+      m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (m) {
+        const yy = +m[1], mm = +m[2]-1, dd = +m[3];
+        return new Date(yy, mm, dd);
+      }
+
+      // Fallback to Date.parse (last resort)
+      const d = new Date(s);
+      if (!isNaN(d)) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
       return null;
     }
 
@@ -239,23 +231,16 @@
       const d2 = new Date(b.getFullYear(), b.getMonth(), b.getDate());
       return Math.floor((d2 - d1) / 86400000) + 1;
     }
-
-    function dateKey(d) {
-      return d.toISOString().slice(0,10);
-    }
-
-    function inRange(d, a, b) {
-      const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      const A = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-      const B = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-      return x >= A && x <= B;
-    }
+    function clampDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+    function dateKey(d){ return d.toISOString().slice(0,10); }
+    function between(d, a, b){ const x=+clampDay(d), A=+clampDay(a), B=+clampDay(b); return x>=A && x<=B; }
+    function isRestricted(d){ return RESTRICTED.some(r => between(d, r.start, r.end)); }
 
     // ======== STATE ========
     const year = 2026;
     let entries = [];       // {empNumber, firstName, from, to, balance, days}
     let dayIndex = {};      // { '2026-01-01': [entryIdx, ...] }
-    let filteredIdx = null; // set of indices that pass the filter
+    let filteredIdx = null; // Set<int>
 
     // ======== UI BUILD ========
     function buildCalendar() {
@@ -264,64 +249,144 @@
 
       for (let m=0; m<12; m++) {
         const monthStart = new Date(year, m, 1);
-        const firstDay = (monthStart.getDay()+6)%7; // Make Monday=0, but we want Sat=0 for KSA? We'll use Sat=0
-        const firstDayKSA = (monthStart.getDay()+1)%7; // Sun=0 ... adjust below
-        // نضبط بحيث الأسبوع يبدأ السبت:
-        const startOffset = (monthStart.getDay()+1) % 7; // إذا السبت=0، والأحد=1 ... (JS: 0=Sun)
-        const daysInMonth = new Date(year, m+1, 0).getDate();
+        const monthEnd   = new Date(year, m+1, 0);
+
+        // Month aggregates
+        const aggByEmp = new Map(); // empNumber -> {firstName, empNumber, daysInMonth, balance}
+        let overlapDetected = false;
+        const employeesSet = new Set();
+
+        entries.forEach(e => {
+          if (!e.from || !e.to) return;
+          if (e.to < monthStart || e.from > monthEnd) return; // no intersection
+
+          const segStart = new Date(Math.max(e.from, monthStart));
+          const segEnd   = new Date(Math.min(e.to, monthEnd));
+          const segDays  = daysDiffInclusive(segStart, segEnd);
+
+          employeesSet.add(e.empNumber);
+          if (e.from.getMonth() !== e.to.getMonth()) overlapDetected = true;
+
+          const cur = aggByEmp.get(e.empNumber) || { firstName: e.firstName, empNumber: e.empNumber, daysInMonth: 0, balance: e.balance };
+          cur.daysInMonth += segDays;
+          // Keep the most recent balance we saw (or first, both fine)
+          cur.balance = e.balance ?? cur.balance;
+          aggByEmp.set(e.empNumber, cur);
+        });
+
+        const uniqueEmpCount = employeesSet.size;
+        const conflictDetected = uniqueEmpCount > 3;
 
         const monthBox = document.createElement('div');
         monthBox.className = 'glass neon-border p-3';
-        monthBox.innerHTML = `
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="month-title text-lg font-bold">${monthNameAr(m)} ${year}</h3>
-            <div class="text-sm text-slate-300">السبت يبدأ الأسبوع</div>
+
+        // Header with badges
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between mb-2 flex-wrap gap-2';
+        header.innerHTML = `
+          <h3 class="month-title text-lg font-bold">${monthNameAr(m)} ${year}</h3>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="badge badge-neon">الموظفون في الشهر: ${uniqueEmpCount}</span>
+            ${conflictDetected ? `<span class="text-gray-300 text-sm font-semibold"><i class="fa-solid fa-triangle-exclamation me-1"></i>Conflict Detected</span>` : ``}
+            ${overlapDetected ? `<span class="text-amber-300 text-sm font-semibold"><i class="fa-solid fa-link me-1"></i>Overlap Detected</span>` : ``}
           </div>
+        `;
+        monthBox.appendChild(header);
+
+        // Month content: calendar grid + side mini table
+        const container = document.createElement('div');
+        container.className = 'month-content';
+
+        // Calendar grid (Sat first)
+        const gridWrap = document.createElement('div');
+        const gridHeader = `
           <div class="grid grid-cols-7 gap-2 text-center text-xs text-slate-300 mb-2">
             <div>السبت</div><div>الأحد</div><div>الإثنين</div><div>الثلاثاء</div><div>الأربعاء</div><div>الخميس</div><div>الجمعة</div>
-          </div>
-          <div class="grid-7"></div>
-        `;
-        const grid = monthBox.querySelector('.grid-7');
+          </div>`;
+        gridWrap.innerHTML = gridHeader + `<div class="grid grid-cols-7 gap-2"></div>`;
+        const grid = gridWrap.querySelector('.grid');
 
-        // فراغات قبل اليوم 1
+        // Start offset with Saturday as first column
+        const jsDay = monthStart.getDay();          // 0=Sun..6=Sat
+        const startOffset = (jsDay + 1) % 7;        // Sat=0, Sun=1, Mon=2, ... Fri=6
+        const daysInMonth = new Date(year, m+1, 0).getDate();
+
+        // Prefill blanks
         for (let i=0; i<startOffset; i++) {
           const blank = document.createElement('div');
           blank.className = 'day-cell opacity-30';
           grid.appendChild(blank);
         }
 
-        // الأيام
+        // Build days
         for (let d=1; d<=daysInMonth; d++) {
           const cellDate = new Date(year, m, d);
-          const cell = document.createElement('button');
-          cell.className = 'day-cell text-left';
-          cell.dataset.date = dateKey(cellDate);
-
-          const hijriStr = fmtHijri.format(cellDate); // e.g., "10 ربيع الآخر"
+          const key = dateKey(cellDate);
           const items = getEntriesForDay(cellDate);
 
+          const cell = document.createElement('button');
+          cell.className = 'day-cell text-left';
+          cell.dataset.date = key;
+
+          // Heat level (1..5)
+          const c = items.length;
+          let heat = 0;
+          if (c >= 1) heat = 1;
+          if (c >= 2) heat = 2;
+          if (c >= 3) heat = 3;
+          if (c >= 4) heat = 4;
+          if (c >= 5) heat = 5;
+          if (heat) cell.setAttribute('data-heat', String(heat));
+
+          // Restricted mark
+          if (isRestricted(cellDate)) {
+            cell.classList.add('restricted');
+          }
+
+          const hijriStr = fmtHijri.format(cellDate);
+
           cell.innerHTML = `
+            <div class="heat"></div>
             <div class="flex items-baseline justify-between">
               <div class="day-num text-base">${d}</div>
-              ${items.length ? `<span class="dot" title="${items.length} إجازة"></span>` : ''}
+              ${c ? `<span class="dot" title="${c} إجازة"></span>` : ''}
             </div>
             <div class="hijri-mini mt-1">${hijriStr}</div>
             <div class="mt-2 flex gap-1 flex-wrap">
               ${items.slice(0,3).map(i => {
                 const e = entries[i];
-                const key = filteredIdx && !filteredIdx.has(i) ? 'opacity-30' : '';
-                return `<span class="pill ${key}">${e.firstName} [${e.empNumber}]</span>`;
+                const dim = filteredIdx && !filteredIdx.has(i) ? 'opacity-30' : '';
+                return `<span class="pill ${dim}">${e.firstName} [${e.empNumber}]</span>`;
               }).join('')}
               ${items.length>3 ? `<span class="badge badge-xs badge-outline">+${items.length-3}</span>` : ''}
             </div>
           `;
-
           cell.addEventListener('click', () => openDayDrawer(cellDate));
-
           grid.appendChild(cell);
         }
 
+        // Mini table (employees in this month)
+        const tableBox = document.createElement('div');
+        tableBox.className = 'glass neon-border p-2';
+        tableBox.innerHTML = `
+          <div class="text-sm font-bold mb-2">الموظفون خلال الشهر</div>
+          <div class="overflow-auto max-h-64">
+            <table class="mini-table">
+              <thead><tr><th>الموظف</th><th>الأيام</th><th>الرصيد</th></tr></thead>
+              <tbody>${[...aggByEmp.values()].sort((a,b)=>b.daysInMonth-a.daysInMonth).map(r=>`
+                <tr>
+                  <td>${r.firstName} <span class="text-slate-400">[${r.empNumber}]</span></td>
+                  <td>${r.daysInMonth}</td>
+                  <td>${r.balance ?? ''}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        container.appendChild(gridWrap);
+        container.appendChild(tableBox);
+        monthBox.appendChild(container);
         calEl.appendChild(monthBox);
       }
     }
@@ -436,52 +501,39 @@
     function loadCSV(url) {
       return new Promise((resolve, reject) => {
         if (!url) return reject(new Error("CSV URL is missing"));
-        Papa.parse(url, {
-          header: true,
-          download: true,
-          skipEmptyLines: true,
-          complete: (res) => resolve(res.data),
-          error: reject
+        Papa.parse(url, { header: true, download: true, skipEmptyLines: true,
+          complete: (res) => resolve(res.data), error: reject
         });
       });
     }
 
     function normalizeRow(r) {
       const emp = parseEmployee(r[COLS.id]);
-      const from = parseDateAny(r[COLS.from]);
-      const to   = parseDateAny(r[COLS.to]);
+      let from = parseDateAny(r[COLS.from]);
+      let to   = parseDateAny(r[COLS.to]);
+
+      // Swap if reversed
+      if (from && to && from > to) { const t = from; from = to; to = t; }
+
       const days = (from && to) ? daysDiffInclusive(from, to) : 0;
       const bal  = r[COLS.balance];
       return { empNumber: emp.number, firstName: emp.firstName || '—', from, to, days, balance: bal };
     }
 
     async function init() {
-      // Header status
       document.getElementById('csvStatus').textContent = CSV_URL ? 'محدد' : 'غير محدد';
 
-      // Events
       document.getElementById('reloadBtn').addEventListener('click', () => {
-        if (!CSV_URL) {
-          alert('من فضلك حدّد رابط CSV عبر ?csv=YOUR_LINK أو عيّنه داخل الكود.');
-          return;
-        }
+        if (!CSV_URL) { alert('من فضلك حدّد رابط CSV عبر ?csv=YOUR_LINK أو عيّنه داخل الكود.'); return; }
         boot();
       });
-
       document.getElementById('searchBox').addEventListener('input', (e) => {
-        applyFilter(e.target.value);
-        buildCalendar();
-        renderList();
+        applyFilter(e.target.value); buildCalendar(); renderList();
       });
       document.getElementById('clearSearch').addEventListener('click', () => {
-        const s = document.getElementById('searchBox');
-        s.value = '';
-        applyFilter('');
-        buildCalendar();
-        renderList();
+        const s = document.getElementById('searchBox'); s.value = ''; applyFilter(''); buildCalendar(); renderList();
       });
 
-      // First render (empty calendar) then data
       buildCalendar();
       if (CSV_URL) await boot();
     }
@@ -501,7 +553,6 @@
       }
     }
 
-    // ======== START ========
     window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
