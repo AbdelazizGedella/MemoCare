@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة الإجازات 2026 — Gregorian + Hijri | Dark Glass Neon</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <!-- CSV Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1220;
+      --glass: rgba(18, 28, 48, 0.6);
+      --ink: #e6f0ff;
+      --ink-dim: #98a7c2;
+      --neon: #18e0ff;
+      --neon2: #35ffb2;
+      --accent: #1f3b6b;
+    }
+    html, body { background: radial-gradient(1200px 600px at 80% -10%, #0b2340 10%, #0b1220 60%, #070b14 100%); font-family: 'Cairo', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); }
+    .glass {
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.03);
+      border-radius: 16px;
+    }
+    .neon {
+      text-shadow: 0 0 8px rgba(24,224,255,.45), 0 0 18px rgba(24,224,255,.25);
+    }
+    .neon-border {
+      position: relative;
+    }
+    .neon-border::after {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: 16px;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(24,224,255,.35), rgba(53,255,178,.25));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      pointer-events: none;
+    }
+    .month-title { color: var(--ink); }
+    .hijri-mini { font-size: 0.7rem; color: var(--ink-dim); }
+    .day-cell {
+      min-height: 84px;
+      border: 1px dashed rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 6px;
+      position: relative;
+      transition: transform .12s ease, box-shadow .12s ease, border-color .2s ease;
+    }
+    .day-cell:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 14px rgba(0,0,0,.35);
+      border-color: rgba(24,224,255,.35);
+    }
+    .day-num { font-weight: 700; }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 4px;
+      background: linear-gradient(135deg, var(--neon), var(--neon2));
+      box-shadow: 0 0 8px rgba(24,224,255,.6), 0 0 12px rgba(53,255,178,.35);
+    }
+    .pill {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: .75rem;
+      color: var(--ink);
+      background: rgba(24, 224, 255, 0.08);
+      white-space: nowrap;
+    }
+    .grid-7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: .5rem; }
+    .grid-12 { display: grid; grid-template-columns: repeat(1, 1fr); gap: 1rem; }
+    @media (min-width: 1024px) {
+      .grid-12 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (min-width: 1440px) {
+      .grid-12 { grid-template-columns: repeat(3, 1fr); }
+    }
+    .legend { color: var(--ink-dim); }
+    .kbd { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+    .badge-neon {
+      background: linear-gradient(135deg, rgba(24,224,255,.18), rgba(53,255,178,.18));
+      border: 1px solid rgba(24,224,255,.25);
+      color: var(--ink);
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="container mx-auto px-4 pt-6">
+    <div class="glass neon-border p-4 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-calendar-days text-2xl text-cyan-300"></i>
+        <h1 class="text-xl md:text-2xl font-bold neon">لوحة الإجازات — 2026 Gregorian + Hijri</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="pill">CSV: <code id="csvStatus" class="text-cyan-300">غير محدد</code></span>
+        <button id="reloadBtn" class="btn btn-sm btn-outline border-cyan-400 text-cyan-300">إعادة التحميل</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 pb-12 mt-6 grid lg:grid-cols-[1fr_360px] gap-4">
+    <!-- Calendar + Filters -->
+    <section class="space-y-4">
+      <div class="glass neon-border p-4">
+        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+          <div class="flex items-center gap-2">
+            <span class="badge badge-neon">السنة: 2026</span>
+            <span class="badge badge-neon">التاريخ الهجري يظهر داخل كل يوم</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="input input-bordered flex items-center gap-2 w-full md:w-80">
+              <i class="fa-solid fa-magnifying-glass text-cyan-300"></i>
+              <input id="searchBox" type="text" class="grow" placeholder="بحث بالاسم الأول أو الرقم الوظيفي..." />
+            </label>
+            <button id="clearSearch" class="btn btn-ghost">مسح</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="calendar" class="grid-12"></div>
+
+      <div class="glass neon-border p-4 legend">
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="dot"></span> يوم به إجازات
+          <span class="pill">الضغط على اليوم لعرض التفاصيل</span>
+          <span class="pill">الأعمدة من الشيت: ID / From / To / Leave Balance</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Side Panel -->
+    <aside class="space-y-4">
+      <div class="glass neon-border p-4">
+        <h3 class="text-lg font-bold mb-2">ملخص سريع</h3>
+        <div class="stats shadow">
+          <div class="stat">
+            <div class="stat-title">عدد الإجازات</div>
+            <div id="statCount" class="stat-value text-cyan-300">0</div>
+            <div class="stat-desc">إجمالي السجلات</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">أيام مغطّاة</div>
+            <div id="statDays" class="stat-value text-cyan-300">0</div>
+            <div class="stat-desc">Distinct days</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass neon-border p-4">
+        <h3 class="text-lg font-bold mb-3">قائمة الإجازات (2026)</h3>
+        <div class="overflow-y-auto max-h-[60vh]" id="leaveList"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Drawer Modal -->
+  <input id="dayDrawer" type="checkbox" class="drawer-toggle" />
+  <div class="drawer drawer-end z-50">
+    <input id="drawerToggle" type="checkbox" class="drawer-toggle hidden" />
+    <div class="drawer-side">
+      <label for="drawerToggle" aria-label="close sidebar" class="drawer-overlay"></label>
+      <div class="menu p-4 w-96 min-h-full glass neon-border">
+        <div class="flex items-center justify-between mb-2">
+          <h2 id="drawerTitle" class="text-xl font-bold neon">تفاصيل اليوم</h2>
+          <label for="drawerToggle" class="btn btn-sm btn-ghost"><i class="fa-solid fa-xmark"></i></label>
+        </div>
+        <div id="drawerContent" class="space-y-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======== CONFIG ========
+    const CSV_URL_DEFAULT = ""; // ضع رابط CSV هنا إن أحببت
+    const urlParams = new URLSearchParams(location.search);
+    const CSV_URL = urlParams.get('csv') || CSV_URL_DEFAULT;
+
+    // أسماء الأعمدة المتوقعة
+    const COLS = { id: 'ID', from: 'From', to: 'To', balance: 'Leave Balance' };
+
+    // ======== HELPERS ========
+    const fmtHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', { day: 'numeric', month: 'short' });
+    const fmtG = new Intl.DateTimeFormat('ar-EG', { day: 'numeric' });
+    const fmtLong = new Intl.DateTimeFormat('ar-EG', { dateStyle: 'full' });
+
+    function parseEmployee(raw) {
+      // مثال: "[12345] Ahmed S" => number=12345, firstName="Ahmed"
+      const m = String(raw || '').match(/\[(\d+)\]\s*([^\s]+)?/);
+      return {
+        number: m ? m[1] : '',
+        firstName: m ? (m[2] || '').trim() : (String(raw||'').split(/\s+/)[0] || '')
+      };
+    }
+
+    function parseDateAny(v) {
+      // يحاول قراءة تاريخ بصيغ شائعة أو من "YYYY/MM/DD" أو "DD/MM/YYYY"
+      if (!v) return null;
+      if (v instanceof Date) return v;
+      const s = String(v).trim().replace(/-/g,'/');
+
+      // حاول ISO أو Date.parse
+      let d = new Date(s);
+      if (!isNaN(d)) return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+      // DD/MM/YYYY
+      const m = s.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{2,4})$/);
+      if (m) {
+        const dd = +m[1], mm = +m[2]-1, yy = +m[3] < 100 ? 2000 + (+m[3]) : +m[3];
+        return new Date(yy, mm, dd);
+      }
+
+      // YYYY/MM/DD
+      const m2 = s.match(/^(\d{4})[\/\.](\d{1,2})[\/\.](\d{1,2})$/);
+      if (m2) {
+        const yy = +m2[1], mm = +m2[2]-1, dd = +m2[3];
+        return new Date(yy, mm, dd);
+      }
+      return null;
+    }
+
+    function daysDiffInclusive(a, b) {
+      if (!a || !b) return 0;
+      const d1 = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+      const d2 = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+      return Math.floor((d2 - d1) / 86400000) + 1;
+    }
+
+    function dateKey(d) {
+      return d.toISOString().slice(0,10);
+    }
+
+    function inRange(d, a, b) {
+      const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const A = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+      const B = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+      return x >= A && x <= B;
+    }
+
+    // ======== STATE ========
+    const year = 2026;
+    let entries = [];       // {empNumber, firstName, from, to, balance, days}
+    let dayIndex = {};      // { '2026-01-01': [entryIdx, ...] }
+    let filteredIdx = null; // set of indices that pass the filter
+
+    // ======== UI BUILD ========
+    function buildCalendar() {
+      const calEl = document.getElementById('calendar');
+      calEl.innerHTML = '';
+
+      for (let m=0; m<12; m++) {
+        const monthStart = new Date(year, m, 1);
+        const firstDay = (monthStart.getDay()+6)%7; // Make Monday=0, but we want Sat=0 for KSA? We'll use Sat=0
+        const firstDayKSA = (monthStart.getDay()+1)%7; // Sun=0 ... adjust below
+        // نضبط بحيث الأسبوع يبدأ السبت:
+        const startOffset = (monthStart.getDay()+1) % 7; // إذا السبت=0، والأحد=1 ... (JS: 0=Sun)
+        const daysInMonth = new Date(year, m+1, 0).getDate();
+
+        const monthBox = document.createElement('div');
+        monthBox.className = 'glass neon-border p-3';
+        monthBox.innerHTML = `
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="month-title text-lg font-bold">${monthNameAr(m)} ${year}</h3>
+            <div class="text-sm text-slate-300">السبت يبدأ الأسبوع</div>
+          </div>
+          <div class="grid grid-cols-7 gap-2 text-center text-xs text-slate-300 mb-2">
+            <div>السبت</div><div>الأحد</div><div>الإثنين</div><div>الثلاثاء</div><div>الأربعاء</div><div>الخميس</div><div>الجمعة</div>
+          </div>
+          <div class="grid-7"></div>
+        `;
+        const grid = monthBox.querySelector('.grid-7');
+
+        // فراغات قبل اليوم 1
+        for (let i=0; i<startOffset; i++) {
+          const blank = document.createElement('div');
+          blank.className = 'day-cell opacity-30';
+          grid.appendChild(blank);
+        }
+
+        // الأيام
+        for (let d=1; d<=daysInMonth; d++) {
+          const cellDate = new Date(year, m, d);
+          const cell = document.createElement('button');
+          cell.className = 'day-cell text-left';
+          cell.dataset.date = dateKey(cellDate);
+
+          const hijriStr = fmtHijri.format(cellDate); // e.g., "10 ربيع الآخر"
+          const items = getEntriesForDay(cellDate);
+
+          cell.innerHTML = `
+            <div class="flex items-baseline justify-between">
+              <div class="day-num text-base">${d}</div>
+              ${items.length ? `<span class="dot" title="${items.length} إجازة"></span>` : ''}
+            </div>
+            <div class="hijri-mini mt-1">${hijriStr}</div>
+            <div class="mt-2 flex gap-1 flex-wrap">
+              ${items.slice(0,3).map(i => {
+                const e = entries[i];
+                const key = filteredIdx && !filteredIdx.has(i) ? 'opacity-30' : '';
+                return `<span class="pill ${key}">${e.firstName} [${e.empNumber}]</span>`;
+              }).join('')}
+              ${items.length>3 ? `<span class="badge badge-xs badge-outline">+${items.length-3}</span>` : ''}
+            </div>
+          `;
+
+          cell.addEventListener('click', () => openDayDrawer(cellDate));
+
+          grid.appendChild(cell);
+        }
+
+        calEl.appendChild(monthBox);
+      }
+    }
+
+    function monthNameAr(m) {
+      const names = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+      return names[m];
+    }
+
+    function getEntriesForDay(d) {
+      const key = dateKey(d);
+      const idxs = dayIndex[key] || [];
+      if (!filteredIdx) return idxs;
+      return idxs.filter(i => filteredIdx.has(i));
+    }
+
+    function openDayDrawer(d) {
+      const list = getEntriesForDay(d);
+      const title = document.getElementById('drawerTitle');
+      const cont = document.getElementById('drawerContent');
+      title.textContent = `تفاصيل ${fmtLong.format(d)} (${list.length} إجازة)`;
+      cont.innerHTML = list.length ? '' : `<div class="alert alert-info">لا توجد إجازات لهذا اليوم.</div>`;
+
+      list.forEach(i => {
+        const e = entries[i];
+        const row = document.createElement('div');
+        row.className = 'p-3 glass neon-border';
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="font-bold">${e.firstName} <span class="text-slate-300">[${e.empNumber}]</span></div>
+            <span class="badge badge-neon">مدة: ${e.days} يوم</span>
+          </div>
+          <div class="text-sm mt-1">
+            <i class="fa-solid fa-right-to-bracket"></i> من: <span class="text-cyan-300">${fmtLong.format(e.from)}</span><br/>
+            <i class="fa-solid fa-right-from-bracket"></i> إلى: <span class="text-cyan-300">${fmtLong.format(e.to)}</span><br/>
+            <i class="fa-solid fa-wallet"></i> الرصيد: <b>${e.balance ?? ''}</b>
+          </div>
+        `;
+        cont.appendChild(row);
+      });
+
+      document.getElementById('drawerToggle').checked = true;
+    }
+
+    function renderList() {
+      const box = document.getElementById('leaveList');
+      const idxs = filteredIdx ? [...filteredIdx] : entries.map((_,i)=>i);
+      if (!idxs.length) { box.innerHTML = `<div class="alert">لا توجد نتائج مطابقة.</div>`; return; }
+      box.innerHTML = idxs.map(i => {
+        const e = entries[i];
+        return `
+          <div class="mb-3 p-3 glass neon-border">
+            <div class="flex items-center justify-between">
+              <div class="font-bold">${e.firstName} <span class="text-slate-300">[${e.empNumber}]</span></div>
+              <span class="badge badge-neon">مدة: ${e.days} يوم</span>
+            </div>
+            <div class="text-sm mt-1">
+              <i class="fa-solid fa-calendar-day"></i> من: ${fmtLong.format(e.from)}<br/>
+              <i class="fa-solid fa-calendar-check"></i> إلى: ${fmtLong.format(e.to)}<br/>
+              <i class="fa-solid fa-wallet"></i> الرصيد: ${e.balance ?? ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateStats() {
+      document.getElementById('statCount').textContent = entries.length;
+
+      // distinct covered days in 2026
+      const covered = new Set();
+      entries.forEach(e => {
+        if (!e.from || !e.to) return;
+        let cur = new Date(Math.max(e.from.getTime(), new Date(2026,0,1).getTime()));
+        const end = new Date(Math.min(e.to.getTime(), new Date(2026,11,31).getTime()));
+        while (cur <= end) {
+          covered.add(cur.toISOString().slice(0,10));
+          cur.setDate(cur.getDate()+1);
+        }
+      });
+      document.getElementById('statDays').textContent = covered.size;
+    }
+
+    function buildDayIndex() {
+      dayIndex = {};
+      for (let i=0; i<entries.length; i++) {
+        const e = entries[i];
+        if (!e.from || !e.to) continue;
+        let cur = new Date(e.from.getTime());
+        while (cur <= e.to) {
+          if (cur.getFullYear() === 2026) {
+            const k = dateKey(cur);
+            (dayIndex[k] ||= []).push(i);
+          }
+          cur.setDate(cur.getDate()+1);
+        }
+      }
+    }
+
+    function applyFilter(q) {
+      const s = String(q || '').trim().toLowerCase();
+      if (!s) { filteredIdx = null; return; }
+      filteredIdx = new Set();
+      entries.forEach((e, i) => {
+        if (e.empNumber.includes(s) || e.firstName.toLowerCase().includes(s)) {
+          filteredIdx.add(i);
+        }
+      });
+    }
+
+    // ======== LOAD CSV ========
+    function loadCSV(url) {
+      return new Promise((resolve, reject) => {
+        if (!url) return reject(new Error("CSV URL is missing"));
+        Papa.parse(url, {
+          header: true,
+          download: true,
+          skipEmptyLines: true,
+          complete: (res) => resolve(res.data),
+          error: reject
+        });
+      });
+    }
+
+    function normalizeRow(r) {
+      const emp = parseEmployee(r[COLS.id]);
+      const from = parseDateAny(r[COLS.from]);
+      const to   = parseDateAny(r[COLS.to]);
+      const days = (from && to) ? daysDiffInclusive(from, to) : 0;
+      const bal  = r[COLS.balance];
+      return { empNumber: emp.number, firstName: emp.firstName || '—', from, to, days, balance: bal };
+    }
+
+    async function init() {
+      // Header status
+      document.getElementById('csvStatus').textContent = CSV_URL ? 'محدد' : 'غير محدد';
+
+      // Events
+      document.getElementById('reloadBtn').addEventListener('click', () => {
+        if (!CSV_URL) {
+          alert('من فضلك حدّد رابط CSV عبر ?csv=YOUR_LINK أو عيّنه داخل الكود.');
+          return;
+        }
+        boot();
+      });
+
+      document.getElementById('searchBox').addEventListener('input', (e) => {
+        applyFilter(e.target.value);
+        buildCalendar();
+        renderList();
+      });
+      document.getElementById('clearSearch').addEventListener('click', () => {
+        const s = document.getElementById('searchBox');
+        s.value = '';
+        applyFilter('');
+        buildCalendar();
+        renderList();
+      });
+
+      // First render (empty calendar) then data
+      buildCalendar();
+      if (CSV_URL) await boot();
+    }
+
+    async function boot() {
+      try {
+        const rows = await loadCSV(CSV_URL);
+        entries = rows.map(normalizeRow)
+                      .filter(e => e.from && e.to && e.firstName && e.empNumber && e.from.getFullYear() <= 2026 && e.to.getFullYear() >= 2026);
+        buildDayIndex();
+        updateStats();
+        buildCalendar();
+        renderList();
+      } catch (err) {
+        console.error(err);
+        alert('تعذّر تحميل CSV: ' + err.message);
+      }
+    }
+
+    // ======== START ========
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
