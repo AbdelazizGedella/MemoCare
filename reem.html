@@ -23,22 +23,11 @@
     @keyframes nb-fade-in { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
 
     /* حالة عنصر واحد فقط */
-    .newsbar-marquee-single {
-      display: inline-flex;
-      white-space: nowrap;
-      gap: 2rem;
-      animation: nb-marquee-single var(--nb-speed, 25s) linear infinite;
-    }
+    .newsbar-marquee-single { display: inline-flex; white-space: nowrap; gap: 2rem; animation: nb-marquee-single var(--nb-speed, 25s) linear infinite; }
     @keyframes nb-marquee-single { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
 
-    /* شكل شارة Attention */
-    .newsbar-badge {
-      font-size: .65rem; padding: .1rem .45rem; border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.35);
-      background: #ef4444;   /* أحمر */
-      color:#fff;            /* خط أبيض */
-      font-weight: 600;
-    }
+    /* شارة Attention */
+    .newsbar-badge { font-size: .65rem; padding: .1rem .45rem; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: #ef4444; color:#fff; font-weight: 600; }
 
     /* ==== NEWS TICKER ==== */
     .newsbar { position: sticky; top: 64px; z-index: 35; margin-top: .5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,.12); background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); overflow: hidden; }
@@ -101,9 +90,11 @@
       </div>
       <div class="flex items-center gap-2 md:gap-3">
         <button id="reloadBtn" class="btn btn-sm btn-ghost btn-ico" title="Reload">🔄 <span>Reload</span></button>
+
         <!-- Sign in/out -->
         <button id="signInBtn" class="btn btn-sm btn-ghost btn-ico" title="Sign in">🔑 <span>Sign in</span></button>
         <button id="signOutBtn" class="btn btn-sm btn-ghost btn-ico hidden" title="Sign out">🚪 <span>Sign out</span></button>
+
         <!-- Hidden by default; shown only if admin -->
         <button id="toggleAdminPanel" class="btn btn-sm btn-ico hidden" title="Admin Panel">🛠️ <span>Admin Panel</span></button>
         <div id="adminChip" class="hidden text-xs bg-emerald-500/20 text-emerald-200 px-3 py-1 rounded-full border-emerald-400/30">admin mode</div>
@@ -130,15 +121,16 @@
         <div class="flex gap-2">
           <button id="showDrugsBtn" class="btn btn-sm glass btn-ico">💊 <span>Drugs</span></button>
           <button id="showSuppliesBtn" class="btn btn-sm glass btn-ico">🧰 <span>Supplies</span></button>
-          <!-- NEW: Services -->
           <button id="showServicesBtn" class="btn btn-sm glass btn-ico">🩺 <span>Services</span></button>
           <button id="showAllBtn" class="btn btn-sm glass btn-ico">📋 <span>All</span></button>
         </div>
         <div class="flex items-center gap-3">
           <label class="text-sm mb-0 inline-block">Search (name/code)</label>
           <input id="searchInput" type="text" class="input input-sm w-56 glass" placeholder="e.g. 1200.. or Normal Saline"/>
-          <!-- NEW: Toggle Item/Generic (لا تغيير في الستايل) -->
+
+          <!-- زر التبديل (لا تغيير في الستايل) -->
           <button id="nameModeBtn" class="btn btn-sm glass btn-ico" title="Toggle Item/Generic">🔀 <span>Name: Item</span></button>
+
           <div class="text-sm text-white/70">
             <span id="totalCounter">0</span> items — reports: <span id="reportsCount" class="font-semibold">0</span>
           </div>
@@ -176,7 +168,9 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
           <div class="lg:col-span-2">
             <label class="text-xs text-white/60">Messages (one per line)</label>
-            <textarea id="admNewsItems" class="textarea textarea-sm w-full glass mt-1" rows="5" placeholder="مثال:\nتم تحديث قائمة الأدوية.\nرجاء الإبلاغ عن الأكواد المعطلة."></textarea>
+            <textarea id="admNewsItems" class="textarea textarea-sm w-full glass mt-1" rows="5" placeholder="مثال:
+تم تحديث قائمة الأدوية.
+رجاء الإبلاغ عن الأكواد المعطلة."></textarea>
           </div>
           <div>
             <label class="text-xs text-white/60">Accent color</label>
@@ -303,7 +297,7 @@
         </div>
       </div>
 
-      <!-- NEW: Doctor Service Codes Panel -->
+      <!-- Doctor Service Codes -->
       <div class="glass p-4 mt-4">
         <h3 class="font-semibold mb-2">🩺 Doctor Service Codes</h3>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-2">
@@ -363,11 +357,11 @@
   // ========= State =========
   let db = null, auth = null, isAdmin = false;
   let rawItems = []; // {code,name,generic,qty,sell,type}
-  let serviceItems = []; // NEW: services
+  let serviceItems = [];
   let itemCodeSet = new Set();
-  let groupsByName = {};  // name -> {type,codes,color}
+  let groupsByName = {};
   let hierarchy = { drug: {}, supply: {}, service: {} };
-  let disabled = {}; // code -> doc
+  let disabled = {};
   let reports = [];
   let viewMode = "drug"; // all | drug | supply | service
   let selectedParent = null;
@@ -378,12 +372,14 @@
   // NEW: Item/Generic switch
   let nameMode = "item"; // "item" | "generic"
   function getDisplayName(it){
-    return (nameMode === "generic" && it?.generic) ? it.generic : (it?.name || "");
+    const g = (it?.generic||"").trim();
+    if (nameMode === "generic" && g) return g;
+    return (it?.name || "");
   }
 
   // Header (data-source) meta
   let sheetName = "Sheet";
-  let meta = { sourceLabel: null, updatedAt: null }; // updatedAt: ISO string or null
+  let meta = { sourceLabel: null, updatedAt: null };
 
   // ========= Utils =========
   const $ = (s,p=document)=>p.querySelector(s);
@@ -437,10 +433,9 @@
     clearError();
 
     const LS_KEY = "csvCache:v1";
-    const TTL_MS = 15 * 60 * 1000; // 15 دقيقة
+    const TTL_MS = 15 * 60 * 1000;
     const now = Date.now();
 
-    // حاول تقرأ من الكاش الأول
     try{
       const cached = JSON.parse(localStorage.getItem(LS_KEY)||"null");
       if (cached && (now - cached.ts) < TTL_MS && cached.csv){
@@ -450,7 +445,6 @@
       }
     }catch{}
 
-    // fetch بمهلة = 8 ثواني
     const ac = new AbortController();
     const t = setTimeout(()=> ac.abort(), 8000);
 
@@ -460,7 +454,6 @@
       if (!res.ok) throw new Error("Failed to download CSV from Google Sheets.");
       csvText = await res.text();
     }catch(e){
-      // fallback للكاش لو الشبكة فشلت
       const cached = JSON.parse(localStorage.getItem(LS_KEY)||"null");
       if (cached && cached.csv){
         await parseCsvText(cached.csv);
@@ -473,7 +466,6 @@
     }
     clearTimeout(t);
 
-    // حفظ في الكاش + بارس
     try{ localStorage.setItem(LS_KEY, JSON.stringify({ ts: now, csv: csvText })); }catch{}
     await parseCsvText(csvText);
     updateHeaderLine();
@@ -484,7 +476,6 @@
       let data = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
       data = data.filter((row, idx) => idx===0 || (row && row.some(c => c!==null && c!==undefined && c!== "")));
 
-      // keep sheet name
       sheetName = (wb.SheetNames && wb.SheetNames[0]) ? wb.SheetNames[0] : "Sheet";
 
       const headers = (data[0] || []).map(h=>String(h??""));
@@ -497,8 +488,8 @@
       // NEW: Generic Name column
       let genericIdx = findColByAliases(headers, ["generic name","generic","الاسم العلمي","المادة الفعالة","genericname"]);
 
-      const qtyIdx  = 8;   // I = PackQty
-      const sellIdx = 18;  // S = Sell. Price (not ظاهر)
+      const qtyIdx  = 8;   // I = PackQty (لو عندك مكان آخر عدّله)
+      const sellIdx = 18;  // S = Sell. Price (غير ظاهر)
 
       const map = new Map();
       for (const r of rows){
@@ -564,14 +555,14 @@
       auth.onAuthStateChanged(async (user)=>{
         try{
           const uid = user?.uid || null;
-          // detect admin
           if (uid) {
-            try{ const rolesDoc = await db.collection("userRoles").doc(uid).get(); isAdmin = (ADMINS.has(uid) || rolesDoc?.data()?.admin === true); }
-            catch{ isAdmin = ADMINS.has(uid); }
+            try{
+              const rolesDoc = await db.collection("userRoles").doc(uid).get();
+              isAdmin = (ADMINS.has(uid) || rolesDoc?.data()?.admin === true);
+            }catch{ isAdmin = ADMINS.has(uid); }
           } else { isAdmin = false; }
 
           updateAuthUI();
-          // load everything (meta/reports depend on auth)
           await Promise.allSettled([ loadGroups(), loadDisabled(), loadMeta(), loadReports(), loadDoctorServices(), loadNews() ]);
           buildCategoriesBar();
           render();
@@ -681,7 +672,7 @@
 
   async function resolveReport(id){ if(!db) return alert("Admin feature not available now"); await db.collection("inventory_reports").doc(id).set({resolved:true},{merge:true}); await loadReports(); }
 
-  // ========= NEW: Doctor Services =========
+  // ========= Doctor Services =========
   async function loadDoctorServices(){
     if(!db) return;
     try{
@@ -768,7 +759,7 @@
     track.innerHTML = "";
 
     const slot = document.createElement("div"); slot.id = "newsSlot"; slot.className = "flex items-center gap-2"; track.appendChild(slot);
-    function renderItem(rawText){ const { color, text } = extractColorAndText(rawText); const el = document.createElement("span"); el.className = "newsbar-item nb-fade-in"; el.innerHTML = `<span class=\"newsbar-badge\" style=\"background:${color};border-color:${color}80;color:#fff\">Attention</span><span class=\"inline-flex items-center px-2 py-0.5 rounded\" style=\"background:${color}1a;border:1px solid ${color}33\">${text}</span>`; slot.replaceChildren(el); }
+    function renderItem(rawText){ const { color, text } = extractColorAndText(rawText); const el = document.createElement("span"); el.className = "newsbar-item nb-fade-in"; el.innerHTML = `<span class="newsbar-badge" style="background:${color};border-color:${color}80;color:#fff">Attention</span><span class="inline-flex items-center px-2 py-0.5 rounded" style="background:${color}1a;border:1px solid ${color}33">${text}</span>`; slot.replaceChildren(el); }
     let i = 0; const stepMs = Math.max(2000, Number(newsConf.speedSec||25) * 1000); renderItem(items[i]);
     function start(){ if(_newsTimer) clearInterval(_newsTimer); _newsTimer = setInterval(()=>{ i = (i + 1) % items.length; renderItem(items[i]); }, stepMs); }
     function stop(){ if(_newsTimer){ clearInterval(_newsTimer); _newsTimer=null; } }
@@ -812,7 +803,11 @@
     const srcInput = $("#admSourceLabel");
     const dtInput  = $("#admUpdatedAt");
     srcInput.value = meta.sourceLabel || "";
-    if (meta.updatedAt){ const d = new Date(meta.updatedAt); const pad = n => String(n).padStart(2,"0"); const localISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; dtInput.value = localISO; } else { dtInput.value = ""; }
+    if (meta.updatedAt){
+      const d = new Date(meta.updatedAt); const pad = n => String(n).padStart(2,"0");
+      const localISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      dtInput.value = localISO;
+    } else { dtInput.value = ""; }
     $("#admHeaderPreview").textContent = $("#etag").textContent;
     $("#admSetNow").addEventListener("click", ()=>{ const d = new Date(); const pad = n => String(n).padStart(2,"0"); const localISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; dtInput.value = localISO; });
     $("#admUseSheet").addEventListener("click", ()=>{ srcInput.value = sheetName || "Sheet"; });
@@ -865,7 +860,7 @@
     $("#disableBtn").addEventListener("click", async ()=>{ const code = $("#disableCode").value.trim(); const reason = $("#disableReason").value.trim(); if (!code) return alert("Enter code"); try{ await disableCodeFn(code, reason); toast("Code disabled"); }catch(e){ showError(e?.message||e); } });
     $("#enableBtn").addEventListener("click", async ()=>{ const code = $("#disableCode").value.trim(); if (!code) return alert("Enter code"); try{ await enableCodeFn(code); toast("Code enabled"); }catch(e){ showError(e?.message||e); } });
 
-    function renderServiceCodesList(){ const box = $("#svcList"); if(!box) return; box.innerHTML = ""; const list = serviceItems.slice().sort((a,b)=> a.code.localeCompare(b.code)); list.forEach(s=>{ const row = document.createElement("div"); row.className = "glass p-2 flex items-center justify-between"; row.innerHTML = `<div><div class=\"text-xs text-white/60\">Code</div><div class=\"font-mono\">${s.code}</div><div class=\"text-xs text-white/60 mt-1\">${s.name||""}</div></div><div class=\"flex gap-2\"><button class=\"btn btn-xs\">Edit</button><button class=\"btn btn-xs btn-error btn-outline\">Delete</button></div>`; row.querySelectorAll("button")[0].addEventListener("click", ()=>{ $("#svcCode").value = s.code; $("#svcName").value = s.name || ""; }); row.querySelectorAll("button")[1].addEventListener("click", async ()=>{ if(!confirm(`Delete ${s.code}?`)) return; await db.collection("doctor_service_codes").doc(s.code).delete(); await loadDoctorServices(); render(); renderServiceCodesList(); toast("Deleted."); }); box.appendChild(row); }); }
+    function renderServiceCodesList(){ const box = $("#svcList"); if(!box) return; box.innerHTML = ""; const list = serviceItems.slice().sort((a,b)=> a.code.localeCompare(b.code)); list.forEach(s=>{ const row = document.createElement("div"); row.className = "glass p-2 flex items-center justify-between"; row.innerHTML = `<div><div class="text-xs text-white/60">Code</div><div class="font-mono">${s.code}</div><div class="text-xs text-white/60 mt-1">${s.name||""}</div></div><div class="flex gap-2"><button class="btn btn-xs">Edit</button><button class="btn btn-xs btn-error btn-outline">Delete</button></div>`; row.querySelectorAll("button")[0].addEventListener("click", ()=>{ $("#svcCode").value = s.code; $("#svcName").value = s.name || ""; }); row.querySelectorAll("button")[1].addEventListener("click", async ()=>{ if(!confirm(`Delete ${s.code}?`)) return; await db.collection("doctor_service_codes").doc(s.code).delete(); await loadDoctorServices(); render(); renderServiceCodesList(); toast("Deleted."); }); box.appendChild(row); }); }
     async function saveServiceCode(){ if(!db || !isAdmin) return alert("Not authorized"); const code = $("#svcCode").value.trim(); const name = $("#svcName").value.trim(); if(!code || !name) return alert("Enter code and name"); await db.collection("doctor_service_codes").doc(code).set({ name }, { merge:true }); await loadDoctorServices(); render(); renderServiceCodesList(); toast("Saved."); }
     async function deleteServiceCode(){ if(!db || !isAdmin) return alert("Not authorized"); const code = $("#svcCode").value.trim(); if(!code) return alert("Enter code"); if(!confirm(`Delete ${code}?`)) return; await db.collection("doctor_service_codes").doc(code).delete(); $("#svcName").value = ""; await loadDoctorServices(); render(); renderServiceCodesList(); toast("Deleted."); }
     $("#svcSave")?.addEventListener("click", saveServiceCode);
@@ -873,7 +868,7 @@
     renderServiceCodesList();
   }
 
-  // ===== Report Modal helpers ===== (minimal)
+  // ===== Report (minimal) =====
   let _reportTargetCode = null;
   function openReportModal(code){ _reportTargetCode = code; document.getElementById("reportCode").textContent = code; document.getElementById("reportModal")?.showModal(); }
   document.addEventListener("DOMContentLoaded", bindReportModal);
@@ -909,7 +904,7 @@
     $("#signInBtn")?.addEventListener("click", googleSignIn);
     $("#signOutBtn")?.addEventListener("click", doSignOut);
 
-    // NEW: toggle Item/Generic (زرارين في سطر واحد)
+    // NEW: toggle Item/Generic
     const nameBtn = $("#nameModeBtn");
     if (nameBtn){
       const refreshHeaderLabels = ()=>{
@@ -921,8 +916,8 @@
         nameMode = (nameMode === "item" ? "generic" : "item");
         nameBtn.querySelector("span").textContent = `Name: ${nameMode === "item" ? "Item" : "Generic"}`;
         refreshHeaderLabels();
-        render();
-        renderDisabledList();
+        render();              // يعيد رسم الجداول بعنوان العمود الصحيح
+        renderDisabledList();  // يحدّث قائمة disabled بنفس الاسم المختار
         if (isAdmin) renderReports();
       });
       // init label
@@ -960,6 +955,8 @@
     const tdName = document.createElement("td");
     const labelName = findItemGroupName(it);
     const qtyNum   = Number(it.qty) || 0;
+
+    // low-stock tint
     let rowTintClass = "", qtyClass = "text-white/60";
     if (it.type === "drug" || it.type === "supply"){
       if (qtyNum < 5) { rowTintClass = "bg-red-500/10"; qtyClass = "text-red-300"; }
@@ -969,22 +966,18 @@
 
     const warnIcon = (it.type !== "service" && qtyNum < 5) ? `<span title="Low stock">⚠️</span>` : "";
     const qtyHTML = (it.type !== "service" && qtyNum > 0)
-      ? `<span class="text-xs ${qtyClass}">(${qtyNum})</span>`
-      : "";
+      ? `<span class="text-xs ${qtyClass}">(${qtyNum})</span>` : "";
 
-    const dispName = getDisplayName(it);
-
+    const displayName = getDisplayName(it);
     tdName.innerHTML = `
       <div class="${isDisabled ? 'strike' : ''}">
         <div class="flex items-center gap-2">
-          <span class="name-one-line" title="${dispName}">
-            ${EMOJI[it.type] || ""} ${dispName}
-            ${qtyHTML}
+          <span class="name-one-line" title="${displayName}">
+            ${EMOJI[it.type] || ""} ${displayName} ${qtyHTML}
           </span>
           ${warnIcon} ${groupBadgeHTML(labelName, it.code)}
         </div>
-      </div>
-    `;
+      </div>`;
     tr.appendChild(tdCode);
     tr.appendChild(tdName);
   }
@@ -993,13 +986,11 @@
   function render(){
     const q = $("#searchInput").value.trim().toLowerCase();
 
-    // ابحث بكود الصنف + أي من الاسمين (Item/Generic)
+    // اجعل البحث يعتمد على الاسم المعروض (Item/Generic) + الكود
     let pool = rawItems.filter(it => {
       if (!q) return true;
-      const dn = (getDisplayName(it) || "").toLowerCase();
-      const n  = (it.name || "").toLowerCase();
-      const g  = (it.generic || "").toLowerCase();
-      return it.code.toLowerCase().includes(q) || dn.includes(q) || n.includes(q) || g.includes(q);
+      const disp = getDisplayName(it).toLowerCase();
+      return it.code.toLowerCase().includes(q) || disp.includes(q);
     });
 
     if (!isAdmin || !showDisabledInside) pool = pool.filter(it => !disabled[it.code]);
@@ -1022,9 +1013,9 @@
         wrap.appendChild(h);
       }
 
+      const nameHeader = (nameMode === "generic") ? "Generic Name" : "Item Name";
       const tbl = document.createElement("table");
       tbl.className = "text-sm w-full";
-      const nameHeader = (nameMode === "generic") ? "Generic Name" : "Item Name";
       tbl.innerHTML = `
         <thead>
           <tr>
@@ -1055,7 +1046,6 @@
     let shownCount = 0;
     renderSuppressLabels = false;
 
-    // ==== Views ====
     if (viewMode === "drug" || viewMode === "supply" || viewMode === "service"){
       const mode = viewMode;
       let poolByType = pool.filter(it => it.type === mode);
@@ -1073,14 +1063,8 @@
           const codeMap = groupsByName[name]?.codes || {};
           let list = poolByType.filter(it => codeMap[it.code]);
 
-          // ① بالاسم المعروض (Item/Generic) أبجديًا، ② ثم بالكمية نزولًا
-          list.sort((a,b) => {
-            const an = getDisplayName(a);
-            const bn = getDisplayName(b);
-            const cmp = an.localeCompare(bn);
-            if (cmp !== 0) return cmp;
-            return ((b.qty||0) - (a.qty||0));
-          });
+          // ① بالاسم أبجديًا (حسب العرض الحالي) ② ثم بالكمية نزولًا
+          list.sort((a,b) => getDisplayName(a).localeCompare(getDisplayName(b)) || ((b.qty||0) - (a.qty||0)));
 
           if (list.length){
             list.forEach(it => coveredCodes.add(it.code));
@@ -1092,7 +1076,6 @@
         if (SHOW_UNGROUPED && !selectedParent){
           const ungrouped = poolByType.filter(it => !coveredCodes.has(it.code));
           if (ungrouped.length){
-            ungrouped.sort((a,b)=> getDisplayName(a).localeCompare(getDisplayName(b)) || ((b.qty||0)-(a.qty||0)));
             renderTableFor(ungrouped, "Ungrouped");
             shownCount += ungrouped.length;
           }
@@ -1101,19 +1084,14 @@
       } else {
         flatBlock.classList.remove("hidden");
         $("#emptyMsg").classList.toggle("hidden", poolByType.length !== 0);
-        poolByType
-          .sort((a,b)=> getDisplayName(a).localeCompare(getDisplayName(b)) || ((b.qty||0)-(a.qty||0)))
-          .forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
+        poolByType.forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
         shownCount = poolByType.length;
       }
 
     } else {
-      // All
       flatBlock.classList.remove("hidden");
       $("#emptyMsg").classList.toggle("hidden", pool.length !== 0);
-      pool
-        .sort((a,b)=> getDisplayName(a).localeCompare(getDisplayName(b)) || ((b.qty||0)-(a.qty||0)))
-        .forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
+      pool.forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
       shownCount = pool.length;
     }
 
@@ -1123,13 +1101,14 @@
   // ========= Boot =========
   (async function boot(){
     try{
-      await loadFromGoogleSheetsCSV(); // sets sheetName
       bindUI();
+      await safeInitFirebase();          // ← Firebase الأول عشان Enable/Disable دايمًا يشتغل
+      await loadFromGoogleSheetsCSV();   // ← بعدها حمّل الـ CSV (وفيه Generic/Item)
       await loadNews();
+
       document.getElementById("showDrugsBtn")?.click();
       buildCategoriesBar();
       render();
-      await safeInitFirebase(); // loads meta + services + shows admin UI if allowed
     }catch(e){
       console.error(e);
       showError("Data load error: " + (e?.message || e));
