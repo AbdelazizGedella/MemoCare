@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="dark">
 <head>
@@ -19,6 +20,9 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
+
+    .pill-mini { font-size: .64rem; padding: 1px 6px; letter-spacing: .1px; }
+
     :root {
       --bg: #0b1220;
       --glass: rgba(18, 28, 48, 0.6);
@@ -194,10 +198,11 @@
     const CSV_URL = urlParams.get('csv') || CSV_URL_DEFAULT;
 
     // Restricted ranges (inclusive)
-    const RESTRICTED = [
-      { start: "2026-02-15", end: "2026-03-25" }, // Ramadan
-      { start: "2026-05-01", end: "2026-06-01" }, // Zulhijjah
-    ].map(r => ({ start: new Date(r.start+"T00:00:00"), end: new Date(r.end+"T00:00:00") }));
+// Restricted ranges (inclusive)
+const RESTRICTED = [
+  { start: "2026-02-07", end: "2026-03-25" }, // Ramadan 2026 (≈ 20 Sha'ban → 6 Shawwal)
+  { start: "2026-05-17", end: "2026-05-31" }, // Zulhijjah 2026 (≈ 1 → 15 Dhu al-Hijjah)
+].map(r => ({ start: new Date(r.start + "T00:00:00"), end: new Date(r.end + "T00:00:00") }));
 
     // Columns
     const COLS = { id: 'ID', from: 'From', to: 'To', balance: 'Leave Balance' };
@@ -248,11 +253,23 @@
     const isRestricted = (d)=> RESTRICTED.some(r => between(d, r.start, r.end));
 
     // Deterministic color per employee
-    function empColor(empNumber) {
-      const s = String(empNumber||'0');
-      let h = 0; for (let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) % 360;
-      return `hsl(${h}, 75%, 55%)`;
-    }
+ // ألوان متباعدة بوضوح لكل موظف
+function empColor(empNumber) {
+  const s = String(empNumber || '0');
+  // Hash بسيط إلى رقم ثابت
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 131 + s.charCodeAt(i)) >>> 0;
+
+  // نشر الدرجات بالزاوية الذهبية لزيادة التباعد
+  const GOLDEN_ANGLE = 137.508; // degrees
+  const h = Math.round(((hash % 360) * GOLDEN_ANGLE)) % 360;
+
+  // تشبع/إضاءة مع هامش اختلاف بسيط لضمان تباين جيد
+  const sat = 70 + (hash % 15);  // 70..85%
+  const lig = 48 + (hash % 12);  // 48..60%
+
+  return `hsl(${h}, ${sat}%, ${lig}%)`;
+}
 
     // ======== STATE ========
     const year = 2026;
@@ -372,11 +389,13 @@
             </div>
             <div class="hijri-mini mt-1">${hijriStr}</div>
             <div class="mt-2 flex gap-1 flex-wrap">
-              ${items.slice(0,3).map(i => {
-                const e = entries[i];
-                const dim = filteredIdx && !filteredIdx.has(i) ? 'opacity-30' : '';
-                return `<span class="pill ${dim}">${e.firstName} [${e.empNumber}]</span>`;
-              }).join('')}
+${items.slice(0,3).map(i => {
+  const e = entries[i];
+  const dim = filteredIdx && !filteredIdx.has(i) ? 'opacity-30' : '';
+  // رقم وظيفي + اسم أول فقط، بدون أقواس، بخط أصغر
+  return `<span class="pill pill-mini ${dim}">${e.empNumber} ${e.firstName}</span>`;
+}).join('')}
+
               ${items.length>3 ? `<span class="badge badge-xs badge-outline">+${items.length-3}</span>` : ''}
             </div>
             ${matchEmpNumbers.length ? `<div class="emp-bars">${matchEmpNumbers.map(emp => `<span class="emp-bar" style="background:${empColor(emp)}"></span>`).join('')}</div>` : ``}
