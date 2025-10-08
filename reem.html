@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Billing Sheet</title>
+
+  <!-- Tailwind & DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet"/>
+
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Firebase (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+  <style>
+    .nb-fade-in { animation: nb-fade-in 600ms ease both; }
+    @keyframes nb-fade-in { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:translateY(0)} }
+
+    /* حالة عنصر واحد فقط */
+    .newsbar-marquee-single {
+      display: inline-flex;
+      white-space: nowrap;
+      gap: 2rem;
+      animation: nb-marquee-single var(--nb-speed, 25s) linear infinite;
+    }
+    @keyframes nb-marquee-single { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+    /* شكل شارة Attention */
+    .newsbar-badge {
+      font-size: .65rem; padding: .1rem .45rem; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.35);
+      background: #ef4444;   /* أحمر */
+      color:#fff;            /* خط أبيض */
+      font-weight: 600;
+    }
+
+    /* ==== NEWS TICKER ==== */
+    .newsbar { position: sticky; top: 64px; z-index: 35; margin-top: .5rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,.12); background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); overflow: hidden; }
+    .newsbar-header { display:flex; align-items:center; gap:.5rem; padding:.4rem .75rem; font-weight:600; font-size:.8rem; border-bottom: 1px solid rgba(255,255,255,.08); background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,0)); }
+    .newsbar-dot { width:.5rem; height:.5rem; border-radius:999px; opacity:.9 }
+    .newsbar-track { position: relative; display:flex; gap:2rem; white-space:nowrap; padding:.5rem .75rem; }
+    .newsbar-item { opacity:.95; font-size:.9rem; display:inline-flex; align-items:center; gap:.5rem; }
+    .newsbar-badge { font-size:.65rem; padding:.1rem .45rem; border-radius:999px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06); }
+    .newsbar-marquee { display:flex; gap:2rem; animation: nb-marquee var(--nb-speed, 25s) linear infinite; }
+    .newsbar:hover .newsbar-marquee { animation-play-state: paused; }
+    @keyframes nb-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+    :root { color-scheme: dark; }
+    body{
+      background:
+        radial-gradient(1200px 600px at 10% 0%, rgba(92,148,255,.12), transparent),
+        radial-gradient(900px 500px at 90% 20%, rgba(0,255,224,.10), transparent),
+        linear-gradient(135deg, #071022 0%, #0b1026 100%);
+      min-height: 100vh;
+      font-family: system-ui, "Segoe UI", Tahoma, Arial;
+    }
+    .glass { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); backdrop-filter: blur(12px) saturate(120%); -webkit-backdrop-filter: blur(12px) saturate(120%); border: 1px solid rgba(255,255,255,.12); border-radius: 1rem; box-shadow: 0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.05); }
+
+    /* clearer inputs/selects on dark */
+    .select, .input, .textarea { color:#e5e7eb !important; background-color: rgba(255,255,255,.06) !important; }
+    .select:focus, .input:focus, .textarea:focus { outline: 2px solid rgba(255,255,255,.25); }
+    .select option { color:#e5e7eb; background-color:#0b1026; }
+    ::placeholder { color: #9ca3af; opacity:1; }
+
+    .chip{ display:inline-flex; align-items:center; gap:.35rem; font-size:.65rem; padding:.1rem .35rem; border-radius:999px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06); text-transform: none; font-variant-caps: normal; }
+    .name-one-line{ display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: clamp(220px, 60vw, 1200px); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid rgba(255,255,255,.08); padding: .6rem .75rem; vertical-align: middle; }
+    th { position: sticky; top: 0; background: rgba(0,0,0,.2); backdrop-filter: blur(6px); z-index:1; }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+    .strike { text-decoration: line-through; opacity:.6 }
+    .pill .dot{width:.6rem;height:.6rem;border-radius:999px;display:inline-block;opacity:.95}
+
+    .pill { display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .7rem; border-radius:999px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); cursor:pointer; user-select:none }
+    .pill.active { outline:2px solid rgba(255,255,255,.35) }
+    .pill.btnlike { padding:.45rem .8rem; }
+    .muted { color:#9ca3af; }
+    .btn-ico { display:inline-flex; align-items:center; gap:.45rem; }
+  </style>
+</head>
+<body class="text-white">
+
+  <!-- Error Bar -->
+  <div id="errBar" class="hidden bg-red-500/20 border border-red-400/40 text-red-200 px-4 py-2 text-sm"></div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 glass p-4 md:p-5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-xl">📄</div>
+        <div>
+          <h1 class="text-lg md:text-2xl font-bold">Billing Sheet</h1>
+          <p class="text-xs md:text-sm text-white/70"><span id="etag">—</span></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 md:gap-3">
+        <button id="reloadBtn" class="btn btn-sm btn-ghost btn-ico" title="Reload">🔄 <span>Reload</span></button>
+        <!-- Sign in/out -->
+        <button id="signInBtn" class="btn btn-sm btn-ghost btn-ico" title="Sign in">🔑 <span>Sign in</span></button>
+        <button id="signOutBtn" class="btn btn-sm btn-ghost btn-ico hidden" title="Sign out">🚪 <span>Sign out</span></button>
+        <!-- Hidden by default; shown only if admin -->
+        <button id="toggleAdminPanel" class="btn btn-sm btn-ico hidden" title="Admin Panel">🛠️ <span>Admin Panel</span></button>
+        <div id="adminChip" class="hidden text-xs bg-emerald-500/20 text-emerald-200 px-3 py-1 rounded-full border-emerald-400/30">admin mode</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- NEWS Ticker -->
+  <section id="newsBar" class="newsbar hidden max-w-7xl mx-auto">
+    <div class="newsbar-header">
+      <span class="newsbar-dot" id="newsAccentDot" style="background:#60a5fa"></span>
+      <span>NEWS</span>
+      <span id="newsUpdatedAt" class="text-white/60 text-xs ml-2">—</span>
+    </div>
+    <div class="newsbar-track">
+      <div id="newsMarquee" class="newsbar-marquee"></div>
+    </div>
+  </section>
+
+  <!-- Row #1: Type filter + search -->
+  <section class="max-w-7xl mx-auto p-4 md:p-6">
+    <div class="glass p-4 md:p-5">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex gap-2">
+          <button id="showDrugsBtn" class="btn btn-sm glass btn-ico">💊 <span>Drugs</span></button>
+          <button id="showSuppliesBtn" class="btn btn-sm glass btn-ico">🧰 <span>Supplies</span></button>
+          <!-- NEW: Services -->
+          <button id="showServicesBtn" class="btn btn-sm glass btn-ico">🩺 <span>Services</span></button>
+          <button id="showAllBtn" class="btn btn-sm glass btn-ico">📋 <span>All</span></button>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-sm mb-0 inline-block">Search (name/code)</label>
+          <input id="searchInput" type="text" class="input input-sm w-56 glass" placeholder="e.g. 1200.. or Normal Saline"/>
+          <!-- NEW: Toggle Item/Generic (لا تغيير في الستايل) -->
+          <button id="nameModeBtn" class="btn btn-sm glass btn-ico" title="Toggle Item/Generic">🔀 <span>Name: Item</span></button>
+          <div class="text-sm text-white/70">
+            <span id="totalCounter">0</span> items — reports: <span id="reportsCount" class="font-semibold">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories bar -->
+      <div id="categoriesBar" class="mt-4 hidden">
+        <div class="text-xs text-white/60 mb-2">Categories:</div>
+        <div id="parentGroupsChips" class="flex flex-wrap gap-2"></div>
+        <div id="subGroupsChipsWrap" class="mt-3 hidden">
+          <div class="text-xs text-white/60 mb-2">Sub-categories:</div>
+          <div id="subGroupsChips" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+
+      <!-- (admin only) show disabled inside table -->
+      <div id="adminExtras" class="hidden mt-4">
+        <label class="label cursor-pointer gap-2">
+          <span class="label-text text-sm text-white/80">Show disabled codes inside table</span>
+          <input id="toggleShowDisabled" type="checkbox" class="toggle toggle-sm"/>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- Admin Panel -->
+  <section id="adminPanel" class="max-w-7xl mx-auto px-4 md:px-6 hidden">
+    <div class="glass p-4 md:p-6 mb-4">
+      <h2 class="text-xl font-bold mb-3">Admin Panel</h2>
+
+      <!-- 🗞️ News Ticker (Admin) -->
+      <div class="glass p-4 mb-4">
+        <h3 class="font-semibold mb-2">🗞️ News Ticker</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+          <div class="lg:col-span-2">
+            <label class="text-xs text-white/60">Messages (one per line)</label>
+            <textarea id="admNewsItems" class="textarea textarea-sm w-full glass mt-1" rows="5" placeholder="مثال:\nتم تحديث قائمة الأدوية.\nرجاء الإبلاغ عن الأكواد المعطلة."></textarea>
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Accent color</label>
+            <div class="flex items-center gap-2 mt-1">
+              <input id="admNewsColor" type="color" class="input input-sm glass" value="#60a5fa" style="width:48px;padding:0;">
+              <input id="admNewsColorHex" class="input input-sm glass" placeholder="#60a5fa"/>
+            </div>
+            <label class="text-xs text-white/60 mt-3 block">Speed (seconds / loop)</label>
+            <input id="admNewsSpeed" type="number" min="8" max="120" step="1" class="input input-sm glass mt-1" placeholder="25">
+          </div>
+          <div>
+            <label class="label cursor-pointer">
+              <span class="label-text text-sm text-white/80">Enabled</span>
+              <input id="admNewsEnabled" type="checkbox" class="toggle toggle-sm ml-2"/>
+            </label>
+            <div class="flex gap-2 mt-2">
+              <button id="admNewsSave" class="btn btn-sm btn-primary w-full">💾 Save</button>
+              <button id="admNewsClear" class="btn btn-sm btn-outline w-full">🧹 Clear</button>
+            </div>
+            <div class="text-xs muted mt-2" id="admNewsStatus">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Header / Data source controls -->
+      <div class="glass p-4 mb-4">
+        <h3 class="font-semibold mb-2">🪪 Header Display (Data source line)</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs text-white/60">Source label (e.g. your sheet name)</label>
+            <input id="admSourceLabel" class="input input-sm glass mt-1" placeholder="e.g. Pharmacy Sheet">
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Updated at (datetime)</label>
+            <input id="admUpdatedAt" type="datetime-local" class="input input-sm glass mt-1">
+            <div class="flex gap-2 mt-2">
+              <button id="admSetNow" class="btn btn-xs">Set to now</button>
+              <button id="admUseSheet" class="btn btn-xs">Use CSV sheet name</button>
+            </div>
+          </div>
+          <div class="flex items-end">
+            <button id="admSaveHeader" class="btn btn-sm btn-primary w-full">💾 Save header</button>
+          </div>
+        </div>
+        <div class="text-xs muted mt-2">Shown as: <code id="admHeaderPreview">—</code></div>
+      </div>
+
+      <!-- Manage Groups -->
+      <div class="glass p-4 mb-4">
+        <h3 class="font-semibold mb-2">🗂️ Manage Groups — Parent/Sub & Bulk Codes</h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+          <div>
+            <label class="text-xs text-white/60">Type</label>
+            <div class="mt-1">
+              <label class="pill btnlike mr-2"><input type="radio" name="admType" value="drug" checked class="mr-2">Drug</label>
+              <label class="pill btnlike mr-2"><input type="radio" name="admType" value="supply" class="mr-2">Supply</label>
+              <label class="pill btnlike"><input type="radio" name="admType" value="service" class="mr-2">Service</label>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Parent</label>
+            <input id="admParentFilter" class="input input-xs glass mt-1" placeholder="Filter parents...">
+            <select id="admParent" class="select select-sm w-full glass text-white mt-1"></select>
+            <input id="admParentNew" class="input input-sm glass mt-2" placeholder="or type a new parent">
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Sub-group</label>
+            <input id="admSubFilter" class="input input-xs glass mt-1" placeholder="Filter sub-groups...">
+            <select id="admSub" class="select select-sm w-full glass text-white mt-1"></select>
+            <input id="admSubNew" class="input input-sm glass mt-2" placeholder="or type a new sub-group">
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Group color</label>
+            <div class="flex items-center gap-2 mt-1">
+              <input id="admColor" type="color" class="input input-sm glass" value="#60a5fa" style="width:48px;padding:0;">
+              <input id="admColorHex" class="input input-sm glass" placeholder="#60a5fa"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 mt-3">
+          <div class="lg:col-span-3">
+            <label class="text-xs text-white/60">Item codes (one per line)</label>
+            <textarea id="admCodes" class="textarea textarea-sm w-full glass mt-1" rows="6" placeholder="e.g. 12001 12002 20010"></textarea>
+            <div class="text-xs text-white/60 mt-1">Codes not found in the catalog will be ignored on save.</div>
+          </div>
+          <div>
+            <label class="text-xs text-white/60">Quick actions</label>
+            <div class="flex flex-col gap-2 mt-1">
+              <button id="admSave" class="btn btn-sm btn-primary">💾 Save/Update</button>
+              <button id="admMerge" class="btn btn-sm">➕ Merge (add only)</button>
+              <button id="admRemove" class="btn btn-sm btn-warning">➖ Remove (subtract)</button>
+              <button id="admDelete" class="btn btn-sm btn-error btn-outline">🗑️ Delete group</button>
+              <div class="text-xs text-white/70 mt-1">Valid codes: <b id="admValidCount">0</b> / <span id="admTotalCount">0</span></div>
+              <div class="text-xs muted mt-1" id="admCurrent">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Disable/Enable + Reports + Disabled list -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="glass p-4">
+          <h3 class="font-semibold mb-2">⛔ Disable / Enable code</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <input id="disableCode" class="input input-sm glass" placeholder="Item Code"/>
+            <input id="disableReason" class="input input-sm glass" placeholder="Reason (optional)"/>
+          </div>
+          <div class="mt-2 flex gap-2">
+            <button id="disableBtn" class="btn btn-sm btn-warning">Disable</button>
+            <button id="enableBtn" class="btn btn-sm btn-success btn-outline">Enable</button>
+          </div>
+        </div>
+
+        <div class="glass p-4">
+          <h3 class="font-semibold mb-2">🚩 Reports</h3>
+          <div id="reportsList" class="space-y-2 max-h-56 overflow-auto text-sm"></div>
+        </div>
+
+        <div class="glass p-4">
+          <h3 class="font-semibold mb-2">🚫 Disabled codes</h3>
+          <div id="disabledList" class="space-y-2 text-sm max-h-56 overflow-auto"></div>
+        </div>
+      </div>
+
+      <!-- NEW: Doctor Service Codes Panel -->
+      <div class="glass p-4 mt-4">
+        <h3 class="font-semibold mb-2">🩺 Doctor Service Codes</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-2">
+          <input id="svcCode" class="input input-sm glass" placeholder="Service Code (e.g. 1680011)">
+          <input id="svcName" class="input input-sm glass" placeholder="Service Name (e.g. Doctor Consultation)">
+          <div class="flex gap-2">
+            <button id="svcSave" class="btn btn-sm btn-primary">💾 Save/Update</button>
+            <button id="svcDelete" class="btn btn-sm btn-error btn-outline">🗑️ Delete</button>
+          </div>
+        </div>
+        <div class="text-xs text-white/60 mt-2">Saved services:</div>
+        <div id="svcList" class="mt-2 space-y-2 max-h-56 overflow-auto text-sm"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grouped sections container -->
+  <main class="max-w-7xl mx-auto p-4 md:p-6">
+    <div id="groupsContainer" class="grid gap-6 md:grid-cols-2"></div>
+
+    <!-- Fallback flat table -->
+    <div id="flatBlock" class="glass p-3 md:p-4 overflow-auto">
+      <table class="text-sm">
+        <thead>
+          <tr>
+            <th style="min-width:140px;">Item Code</th>
+            <th id="flatNameHeader">Item Name</th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+      <div id="emptyMsg" class="text-center text-white/60 mt-4 hidden">No matching items.</div>
+    </div>
+  </main>
+
+  <script>
+  window.getItemByCode = window.getItemByCode || function(code){
+    const c = String(code);
+    return (window.rawItems || []).find(it => it.code === c) || null;
+  };
+
+  // ========= Settings =========
+  const SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAuW0hRVeyJeXeox1OsMjUYTDUai4fp7a2KO9mO4kTYUG4NQgMMsTnXQfql9xRdQ/pub?output=csv";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
+    authDomain: "ctwo-eee79.firebaseapp.com",
+    projectId: "ctwo-eee79",
+    storageBucket: "ctwo-eee79.appspot.com",
+    messagingSenderId: "788657051205",
+    appId: "1:788657051205:web:5d4b6884a0ca09e4cb352c",
+  };
+  const ADMINS = new Set(["VEPPHo0YHvcIGA0hsqxBmAAkDRK2"]);
+  const EMOJI = { drug: "", supply: "", service: "🩺" };
+  const SHOW_UNGROUPED = true;
+
+  // ========= State =========
+  let db = null, auth = null, isAdmin = false;
+  let rawItems = []; // {code,name,generic,qty,sell,type}
+  let serviceItems = []; // NEW: services
+  let itemCodeSet = new Set();
+  let groupsByName = {};  // name -> {type,codes,color}
+  let hierarchy = { drug: {}, supply: {}, service: {} };
+  let disabled = {}; // code -> doc
+  let reports = [];
+  let viewMode = "drug"; // all | drug | supply | service
+  let selectedParent = null;
+  let selectedSub = null;
+  let showDisabledInside = false;
+  let renderSuppressLabels = false;
+
+  // NEW: Item/Generic switch
+  let nameMode = "item"; // "item" | "generic"
+  function getDisplayName(it){
+    return (nameMode === "generic" && it?.generic) ? it.generic : (it?.name || "");
+  }
+
+  // Header (data-source) meta
+  let sheetName = "Sheet";
+  let meta = { sourceLabel: null, updatedAt: null }; // updatedAt: ISO string or null
+
+  // ========= Utils =========
+  const $ = (s,p=document)=>p.querySelector(s);
+  function showError(msg){ const el=$("#errBar"); el.textContent=msg; el.classList.remove("hidden"); }
+  function clearError(){ $("#errBar").classList.add("hidden"); }
+  function toast(msg){ const el=document.createElement("div"); el.className="fixed bottom-4 right-4 glass px-4 py-2 z-50"; el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),2000); }
+  let _deb; function debounce(fn,ms){ return()=>{ clearTimeout(_deb); _deb=setTimeout(fn,ms); }; }
+  function sentenceCase(s){ if(!s) return ""; s=String(s).trim(); return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
+  const PALETTE = ["#60a5fa","#34d399","#f59e0b","#a78bfa","#f43f5e","#22c55e","#f97316","#38bdf8","#f472b6","#84cc16"];
+  function colorFor(name){ if (!name) return "#94a3b8"; let h=0; for (let i=0;i<name.length;i++) h=(h*31 + name.charCodeAt(i))>>>0; return PALETTE[h % PALETTE.length]; }
+  function splitNameToParentSub(name){ if (!name) return {parent:name, sub:null}; const t = String(name); const s = t.includes("::") ? t.split("::") : (t.includes("/") ? t.split("/") : [t]); const parent = s[0].trim(); const sub = s.length>1 ? s.slice(1).join(s.includes("::")?"::":"/").trim() : null; return { parent, sub }; }
+  function fmtLocal(dt){ try{ return new Date(dt).toLocaleString(); }catch{ return String(dt||""); } }
+
+  function getItemByCode(code){ const c = String(code); return rawItems.find(it => it.code === c) || null; }
+
+  // ========= CSV → Items =========
+  function normalizeHeader(h){ return String(h||"").toLowerCase().trim(); }
+  function findColByAliases(headers, aliases){
+    const lowered = headers.map(normalizeHeader);
+    for (const a of aliases){ const i = lowered.indexOf(a.toLowerCase()); if (i>=0) return i; }
+    for (let i=0;i<lowered.length;i++){ if (aliases.some(a => lowered[i].includes(a.toLowerCase()))) return i; }
+    return -1;
+  }
+  function guessCols(headers, rows){
+    const H = headers.length;
+    const stats = Array.from({length:H}, (_,c)=>{
+      let nonEmpty=0, numeric=0, starts12=0, starts2=0, avgLen=0, samples=0;
+      for (let r=0;r<rows.length;r++){
+        const v=rows[r][c]; if (v==null || v==="") continue;
+        nonEmpty++; const s=String(v).trim(); samples++; avgLen+=s.length;
+        const n=Number(s); if(!isNaN(n) && s!=="") numeric++;
+        if (/^\s*12\d+/.test(s)) starts12++; if (/^\s*2\d+/.test(s)) starts2++;
+      }
+      return {nonEmpty, numr: nonEmpty? numeric/nonEmpty:0, codeHint: nonEmpty? Math.max(starts12/nonEmpty,starts2/nonEmpty):0, avg: samples? avgLen/samples:0};
+    });
+    let codeIdx=-1, best=-1;
+    for(let i=0;i<H;i++){ const s=stats[i]; const sc=s.numr*0.55+s.codeHint*0.4+(1-Math.min(s.avg/30,1))*0.05; if (s.nonEmpty>0 && sc>best){ best=sc; codeIdx=i; } }
+    let nameIdx=-1, bestN=-1;
+    for(let i=0;i<H;i++){ const s=stats[i]; const sc=(1-s.numr)*0.7+Math.min(s.avg/30,1)*0.3; if (s.nonEmpty>0 && sc>bestN && i!==codeIdx){ bestN=sc; nameIdx=i; } }
+    return {codeIdx, nameIdx};
+  }
+
+  function updateHeaderLine(){
+    const label = meta.sourceLabel || sheetName || "Sheet";
+    const when  = meta.updatedAt ? fmtLocal(meta.updatedAt) : new Date().toLocaleString();
+    $("#etag").textContent = `${label} — CSV (Google Sheets) — ${when}`;
+    const prev = $("#admHeaderPreview"); if (prev) prev.textContent = $("#etag").textContent;
+  }
+
+  async function loadFromGoogleSheetsCSV(){
+    clearError();
+
+    const LS_KEY = "csvCache:v1";
+    const TTL_MS = 15 * 60 * 1000; // 15 دقيقة
+    const now = Date.now();
+
+    // حاول تقرأ من الكاش الأول
+    try{
+      const cached = JSON.parse(localStorage.getItem(LS_KEY)||"null");
+      if (cached && (now - cached.ts) < TTL_MS && cached.csv){
+        await parseCsvText(cached.csv);
+        updateHeaderLine();
+        return;
+      }
+    }catch{}
+
+    // fetch بمهلة = 8 ثواني
+    const ac = new AbortController();
+    const t = setTimeout(()=> ac.abort(), 8000);
+
+    let csvText = "";
+    try{
+      const res = await fetch(SHEETS_CSV_URL, { cache:"no-store", signal: ac.signal });
+      if (!res.ok) throw new Error("Failed to download CSV from Google Sheets.");
+      csvText = await res.text();
+    }catch(e){
+      // fallback للكاش لو الشبكة فشلت
+      const cached = JSON.parse(localStorage.getItem(LS_KEY)||"null");
+      if (cached && cached.csv){
+        await parseCsvText(cached.csv);
+        updateHeaderLine();
+        toast("Loaded from cache.");
+        clearTimeout(t);
+        return;
+      }
+      throw e;
+    }
+    clearTimeout(t);
+
+    // حفظ في الكاش + بارس
+    try{ localStorage.setItem(LS_KEY, JSON.stringify({ ts: now, csv: csvText })); }catch{}
+    await parseCsvText(csvText);
+    updateHeaderLine();
+
+    async function parseCsvText(csvText){
+      const wb = XLSX.read(csvText, { type:"string" });
+      const ws = wb.Sheets[ wb.SheetNames[0] ];
+      let data = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
+      data = data.filter((row, idx) => idx===0 || (row && row.some(c => c!==null && c!==undefined && c!== "")));
+
+      // keep sheet name
+      sheetName = (wb.SheetNames && wb.SheetNames[0]) ? wb.SheetNames[0] : "Sheet";
+
+      const headers = (data[0] || []).map(h=>String(h??""));
+      const rows = data.slice(1);
+
+      let codeIdx = findColByAliases(headers, ["item code","code","الكود","كود","رقم الصنف","itemcode","barcode","sku"]);
+      let nameIdx = findColByAliases(headers, ["item name","name","الاسم","اسم","اسم الصنف","itemname","description","desc","product name"]);
+      if (codeIdx<0 || nameIdx<0){ const g=guessCols(headers,rows); if(codeIdx<0) codeIdx=g.codeIdx; if(nameIdx<0) nameIdx=g.nameIdx; }
+
+      // NEW: Generic Name column
+      let genericIdx = findColByAliases(headers, ["generic name","generic","الاسم العلمي","المادة الفعالة","genericname"]);
+
+      const qtyIdx  = 8;   // I = PackQty
+      const sellIdx = 18;  // S = Sell. Price (not ظاهر)
+
+      const map = new Map();
+      for (const r of rows){
+        const code = String((codeIdx>=0? r[codeIdx] : "") ?? "").trim();
+        const name = String((nameIdx>=0? r[nameIdx] : "") ?? "").trim();
+        if (!code || !name) continue;
+
+        let qty = r[qtyIdx]; qty = (qty==null || qty==="") ? 0 : Number(qty); if (isNaN(qty)) qty=0;
+        let sell = r[sellIdx]; sell = (sell==null || sell==="") ? 0 : Number(sell); if (isNaN(sell)) sell=0;
+        const generic = String((genericIdx>=0 ? r[genericIdx] : "") ?? "").trim();
+
+        const type = code.startsWith("12") ? "drug" : "supply";
+        if (!map.has(code)){
+          map.set(code, { code, name, generic, qty, sell, type });
+        } else {
+          const cur = map.get(code);
+          if (name.length > cur.name.length) cur.name = name;
+          if (generic && (!cur.generic || generic.length > cur.generic.length)) cur.generic = generic;
+          if (qty  > cur.qty)  cur.qty = qty;
+          if (sell > cur.sell) cur.sell = sell;
+        }
+      }
+      rawItems = Array.from(map.values());
+      itemCodeSet = new Set(rawItems.map(it => it.code));
+    }
+  }
+
+  // ========= Firestore / Auth =========
+  function updateAuthUI(){
+    const inBtn  = $("#signInBtn");
+    const outBtn = $("#signOutBtn");
+
+    if (auth?.currentUser){ inBtn?.classList.add("hidden"); outBtn?.classList.remove("hidden"); }
+    else { inBtn?.classList.remove("hidden"); outBtn?.classList.add("hidden"); }
+
+    if (isAdmin){
+      $("#adminChip")?.classList.remove("hidden");
+      $("#toggleAdminPanel")?.classList.remove("hidden");
+      $("#adminExtras")?.classList.remove("hidden");
+    } else {
+      $("#adminChip")?.classList.add("hidden");
+      $("#toggleAdminPanel")?.classList.add("hidden");
+      $("#adminExtras")?.classList.add("hidden");
+    }
+  }
+
+  async function googleSignIn(){
+    try{ const provider = new firebase.auth.GoogleAuthProvider(); await auth.signInWithPopup(provider); toast("Signed in."); }
+    catch(e){ showError("Sign-in failed: " + (e?.message||e)); }
+  }
+  async function doSignOut(){
+    try{ await auth.signOut(); toast("Signed out."); }
+    catch(e){ showError("Sign-out failed: " + (e?.message||e)); }
+  }
+
+  async function safeInitFirebase(){
+    try{
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      db   = firebase.firestore();
+      auth = firebase.auth();
+      try { await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(_) {}
+
+      auth.onAuthStateChanged(async (user)=>{
+        try{
+          const uid = user?.uid || null;
+          // detect admin
+          if (uid) {
+            try{ const rolesDoc = await db.collection("userRoles").doc(uid).get(); isAdmin = (ADMINS.has(uid) || rolesDoc?.data()?.admin === true); }
+            catch{ isAdmin = ADMINS.has(uid); }
+          } else { isAdmin = false; }
+
+          updateAuthUI();
+          // load everything (meta/reports depend on auth)
+          await Promise.allSettled([ loadGroups(), loadDisabled(), loadMeta(), loadReports(), loadDoctorServices(), loadNews() ]);
+          buildCategoriesBar();
+          render();
+          if (isAdmin) initAdminUI();
+        }catch(e){ console.warn("Auth state handler:", e?.message||e); }
+      });
+    }catch(e){
+      console.warn("Firebase init error:", e?.message || e);
+      $("#adminChip")?.classList.add("hidden");
+      $("#adminPanel")?.classList.add("hidden");
+      $("#adminExtras")?.classList.add("hidden");
+      $("#toggleAdminPanel")?.classList.add("hidden");
+    }
+  }
+
+  async function loadMeta(){ if(!db) { updateHeaderLine(); return; }
+    try{ const snap = await db.collection("inventory_meta").doc("header").get(); if (snap.exists){ const d = snap.data() || {}; meta.sourceLabel = d.sourceLabel || null; meta.updatedAt = d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.updatedAt || null); } }
+    catch(e){ console.warn("meta load:", e?.message||e); }
+    updateHeaderLine();
+  }
+
+  async function saveMeta(newMeta){
+    if(!db || !isAdmin) throw new Error("Not authorized");
+    const payload = {};
+    if ('sourceLabel' in newMeta) payload.sourceLabel = newMeta.sourceLabel || null;
+    if ('updatedAt' in newMeta){ payload.updatedAt = newMeta.updatedAt ? firebase.firestore.Timestamp.fromDate(new Date(newMeta.updatedAt)) : null; }
+    await db.collection("inventory_meta").doc("header").set(payload, { merge:true });
+    if ('sourceLabel' in newMeta) meta.sourceLabel = newMeta.sourceLabel || null;
+    if ('updatedAt' in newMeta)   meta.updatedAt   = newMeta.updatedAt || null;
+    updateHeaderLine();
+  }
+
+  function rebuildHierarchy(){
+    hierarchy = { drug: {}, supply: {}, service: {} };
+    for (const [name, g] of Object.entries(groupsByName)){
+      const { parent, sub } = splitNameToParentSub(name);
+      const type = (g?.type === "supply") ? "supply" : (g?.type === "service" ? "service" : "drug");
+      const hasAnyMatch = Object.keys(g.codes||{}).some(c => itemCodeSet.has(c));
+      if (!hasAnyMatch) continue;
+      const parentColor = g?.color || colorFor(parent);
+      if (!hierarchy[type][parent]) hierarchy[type][parent] = { color: parentColor, children: new Set() };
+      if (sub) hierarchy[type][parent].children.add(sub);
+    }
+  }
+
+  async function loadGroups(){ if(!db) return; const snap = await db.collection("inventory_groups").get(); groupsByName = {}; snap.forEach(doc => { const d = doc.data() || {}; groupsByName[doc.id] = { type: d.type || "drug", codes: d.codes || {}, color: d.color || null }; }); rebuildHierarchy(); }
+  async function loadDisabled(){ if(!db) return; const snap = await db.collection("inventory_disabled").get(); disabled = {}; snap.forEach(doc => disabled[doc.id] = doc.data()); renderDisabledList(); }
+  async function loadReports(){ $("#reportsCount").textContent = "0"; if(!db) return; try{ const snap=await db.collection("inventory_reports").orderBy("ts","desc").limit(100).get(); reports=[]; snap.forEach(doc=>reports.push({id:doc.id,...doc.data()})); const unresolved = reports.filter(r=>!r.resolved).length; $("#reportsCount").textContent = String(unresolved); if (isAdmin) renderReports(); }catch(e){ console.warn("loadReports:", e?.message||e); reports = []; $("#reportsCount").textContent = "0"; } }
+
+  function renderReports(){
+    const container = $("#reportsList"); if(!container) return; container.innerHTML = "";
+    reports.forEach(r=>{
+      const wrap = document.createElement("div"); wrap.className = "glass p-2 flex items-center justify-between";
+      const ts = r.ts?.toDate ? r.ts.toDate().toLocaleString() : "";
+      const it = getItemByCode(r.code);
+      const display = getDisplayName(it);
+      const itemName = r.itemName || display || it?.name || "(unknown)";
+      const qty = (r.qty ?? it?.qty ?? "-");
+      wrap.innerHTML = `
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-xs text-white/60">Code</div>
+            <div class="font-mono">${r.code || "-"}</div>
+            <div class="text-xs text-white/50 mt-1">${ts}</div>
+          </div>
+          <div>
+            <div class="text-xs text-white/60">Item</div>
+            <div class="name-one-line">${itemName}</div>
+            <div class="text-xs text-white/60 mt-1">Qty: <b>${qty}</b></div>
+          </div>
+        </div>
+        <div>
+          ${r.resolved ? '<span class="badge badge-success">Resolved</span>' : '<button class="btn btn-xs btn-primary">Resolve</button>'}
+        </div>`;
+      if(!r.resolved){ wrap.querySelector("button")?.addEventListener("click", ()=> resolveReport(r.id)); }
+      container.appendChild(wrap);
+    });
+  }
+
+  function renderDisabledList(){
+    const box = $("#disabledList"); if(!box) return; box.innerHTML = "";
+    Object.keys(disabled).sort().forEach(code=>{
+      const d = disabled[code] || {};
+      const it = getItemByCode(code);
+      const display = getDisplayName(it);
+      const name = display || d.itemName || "";
+      const qty = (d.qty ?? it?.qty ?? "-");
+      const row = document.createElement("div"); row.className = "glass p-2 flex items-center justify-between";
+      row.innerHTML = `
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="text-xs text-white/60">Code</div>
+            <div class="font-mono">${code}</div>
+            <div class="text-xs text-white/50 mt-1">${d.reason || ""}</div>
+          </div>
+          <div>
+            <div class="text-xs text-white/60">Item</div>
+            <div class="name-one-line">${name}</div>
+            <div class="text-xs text-white/60 mt-1">Qty: <b>${qty}</b></div>
+          </div>
+        </div>
+        <button class="btn btn-xs btn-success">Enable</button>`;
+      row.querySelector("button").addEventListener("click", ()=> enableCodeFn(code));
+      box.appendChild(row);
+    });
+  }
+
+  async function resolveReport(id){ if(!db) return alert("Admin feature not available now"); await db.collection("inventory_reports").doc(id).set({resolved:true},{merge:true}); await loadReports(); }
+
+  // ========= NEW: Doctor Services =========
+  async function loadDoctorServices(){
+    if(!db) return;
+    try{
+      const snap = await db.collection("doctor_service_codes").get();
+      serviceItems = [];
+      snap.forEach(doc=>{
+        const d = doc.data() || {};
+        const code = String(doc.id || "").trim();
+        if(!code) return;
+        const name = String(d.name || d.title || "Doctor Service").trim();
+        const qty  = Number(d.qty || 0);
+        const sell = Number(d.sell || 0);
+        serviceItems.push({ code, name, qty, sell, type: "service" });
+      });
+      const existing = new Set(rawItems.map(it=>it.code));
+      const merged = rawItems.concat(serviceItems.filter(it=>!existing.has(it.code)));
+      rawItems = merged;
+      itemCodeSet = new Set(rawItems.map(it => it.code));
+    }catch(e){ console.warn("doctor services load:", e?.message||e); }
+  }
+
+  // ========= Categories bar =========
+  function buildCategoriesBar(){
+    const bar = $("#categoriesBar");
+    const parentWrap = $("#parentGroupsChips");
+    const subWrap = $("#subGroupsChips");
+    const subWrapOuter = $("#subGroupsChipsWrap");
+
+    if (viewMode === "drug" || viewMode === "supply" || viewMode === "service"){
+      bar.classList.remove("hidden");
+      parentWrap.innerHTML = "";
+      subWrap.innerHTML = "";
+      subWrapOuter.classList.add("hidden");
+
+      const h = hierarchy[viewMode] || {};
+      const parents = Object.keys(h).sort();
+      const allChip = makeParentChip("All categories", null, "#94a3b8");
+      parentWrap.appendChild(allChip);
+      parents.forEach(p=>{ const chip = makeParentChip(sentenceCase(p), p, h[p].color || colorFor(p)); parentWrap.appendChild(chip); });
+
+      if (selectedParent && h[selectedParent]){
+        const subs = Array.from(h[selectedParent].children || []);
+        if (subs.length){
+          subWrap.innerHTML = "";
+          subWrapOuter.classList.remove("hidden");
+          const allSub = makeSubChip("All", null, h[selectedParent].color || "#94a3b8");
+          subWrap.appendChild(allSub);
+          subs.sort().forEach(s=>{ const chip = makeSubChip(sentenceCase(s), s, colorFor(selectedParent + "::" + s)); subWrap.appendChild(chip); });
+        } else { subWrapOuter.classList.add("hidden"); }
+      }
+    } else {
+      bar.classList.add("hidden");
+      selectedParent = null; selectedSub = null;
+    }
+  }
+  function makeParentChip(title, value, color){ const el = document.createElement("div"); el.className = "pill"; el.style.borderColor = `${color}66`; el.style.background  = `${color}1a`; if (value === selectedParent) el.classList.add("active"); el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`; el.addEventListener("click", ()=>{ selectedParent=value; selectedSub=null; buildCategoriesBar(); render(); }); return el; }
+  function makeSubChip(title, value, color){ const el = document.createElement("div"); el.className = "pill"; el.style.borderColor = `${color}66`; el.style.background  = `${color}1a`; if (value === selectedSub) el.classList.add("active"); el.innerHTML = `<span class="dot" style="background:${color}"></span><span>${title}</span>`; el.addEventListener("click", ()=>{ selectedSub=value; render(); }); return el; }
+
+  // ====== News Ticker state ======
+  let newsConf = { enabled: false, items: [], accent: "#60a5fa", speedSec: 25, updatedAt: null };
+  async function loadNews(){ if(!db){ renderNewsBar(); return; } try{ const snap = await db.collection("inventory_meta").doc("news").get(); if (snap.exists){ const d = snap.data() || {}; newsConf.enabled  = !!d.enabled; newsConf.items    = Array.isArray(d.items) ? d.items.filter(s=>String(s||"").trim()) : []; newsConf.accent   = d.accent || "#60a5fa"; newsConf.speedSec = Number(d.speedSec||25); newsConf.updatedAt= d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : (d.updatedAt || null); } else { newsConf = { enabled:false, items:[], accent:"#60a5fa", speedSec:25, updatedAt:null }; } }catch(e){ console.warn("loadNews:", e?.message||e); } renderNewsBar(); }
+  async function saveNews(newData){ if(!db || !isAdmin) throw new Error("Not authorized"); const payload = { enabled: !!newData.enabled, items: (newData.items||[]).map(s=> String(s||"").trim()).filter(Boolean), accent: newData.accent || "#60a5fa", speedSec: Number(newData.speedSec||25), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; await db.collection("inventory_meta").doc("news").set(payload, { merge:true }); newsConf = { ...newsConf, ...payload }; renderNewsBar(); }
+
+  let _newsTimer = null;
+  function renderNewsBar(){
+    const wrap = document.getElementById("newsBar");
+    const dot  = document.getElementById("newsAccentDot");
+    const upd  = document.getElementById("newsUpdatedAt");
+    const track= document.querySelector(".newsbar-track");
+    const mq   = document.getElementById("newsMarquee");
+    if(!wrap || !track || !dot || !mq) return;
+
+    const items = (newsConf.items||[]).map(s=>String(s||"").trim()).filter(Boolean);
+    if (!newsConf.enabled || !items.length){ wrap.classList.add("hidden"); if(_newsTimer) clearInterval(_newsTimer); _newsTimer = null; return; }
+
+    const baseAccent = /^#?[0-9a-fA-F]{6}$/.test(newsConf.accent||"") ? (newsConf.accent.startsWith("#")? newsConf.accent : ("#"+newsConf.accent)) : "#60a5fa";
+    dot.style.background = baseAccent;
+    upd.textContent = newsConf.updatedAt ? new Date(newsConf.updatedAt).toLocaleString() : "";
+
+    function extractColorAndText(raw){ const m = raw.match(/^\s*\[(#?[0-9a-fA-F]{6})\]\s*(.*)$/); if(!m) return { color: baseAccent, text: raw }; const hex = m[1].startsWith("#") ? m[1] : ("#"+m[1]); return { color: hex, text: m[2] }; }
+    function makeSpan(t){ const { color, text } = extractColorAndText(t); const el = document.createElement("span"); el.className = "newsbar-item"; el.innerHTML = `<span class="newsbar-badge" style="background:${color};border-color:${color}80;color:#fff">Attention</span><span class="inline-flex items-center px-2 py-0.5 rounded" style="background:${color}1a;border:1px solid ${color}33">${text}</span>`; return el; }
+
+    wrap.classList.remove("hidden");
+    track.innerHTML = "";
+
+    const slot = document.createElement("div"); slot.id = "newsSlot"; slot.className = "flex items-center gap-2"; track.appendChild(slot);
+    function renderItem(rawText){ const { color, text } = extractColorAndText(rawText); const el = document.createElement("span"); el.className = "newsbar-item nb-fade-in"; el.innerHTML = `<span class=\"newsbar-badge\" style=\"background:${color};border-color:${color}80;color:#fff\">Attention</span><span class=\"inline-flex items-center px-2 py-0.5 rounded\" style=\"background:${color}1a;border:1px solid ${color}33\">${text}</span>`; slot.replaceChildren(el); }
+    let i = 0; const stepMs = Math.max(2000, Number(newsConf.speedSec||25) * 1000); renderItem(items[i]);
+    function start(){ if(_newsTimer) clearInterval(_newsTimer); _newsTimer = setInterval(()=>{ i = (i + 1) % items.length; renderItem(items[i]); }, stepMs); }
+    function stop(){ if(_newsTimer){ clearInterval(_newsTimer); _newsTimer=null; } }
+    wrap.addEventListener("mouseenter", stop); wrap.addEventListener("mouseleave", start); start();
+
+    mq.innerHTML = "";
+    if (items.length <= 1) {
+      mq.classList.remove("newsbar-marquee");
+      mq.classList.add("newsbar-marquee-single");
+      const tape = document.createElement("div"); tape.className = "flex items-center gap-8"; tape.appendChild(makeSpan(items[0] || "")); mq.appendChild(tape);
+    } else {
+      mq.classList.remove("newsbar-marquee-single");
+      mq.classList.add("newsbar-marquee");
+      const one = document.createElement("div"); one.className = "flex items-center gap-8";
+      const two = document.createElement("div"); two.className = "flex items-center gap-8";
+      items.forEach(t => one.appendChild(makeSpan(t)));
+      items.forEach(t => two.appendChild(makeSpan(t)));
+      mq.appendChild(one); mq.appendChild(two);
+    }
+  }
+
+  // ==== Admin: News Ticker bindings ====
+  const nItems = document.getElementById("admNewsItems");
+  const nColor = document.getElementById("admNewsColor");
+  const nColorHex = document.getElementById("admNewsColorHex");
+  const nSpeed = document.getElementById("admNewsSpeed");
+  const nEnabled = document.getElementById("admNewsEnabled");
+  const nSave = document.getElementById("admNewsSave");
+  const nClear = document.getElementById("admNewsClear");
+  const nStatus = document.getElementById("admNewsStatus");
+  function fillNewsForm(){ if(!nItems) return; nItems.value = (newsConf.items||[]).join("\n"); nColor.value = /^#/.test(newsConf.accent||"") ? newsConf.accent : ("#"+(newsConf.accent||"60a5fa")); nColorHex.value = nColor.value; nSpeed.value = newsConf.speedSec || 25; nEnabled.checked = !!newsConf.enabled; nStatus.textContent = newsConf.updatedAt ? `Last update: ${new Date(newsConf.updatedAt).toLocaleString()}` : "—"; }
+  fillNewsForm();
+  nColor?.addEventListener("input", ()=> nColorHex.value = nColor.value);
+  nColorHex?.addEventListener("input", ()=> { if(/^#?[0-9a-fA-F]{6}$/.test(nColorHex.value.trim())) nColor.value = nColorHex.value.startsWith("#")? nColorHex.value : ("#"+nColorHex.value); });
+  nSave?.addEventListener("click", async ()=>{ try{ await saveNews({ enabled: nEnabled.checked, items: nItems.value.split(/\r?\n/), accent: nColor.value, speedSec: Number(nSpeed.value||25) }); toast("News saved."); fillNewsForm(); }catch(e){ showError("Failed to save news. " + (e?.message||e)); } });
+  nClear?.addEventListener("click", async ()=>{ try{ await saveNews({ enabled:false, items:[], accent:nColor.value, speedSec:Number(nSpeed.value||25) }); toast("News cleared."); fillNewsForm(); }catch(e){ showError("Failed to clear news. " + (e?.message||e)); } });
+
+  // ========= Admin UI =========
+  function initAdminUI(){
+    if (!isAdmin) return;
+    const srcInput = $("#admSourceLabel");
+    const dtInput  = $("#admUpdatedAt");
+    srcInput.value = meta.sourceLabel || "";
+    if (meta.updatedAt){ const d = new Date(meta.updatedAt); const pad = n => String(n).padStart(2,"0"); const localISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; dtInput.value = localISO; } else { dtInput.value = ""; }
+    $("#admHeaderPreview").textContent = $("#etag").textContent;
+    $("#admSetNow").addEventListener("click", ()=>{ const d = new Date(); const pad = n => String(n).padStart(2,"0"); const localISO = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; dtInput.value = localISO; });
+    $("#admUseSheet").addEventListener("click", ()=>{ srcInput.value = sheetName || "Sheet"; });
+    $("#admSaveHeader").addEventListener("click", async ()=>{ try{ const sourceLabel = srcInput.value.trim() || null; const updatedAt   = dtInput.value ? new Date(dtInput.value).toISOString() : null; await saveMeta({ sourceLabel, updatedAt }); toast("Header saved."); }catch(e){ showError("Failed to save header. " + (e?.message||e)); } });
+
+    const typeRadios = () => document.querySelector('input[name="admType"]:checked').value;
+    const admParentSel = $("#admParent");
+    const admSubSel    = $("#admSub");
+    const admParentNew = $("#admParentNew");
+    const admSubNew    = $("#admSubNew");
+    function setCurrentLabel(txt){ $("#admCurrent").textContent = txt || "—"; }
+    function populateParents(){ const type = typeRadios(); const sel  = admParentSel; const keep = sel.value; sel.innerHTML = ""; const opt0 = document.createElement("option"); opt0.value = ""; opt0.textContent = "— choose a parent —"; sel.appendChild(opt0); const parents = Object.entries(groupsByName).filter(([name,g]) => (g?.type===type)).map(([name]) => splitNameToParentSub(name).parent); Array.from(new Set(parents).values()).sort().forEach(p=>{ const o = document.createElement("option"); o.value = p; o.textContent = p; sel.appendChild(o); }); sel.value = keep; if (sel.value !== keep) sel.value = ""; populateSubs(); }
+    function populateSubs(){ const type   = typeRadios(); const parent = admParentSel.value.trim() || admParentNew.value.trim(); const sel    = admSubSel; const keep   = sel.value; sel.innerHTML = `<option value="">— choose a sub-group —</option>`; if (!parent){ loadGroupToEditor(parent); return; } const subs = Object.entries(groupsByName).filter(([name,g]) => g?.type===type && splitNameToParentSub(name).parent===parent).map(([name]) => splitNameToParentSub(name).sub).filter(Boolean); Array.from(new Set(subs).values()).sort().forEach(s=>{ const o = document.createElement("option"); o.value = s; o.textContent = s; sel.appendChild(o); }); sel.value = keep; if (sel.value !== keep) sel.value = ""; const full = sel.value ? `${parent} :: ${sel.value}` : parent; loadGroupToEditor(full); }
+    function loadGroupToEditor(fullName){ const colorInput = $("#admColor"); const colorHex   = $("#admColorHex"); const codesTA    = $("#admCodes"); if (!fullName || !groupsByName[fullName]){ colorHex.value = ""; colorInput.value = "#60a5fa"; codesTA.value = ""; setCurrentLabel("—"); updateValidCount(); return; } const grp = groupsByName[fullName]; const col = grp?.color || ""; colorHex.value = col; if (col) colorInput.value = col.startsWith("#")? col : "#60a5fa"; const codesMap = grp?.codes || {}; codesTA.value = Object.keys(codesMap).join("\n"); setCurrentLabel(`Editing: ${fullName}`); updateValidCount(); }
+    function updateValidCount(){ const all = ($("#admCodes").value || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean); const valid = all.filter(c => itemCodeSet.has(c)); $("#admTotalCount").textContent = all.length; $("#admValidCount").textContent = valid.length; }
+    function filterOptions(selectEl, query){ const q = (query||"").toLowerCase().trim(); Array.from(selectEl.options).forEach((opt, idx)=>{ if(idx===0) { opt.hidden = false; return; } const txt = (opt.textContent||"").toLowerCase(); opt.hidden = q && !txt.includes(q); }); if(selectEl.selectedOptions[0]?.hidden){ selectEl.value = ""; } }
+    document.querySelectorAll('input[name="admType"]').forEach(r=> r.addEventListener("change", ()=>{ populateParents(); }));
+    $("#admParent").addEventListener("change", ()=>{ admParentNew.value=""; populateSubs(); });
+    $("#admSub").addEventListener("change", ()=>{ admSubNew.value=""; const parent = admParentSel.value.trim() || admParentNew.value.trim(); const full   = $("#admSub").value ? `${parent} :: ${$("#admSub").value}` : parent; loadGroupToEditor(full); });
+    $("#admParentNew").addEventListener("input", ()=>{ admParentSel.value=""; populateSubs(); });
+    $("#admSubNew").addEventListener("input", ()=>{ admSubSel.value=""; const parent = admParentSel.value.trim() || admParentNew.value.trim(); const full   = $("#admSubNew").value ? `${parent} :: ${$("#admSubNew").value}` : parent; loadGroupToEditor(full); });
+    $("#admCodes").addEventListener("input", updateValidCount);
+    $("#admColor").addEventListener("input", ()=>{ $("#admColorHex").value = $("#admColor").value; });
+    $("#admColorHex").addEventListener("input", ()=>{ if(/^#?[0-9a-fA-F]{6}$/.test($("#admColorHex").value.trim())) $("#admColor").value = $("#admColorHex").value.startsWith("#")? $("#admColorHex").value : ("#"+$("#admColorHex").value); });
+    $("#admParentFilter").addEventListener("input", ()=> filterOptions($("#admParent"), $("#admParentFilter").value));
+    $("#admSubFilter").addEventListener("input", ()=> filterOptions($("#admSub"), $("#admSubFilter").value));
+
+    async function saveOrMerge(mode){
+      const type = document.querySelector('input[name="admType"]:checked').value;
+      const parent = $("#admParent").value.trim() || $("#admParentNew").value.trim();
+      const sub    = $("#admSub").value.trim()    || $("#admSubNew").value.trim();
+      if (!parent) return alert("Type/select a parent first.");
+      const name  = sub ? `${parent} :: ${sub}` : parent;
+      const color = $("#admColorHex").value.trim() || null;
+      const inputCodes = ($("#admCodes").value || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean).filter(c => itemCodeSet.has(c));
+      const current = groupsByName[name]?.codes || {};
+      let newMap = {...current};
+      if (mode === "save"){ newMap = {}; inputCodes.forEach(c=> newMap[c]=true); }
+      else if (mode === "merge"){ inputCodes.forEach(c=> newMap[c]=true); }
+      else if (mode === "remove"){ inputCodes.forEach(c=> delete newMap[c]); }
+      await db.collection("inventory_groups").doc(name).set({ type, color, codes: newMap }, { merge:true });
+      await loadGroups(); buildCategoriesBar(); render(); toast("Group saved.");
+      populateParents(); $("#admParent").value = parent; populateSubs(); if (sub){ $("#admSub").value = sub; loadGroupToEditor(`${parent} :: ${sub}`); }
+    }
+    $("#admSave").addEventListener("click", ()=> saveOrMerge("save"));
+    $("#admMerge").addEventListener("click", ()=> saveOrMerge("merge"));
+    $("#admRemove").addEventListener("click", ()=> saveOrMerge("remove"));
+    $("#admDelete").addEventListener("click", async ()=>{ const parent = $("#admParent").value.trim() || $("#admParentNew").value.trim(); const sub    = $("#admSub").value.trim()    || $("#admSubNew").value.trim(); if (!parent) return alert("Select a group first."); const name = sub ? `${parent} :: ${sub}` : parent; if (!confirm(`Delete group "${name}"?`)) return; await db.collection("inventory_groups").doc(name).delete(); await loadGroups(); buildCategoriesBar(); render(); populateParents(); populateSubs(); toast("Group deleted."); });
+    $("#toggleAdminPanel").addEventListener("click", ()=>{ $("#adminPanel").classList.toggle("hidden"); });
+    $("#disableBtn").addEventListener("click", async ()=>{ const code = $("#disableCode").value.trim(); const reason = $("#disableReason").value.trim(); if (!code) return alert("Enter code"); try{ await disableCodeFn(code, reason); toast("Code disabled"); }catch(e){ showError(e?.message||e); } });
+    $("#enableBtn").addEventListener("click", async ()=>{ const code = $("#disableCode").value.trim(); if (!code) return alert("Enter code"); try{ await enableCodeFn(code); toast("Code enabled"); }catch(e){ showError(e?.message||e); } });
+
+    function renderServiceCodesList(){ const box = $("#svcList"); if(!box) return; box.innerHTML = ""; const list = serviceItems.slice().sort((a,b)=> a.code.localeCompare(b.code)); list.forEach(s=>{ const row = document.createElement("div"); row.className = "glass p-2 flex items-center justify-between"; row.innerHTML = `<div><div class=\"text-xs text-white/60\">Code</div><div class=\"font-mono\">${s.code}</div><div class=\"text-xs text-white/60 mt-1\">${s.name||""}</div></div><div class=\"flex gap-2\"><button class=\"btn btn-xs\">Edit</button><button class=\"btn btn-xs btn-error btn-outline\">Delete</button></div>`; row.querySelectorAll("button")[0].addEventListener("click", ()=>{ $("#svcCode").value = s.code; $("#svcName").value = s.name || ""; }); row.querySelectorAll("button")[1].addEventListener("click", async ()=>{ if(!confirm(`Delete ${s.code}?`)) return; await db.collection("doctor_service_codes").doc(s.code).delete(); await loadDoctorServices(); render(); renderServiceCodesList(); toast("Deleted."); }); box.appendChild(row); }); }
+    async function saveServiceCode(){ if(!db || !isAdmin) return alert("Not authorized"); const code = $("#svcCode").value.trim(); const name = $("#svcName").value.trim(); if(!code || !name) return alert("Enter code and name"); await db.collection("doctor_service_codes").doc(code).set({ name }, { merge:true }); await loadDoctorServices(); render(); renderServiceCodesList(); toast("Saved."); }
+    async function deleteServiceCode(){ if(!db || !isAdmin) return alert("Not authorized"); const code = $("#svcCode").value.trim(); if(!code) return alert("Enter code"); if(!confirm(`Delete ${code}?`)) return; await db.collection("doctor_service_codes").doc(code).delete(); $("#svcName").value = ""; await loadDoctorServices(); render(); renderServiceCodesList(); toast("Deleted."); }
+    $("#svcSave")?.addEventListener("click", saveServiceCode);
+    $("#svcDelete")?.addEventListener("click", deleteServiceCode);
+    renderServiceCodesList();
+  }
+
+  // ===== Report Modal helpers ===== (minimal)
+  let _reportTargetCode = null;
+  function openReportModal(code){ _reportTargetCode = code; document.getElementById("reportCode").textContent = code; document.getElementById("reportModal")?.showModal(); }
+  document.addEventListener("DOMContentLoaded", bindReportModal);
+  function bindReportModal(){ const dlg = document.getElementById("reportModal"); if(!dlg) return; const noBtn  = document.getElementById("reportNo"); const yesBtn = document.getElementById("reportYes"); noBtn?.addEventListener("click", ()=> dlg.close()); yesBtn?.addEventListener("click", async ()=>{ if(_reportTargetCode){ await reportCode(_reportTargetCode, {}); } dlg.close(); niceThanksToast("Thanks! We'll look into your report."); }); dlg.addEventListener("click", (e)=>{ const box = dlg.querySelector(".modal-box"); if (box && !box.contains(e.target)) dlg.close(); }); }
+  function niceThanksToast(msg){ const el = document.createElement("div"); el.className = "fixed bottom-5 right-5 glass px-4 py-2 z-50 nb-fade-in"; el.textContent = msg; document.body.appendChild(el); setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(6px)'; }, 1400); setTimeout(()=> el.remove(), 1900); }
+
+  // ========= Disable / Enable / Report =========
+  async function disableCodeFn(code, reason = ""){ if(!db || !isAdmin) return alert("Not authorized"); const it = getItemByCode(code); await db.collection("inventory_disabled").doc(String(code)).set({ reason, by: auth?.currentUser?.uid || null, ts: firebase.firestore.FieldValue.serverTimestamp(), itemName: it?.name || null, qty: (it?.qty ?? null) }, { merge:true }); await loadDisabled(); render(); }
+  async function enableCodeFn(code){ if(!db || !isAdmin) return alert("Not authorized"); await db.collection("inventory_disabled").doc(String(code)).delete(); await loadDisabled(); render(); }
+  async function reportCode(code, extra = {}){ try{ if(!db){ throw new Error("Database not reachable right now."); } const it = getItemByCode(code); await db.collection("inventory_reports").add({ code: String(code), itemName: it?.name || null, qty: (it?.qty ?? null), by: auth?.currentUser?.uid || null, byName: extra.byName || null, problemType: extra.type || null, note: extra.note || null, ts: firebase.firestore.FieldValue.serverTimestamp(), resolved: false }); await loadReports(); }catch(e){ console.error(e); showError("Failed to submit report. " + (e?.message||e)); } }
+
+  // ========= Labels (chips) =========
+  function groupBadgeHTML(name, code){
+    if (!name) return "";
+    const { parent, sub } = splitNameToParentSub(name);
+    let col = (groupsByName[name]?.color) || colorFor(parent);
+    const val = groupsByName[name]?.codes?.[code];
+    if (typeof val === "string" && /^#?[0-9a-fA-F]{6}$/.test(val)) { col = val.startsWith("#") ? val : ("#" + val); }
+    if (renderSuppressLabels) { return `<span title="${parent}${sub ? ' / ' + sub : ''}" style="display:inline-block;width:.6rem;height:.6rem;border-radius:999px;background:${col};opacity:.9"></span>`; }
+    const text = sub ? `${sentenceCase(parent)} / ${sentenceCase(sub)}` : sentenceCase(parent);
+    return `<span class="chip" style="border-color:${col}33;background:${col}1a"><span style="display:inline-block;width:.6rem;height:.6rem;border-radius:999px;background:${col}"></span>${text}</span>`;
+  }
+
+  // ========= UI Bindings =========
+  function bindUI(){
+    $("#searchInput").addEventListener("input", ()=>{ debounce(render,200)(); });
+    $("#reloadBtn").addEventListener("click", async ()=>{ try{ await loadFromGoogleSheetsCSV(); render(); buildCategoriesBar(); }catch(e){ showError(e.message||e); }});
+    $("#showDrugsBtn").addEventListener("click", ()=>{ viewMode="drug"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+    $("#showSuppliesBtn").addEventListener("click", ()=>{ viewMode="supply"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+    $("#showServicesBtn").addEventListener("click", ()=>{ viewMode="service"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+    $("#showAllBtn").addEventListener("click", ()=>{ viewMode="all"; selectedParent=null; selectedSub=null; buildCategoriesBar(); render(); });
+    $("#toggleShowDisabled")?.addEventListener("change", (e)=>{ showDisabledInside = !!e.target.checked; render(); });
+    $("#signInBtn")?.addEventListener("click", googleSignIn);
+    $("#signOutBtn")?.addEventListener("click", doSignOut);
+
+    // NEW: toggle Item/Generic (زرارين في سطر واحد)
+    const nameBtn = $("#nameModeBtn");
+    if (nameBtn){
+      const refreshHeaderLabels = ()=>{
+        const label = (nameMode === "generic") ? "Generic Name" : "Item Name";
+        const thFlat = document.querySelector('#flatNameHeader');
+        if (thFlat) thFlat.textContent = label;
+      };
+      nameBtn.addEventListener("click", ()=>{
+        nameMode = (nameMode === "item" ? "generic" : "item");
+        nameBtn.querySelector("span").textContent = `Name: ${nameMode === "item" ? "Item" : "Generic"}`;
+        refreshHeaderLabels();
+        render();
+        renderDisabledList();
+        if (isAdmin) renderReports();
+      });
+      // init label
+      nameBtn.querySelector("span").textContent = `Name: ${nameMode === "item" ? "Item" : "Generic"}`;
+      refreshHeaderLabels();
+    }
+  }
+
+  function findItemGroupName(it){ for (const [name, g] of Object.entries(groupsByName)){ if (g?.codes && g.codes[it.code]) return name; } return null; }
+
+  // ========= Row render =========
+  function renderRow(tr, it){
+    const isDisabled = !!disabled[it.code];
+    if (isDisabled && !showDisabledInside && !isAdmin) tr.classList.add("hidden");
+
+    // Code cell
+    const tdCode = document.createElement("td");
+    tdCode.innerHTML = `
+      <div class="flex items-center gap-2 ${isDisabled ? 'strike' : ''}">
+        <span class="font-mono">${it.code}</span>
+        <button class="btn btn-xs btn-ico" title="Copy code">📋 <span></span></button>
+        <button class="btn btn-xs btn-warning btn-ico" title="Report not working">🚩 <span></span></button>
+        ${isDisabled && isAdmin ? `<button class="btn btn-xs btn-success btn-ico" title="Enable code">⚡ <span>Enable</span></button>` : ``}
+      </div>`;
+    tdCode.querySelector(".btn[title='Copy code']").addEventListener("click", async () => { await navigator.clipboard.writeText(it.code); toast(`Copied: ${it.code}`); });
+    tdCode.querySelector(".btn[title='Report not working']").addEventListener("click", async (e) => {
+      const btn = e.currentTarget; btn.disabled = true;
+      try { await reportCode(it.code, {}); niceThanksToast("Thanks! We'll look into your report."); }
+      catch (err) { showError("Failed to submit report. " + (err?.message || err)); }
+      finally { setTimeout(()=> { btn.disabled = false; }, 800); }
+    });
+    if (isDisabled && isAdmin) tdCode.querySelector(".btn[title='Enable code']").addEventListener("click", ()=> enableCodeFn(it.code));
+
+    // Name cell + LOW STOCK tint (drug/supply only)
+    const tdName = document.createElement("td");
+    const labelName = findItemGroupName(it);
+    const qtyNum   = Number(it.qty) || 0;
+    let rowTintClass = "", qtyClass = "text-white/60";
+    if (it.type === "drug" || it.type === "supply"){
+      if (qtyNum < 5) { rowTintClass = "bg-red-500/10"; qtyClass = "text-red-300"; }
+      else if (qtyNum < 10) { rowTintClass = "bg-yellow-500/10"; qtyClass = "text-yellow-300"; }
+    }
+    if (rowTintClass) tr.classList.add(rowTintClass);
+
+    const warnIcon = (it.type !== "service" && qtyNum < 5) ? `<span title="Low stock">⚠️</span>` : "";
+    const qtyHTML = (it.type !== "service" && qtyNum > 0)
+      ? `<span class="text-xs ${qtyClass}">(${qtyNum})</span>`
+      : "";
+
+    const dispName = getDisplayName(it);
+
+    tdName.innerHTML = `
+      <div class="${isDisabled ? 'strike' : ''}">
+        <div class="flex items-center gap-2">
+          <span class="name-one-line" title="${dispName}">
+            ${EMOJI[it.type] || ""} ${dispName}
+            ${qtyHTML}
+          </span>
+          ${warnIcon} ${groupBadgeHTML(labelName, it.code)}
+        </div>
+      </div>
+    `;
+    tr.appendChild(tdCode);
+    tr.appendChild(tdName);
+  }
+
+  // ========= Render =========
+  function render(){
+    const q = $("#searchInput").value.trim().toLowerCase();
+
+    // ابحث بكود الصنف + أي من الاسمين (Item/Generic)
+    let pool = rawItems.filter(it => {
+      if (!q) return true;
+      const dn = (getDisplayName(it) || "").toLowerCase();
+      const n  = (it.name || "").toLowerCase();
+      const g  = (it.generic || "").toLowerCase();
+      return it.code.toLowerCase().includes(q) || dn.includes(q) || n.includes(q) || g.includes(q);
+    });
+
+    if (!isAdmin || !showDisabledInside) pool = pool.filter(it => !disabled[it.code]);
+
+    const groupsContainer = $("#groupsContainer");
+    const flatBlock = $("#flatBlock");
+    const body = $("#itemsBody");
+
+    groupsContainer.innerHTML = "";
+    body.innerHTML = "";
+
+    function renderTableFor(list, title){
+      const wrap = document.createElement("div");
+      wrap.className = "glass p-3 md:p-4 overflow-auto";
+
+      if (title){
+        const h = document.createElement("h3");
+        h.className = "text-base font-semibold mb-2";
+        h.textContent = title;
+        wrap.appendChild(h);
+      }
+
+      const tbl = document.createElement("table");
+      tbl.className = "text-sm w-full";
+      const nameHeader = (nameMode === "generic") ? "Generic Name" : "Item Name";
+      tbl.innerHTML = `
+        <thead>
+          <tr>
+            <th style="min-width:140px;">Item Code</th>
+            <th>${nameHeader}</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tb = tbl.querySelector("tbody");
+
+      if (list.length === 0){
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 2;
+        td.className = "text-center text-white/60 py-3";
+        td.textContent = "No matching items.";
+        tr.appendChild(td);
+        tb.appendChild(tr);
+      } else {
+        list.forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); tb.appendChild(tr); });
+      }
+
+      wrap.appendChild(tbl);
+      groupsContainer.appendChild(wrap);
+    }
+
+    let shownCount = 0;
+    renderSuppressLabels = false;
+
+    // ==== Views ====
+    if (viewMode === "drug" || viewMode === "supply" || viewMode === "service"){
+      const mode = viewMode;
+      let poolByType = pool.filter(it => it.type === mode);
+
+      let groupNames = Object.keys(groupsByName).filter(n => (groupsByName[n]?.type === mode));
+      if (selectedParent) groupNames = groupNames.filter(n => splitNameToParentSub(n).parent === selectedParent);
+      if (selectedSub !== null && selectedParent) groupNames = groupNames.filter(n => splitNameToParentSub(n).sub === selectedSub);
+
+      if (groupNames.length){
+        flatBlock.classList.add("hidden");
+        renderSuppressLabels = true;
+
+        const coveredCodes = new Set();
+        groupNames.sort().forEach(name => {
+          const codeMap = groupsByName[name]?.codes || {};
+          let list = poolByType.filter(it => codeMap[it.code]);
+
+          // ① بالاسم المعروض (Item/Generic) أبجديًا، ② ثم بالكمية نزولًا
+          list.sort((a,b) => {
+            const an = getDisplayName(a);
+            const bn = getDisplayName(b);
+            const cmp = an.localeCompare(bn);
+            if (cmp !== 0) return cmp;
+            return ((b.qty||0) - (a.qty||0));
+          });
+
+          if (list.length){
+            list.forEach(it => coveredCodes.add(it.code));
+            renderTableFor(list, name);
+            shownCount += list.length;
+          }
+        });
+
+        if (SHOW_UNGROUPED && !selectedParent){
+          const ungrouped = poolByType.filter(it => !coveredCodes.has(it.code));
+          if (ungrouped.length){
+            ungrouped.sort((a,b)=> getDisplayName(a).localeCompare(getDisplayName(b)) || ((b.qty||0)-(a.qty||0)));
+            renderTableFor(ungrouped, "Ungrouped");
+            shownCount += ungrouped.length;
+          }
+        }
+
+      } else {
+        flatBlock.classList.remove("hidden");
+        $("#emptyMsg").classList.toggle("hidden", poolByType.length !== 0);
+        poolByType
+          .sort((a,b)=> getDisplayName(a).localeCompare(getDisplayName(b)) || ((b.qty||0)-(a.qty||0)))
+          .forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
+        shownCount = poolByType.length;
+      }
+
+    } else {
+      // All
+      flatBlock.classList.remove("hidden");
+      $("#emptyMsg").classList.toggle("hidden", pool.length !== 0);
+      pool
+        .sort((a,b)=> getDisplayName(a).localeCompare(getDisplayName(b)) || ((b.qty||0)-(a.qty||0)))
+        .forEach(it => { const tr = document.createElement("tr"); renderRow(tr, it); body.appendChild(tr); });
+      shownCount = pool.length;
+    }
+
+    $("#totalCounter").textContent = shownCount;
+  }
+
+  // ========= Boot =========
+  (async function boot(){
+    try{
+      await loadFromGoogleSheetsCSV(); // sets sheetName
+      bindUI();
+      await loadNews();
+      document.getElementById("showDrugsBtn")?.click();
+      buildCategoriesBar();
+      render();
+      await safeInitFirebase(); // loads meta + services + shows admin UI if allowed
+    }catch(e){
+      console.error(e);
+      showError("Data load error: " + (e?.message || e));
+    }
+  })();
+  </script>
+</body>
+</html>
