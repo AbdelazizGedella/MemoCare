@@ -19,9 +19,6 @@
   <!-- SheetJS (XLSX) -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-  <!-- JSZip for ZIP download -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
   <!-- Favicon -->
   <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/icon/favicon-32x32.png" />
@@ -33,23 +30,19 @@
 
   <!-- Top Navigation Bar -->
   <div class="fixed top-0 left-0 w-full bg-[#0059F7] p-3 sm:p-4 shadow-md flex flex-col sm:flex-row justify-between items-center z-50">
-    <h1 class="text-lg sm:text-2xl font-bold text-white text-center sm:text-left w-full sm:w-auto">
-      Certificate Manager
-    </h1>
+    <h1 class="text-lg sm:text-2xl font-bold text-white text-center sm:text-left w-full sm:w-auto">Certificate Manager</h1>
     <span id="user-greeting" class="text-white text-sm sm:text-lg mt-2 sm:mt-0 w-full sm:w-auto text-center sm:text-right"></span>
   </div>
 
   <div class="flex flex-col md:flex-row mt-20">
-
-    <!-- Sidebar -->
+    <!-- Sidebar with Responsive Hamburger Menu -->
     <nav class="md:fixed md:top-20 md:left-4 md:w-32 w-full bg-[#151F42] p-4 md:p-6 shadow-lg rounded-lg flex md:flex-col flex-row items-center justify-around md:justify-start z-40 relative">
       <!-- Hamburger Button (Mobile Only) -->
       <button id="sidebar-toggle" class="md:hidden absolute top-2 right-2 text-white focus:outline-none" aria-label="Open sidebar">
         <i class="fas fa-bars text-2xl"></i>
       </button>
-
       <!-- Sidebar Menu -->
-      <ul id="sidebar-menu" class="space-y-4 md:space-y-6 flex md:flex-col flex-row flex-wrap gap-2 md:gap-0 md:static absolute top-12 left-0 w-full md:w-auto bg-[#151F42] md:bg-transparent rounded-lg md:rounded-none shadow-lg md:shadow-none transition-all duration-300 z-50 md:flex visible hidden">
+      <ul id="sidebar-menu" class="space-y-4 md:space-y-6 flex md:flex-col flex-row flex-wrap gap-2 md:gap-0 md:static absolute top-12 left-0 w-full md:w-auto bg-[#151F42] md:bg-transparent rounded-lg md:rounded-none shadow-lg md:shadow-none transition-all duration-300 z-50 md:flex hidden">
         <li><a href="Dashboard.html" class="flex flex-col items-center hover:text-blue-500"><i class="fas fa-home text-2xl"></i><span class="text-xs">Home</span></a></li>
         <li><a href="Profile" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-user-circle text-2xl"></i><span class="text-xs">Profile</span></a></li>
         <li><a href="shift-portal.html" class="flex flex-col items-center text-white hover:text-blue-500"><i class="fas fa-clock text-2xl"></i><span class="text-xs">Shift Portal</span></a></li>
@@ -71,34 +64,10 @@
       </ul>
     </nav>
 
-    <!-- Sidebar toggle script -->
-    <script>
-      const sidebarToggle = document.getElementById('sidebar-toggle');
-      const sidebarMenu = document.getElementById('sidebar-menu');
-
-      function closeSidebarOnDesktop() {
-        if (window.innerWidth >= 768) {
-          sidebarMenu.classList.remove('hidden');
-          sidebarMenu.classList.add('flex');
-        } else {
-          sidebarMenu.classList.add('hidden');
-          sidebarMenu.classList.remove('flex');
-        }
-      }
-
-      sidebarToggle.addEventListener('click', () => {
-        sidebarMenu.classList.toggle('hidden');
-        sidebarMenu.classList.toggle('flex');
-      });
-
-      window.addEventListener('resize', closeSidebarOnDesktop);
-      closeSidebarOnDesktop();
-    </script>
-
     <!-- Main Content -->
     <div class="ml-0 md:ml-44 px-4 mt-28 w-full">
 
-      <!-- Notification box for recent uploads -->
+      <!-- Notification: Recent uploads -->
       <div class="max-w-4xl mx-auto bg-gray-800 rounded-xl p-4 mb-6 shadow-lg">
         <h2 class="text-lg font-semibold text-white mb-3">🔔 Notification</h2>
         <ul id="recentUploads" class="space-y-2 text-sm text-white"></ul>
@@ -112,24 +81,24 @@
           <span class="text-white text-sm font-medium text-center">Upload Certificate</span>
         </button>
 
-        <!-- Pending Approval Button (shows admin area) -->
+        <!-- Pending Approval Button (Admin view) -->
         <button id="showPendingApprovalBtn" class="bg-gradient-to-br from-[#f59e0b] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300">
           <i class="fas fa-clock text-white text-2xl mb-2"></i>
           <span class="text-white text-sm font-medium text-center">Pending Approval</span>
         </button>
       </section>
 
-      <!-- Space Summary Buttons for Admin will be injected here -->
-      <div id="spaceSummaryBtnContainer" class="flex flex-col items-center gap-2"></div>
+      <!-- Space Summary Buttons (admin) -->
+      <div id="spaceSummaryBtnContainer" class="flex flex-wrap justify-center gap-2"></div>
 
-      <!-- Upload Certificate Modal -->
+      <!-- Modal for Upload Certificate -->
       <div id="uploadModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden">
         <div class="bg-gray-900 bg-opacity-90 backdrop-blur-lg rounded-xl shadow-2xl p-8 max-w-md w-full relative">
           <button id="closeUploadModal" class="absolute top-3 right-3 text-gray-300 hover:text-white text-2xl focus:outline-none">
             <i class="fas fa-times"></i>
           </button>
           <h1 class="text-xl font-semibold mb-6">Upload Certificate</h1>
-
+          <!-- Certificate Upload Form -->
           <div>
             <label for="certificateType" class="block mb-2">Select Certificate</label>
             <select id="certificateType" class="w-full mb-4 p-2 rounded text-blue-200 bg-gray-800">
@@ -147,29 +116,29 @@
             <label for="expiryDate" class="block mb-2">Expiry Date</label>
             <input type="date" id="expiryDate" class="w-full mb-4 p-2 rounded text-blue-300 bg-gray-800" />
 
-            <button id="uploadBtn" onclick="uploadCertificate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full">
+            <button onclick="uploadCertificate()" id="uploadBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full">
               Upload Certificate
             </button>
           </div>
         </div>
       </div>
 
-      <!-- User Certificates Table -->
+      <!-- Certificate Table (user view) -->
       <div id="userCertTable" class="mt-10 w-full overflow-x-auto px-2">
         <table class="min-w-full bg-gray-800 rounded-lg shadow-md">
           <tbody id="userCertTableBody">
-            <!-- Rows injected by JS -->
+            <!-- Certificate rows will be injected here by JS -->
           </tbody>
         </table>
       </div>
 
       <!-- Admin View: Pending Certificates -->
-      <div id="adminView" class="mt-10 px-2 hidden">
-        <h2 class="text-lg font-semibold mb-4">Pending Certificates</h2>
+      <div id="adminView" class="hidden mt-10">
+        <h2 class="text-lg font-semibold mb-4">Pending Certificates (Admin)</h2>
         <div id="certList" class="mt-4 space-y-4"></div>
       </div>
 
-      <!-- Certificate Summary Modal -->
+      <!-- Modal: Certificates Summary -->
       <div id="certSummaryModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
         <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-5xl relative">
           <button onclick="document.getElementById('certSummaryModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">×</button>
@@ -190,7 +159,7 @@
         </div>
       </div>
 
-      <!-- Ranking Modal -->
+      <!-- Modal: Staff Ranking -->
       <div id="certRankingModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
         <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative">
           <button onclick="document.getElementById('certRankingModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">×</button>
@@ -200,7 +169,7 @@
         </div>
       </div>
 
-      <!-- Detailed Certificate Modal -->
+      <!-- Modal: Detailed per Certificate Type -->
       <div id="detailedCertModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
         <div class="bg-gray-900 p-6 rounded-xl shadow-2xl w-full max-w-3xl relative">
           <button onclick="document.getElementById('detailedCertModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">×</button>
@@ -253,23 +222,66 @@
             </tbody>
           </table>
         </div>
-      </div>
 
-      <!-- Certificate Viewer Modal -->
-      <div id="certViewerModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
-        <div class="bg-gray-900 p-6 rounded-xl shadow-2xl max-w-3xl w-full relative">
-          <button onclick="document.getElementById('certViewerModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl">
-            <i class="fas fa-times"></i>
-          </button>
-          <iframe id="certIframe" src="" class="w-full h-[70vh] rounded-lg" frameborder="0"></iframe>
+        <!-- Modal to view certificate file -->
+        <div id="certViewerModal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
+          <div class="bg-gray-900 p-6 rounded-xl shadow-2xl max-w-3xl w-full relative">
+            <button onclick="document.getElementById('certViewerModal').classList.add('hidden')" class="absolute top-2 right-3 text-white text-xl"><i class="fas fa-times"></i></button>
+            <iframe id="certIframe" src="" class="w-full h-[70vh] rounded-lg" frameborder="0"></iframe>
+          </div>
         </div>
       </div>
 
     </div> <!-- /main content -->
   </div> <!-- /flex -->
 
-  <!-- MAIN SCRIPT -->
+  <!-- Main Script -->
   <script>
+    // Sidebar toggle for mobile
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarMenu = document.getElementById('sidebar-menu');
+
+    function closeSidebarOnDesktop() {
+      if (!sidebarMenu) return;
+      if (window.innerWidth >= 768) {
+        sidebarMenu.classList.remove('hidden');
+        sidebarMenu.classList.add('flex');
+      } else {
+        sidebarMenu.classList.add('hidden');
+        sidebarMenu.classList.remove('flex');
+      }
+    }
+
+    if (sidebarToggle && sidebarMenu) {
+      sidebarToggle.addEventListener('click', () => {
+        sidebarMenu.classList.toggle('hidden');
+        sidebarMenu.classList.toggle('flex');
+      });
+      window.addEventListener('resize', closeSidebarOnDesktop);
+      closeSidebarOnDesktop();
+    }
+
+    // Upload modal open/close
+    const openUploadBtn = document.getElementById('openUploadModal');
+    const uploadModal = document.getElementById('uploadModal');
+    const closeUploadBtn = document.getElementById('closeUploadModal');
+
+    if (openUploadBtn && uploadModal && closeUploadBtn) {
+      openUploadBtn.addEventListener('click', () => {
+        uploadModal.classList.remove('hidden');
+      });
+
+      closeUploadBtn.addEventListener('click', () => {
+        uploadModal.classList.add('hidden');
+      });
+
+      uploadModal.addEventListener('click', (e) => {
+        if (e.target === uploadModal) {
+          uploadModal.classList.add('hidden');
+        }
+      });
+    }
+
     // Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCByQute9IKG_2nvSFWcAThgEH7PKIhMDw",
@@ -287,33 +299,146 @@
     const storage = firebase.storage();
 
     let currentUID = null;
+    let currentUserName = null;
+    let currentStaffId = null;
     let allCertRows = [];
+    let certSummaryData = {};
+    let fullRankingList = [];
 
-    auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        currentUID = user.uid;
-        const userDoc = await db.collection("users").doc(currentUID).get();
-        const name = userDoc.exists ? userDoc.data().name : "User";
-        document.getElementById("user-greeting").textContent = `Welcome, ${name}`;
+    function extractStaffIdFromName(name) {
+      if (!name) return null;
+      const match = name.match(/\[(.*?)\]/);
+      return match ? match[1].trim() : null;
+    }
 
-        loadUserCertificates();
-        checkIfAdminAndLoadSpaceCertificates();
-        loadRecentUploads();
-
-        const spacesSnap = await db.collection("spaces").get();
-        const isAdmin = spacesSnap.docs.some(doc => doc.data().createdBy === currentUID);
-        if (isAdmin) {
-          loadPendingCertificates();
-        }
+    function getFileExtensionFromUrl(url) {
+      if (!url) return "";
+      try {
+        const clean = url.split("?")[0];
+        const lastDot = clean.lastIndexOf(".");
+        if (lastDot === -1) return "";
+        return clean.substring(lastDot);
+      } catch (e) {
+        return "";
       }
-    });
+    }
 
-    // Recent Uploads Notification
-    function loadRecentUploads() {
+    function getCertStatus(expiryDate) {
+      if (!expiryDate) {
+        return { daysLeft: NaN, status: "🚫 Missing" };
+      }
+      const today = new Date();
+      const exp = new Date(expiryDate);
+      const daysLeft = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+      let status = "✅ Active";
+      if (daysLeft <= 0) status = "❌ Expired";
+      else if (daysLeft <= 30) status = "⚠️ Near Expiry";
+      return { daysLeft, status };
+    }
+
+    function getColorClass(status) {
+      if (status.includes("Expired")) return "text-red-400";
+      if (status.includes("Near")) return "text-yellow-400";
+      return "text-green-400";
+    }
+
+    function countCertStatus(certs, targetStatus) {
+      if (targetStatus === "missing") {
+        return 6 - Object.keys(certs || {}).length;
+      }
+      return Object.values(certs || {}).filter(cert => {
+        if (!cert?.expiryDate) return false;
+        const status = getCertStatus(cert.expiryDate).status;
+        if (targetStatus === "Active") return status.includes("Active");
+        if (targetStatus === "Near Expiry") return status.includes("Near");
+        if (targetStatus === "Expired") return status.includes("Expired");
+        return false;
+      }).length;
+    }
+
+    function getCertCell(cert) {
+      if (!cert) {
+        return `<td class="px-4 py-2 text-gray-400 italic">-</td>`;
+      }
+
+      if (cert.status === "rejected") {
+        return `<td class="px-4 py-2 bg-red-600 text-white text-center font-bold rounded">REJECTED</td>`;
+      }
+
+      const { daysLeft, status } = getCertStatus(cert.expiryDate);
+      const today = new Date();
+      const exp = new Date(cert.expiryDate);
+
+      let months = 0;
+      let temp = new Date(today);
+      while (temp < exp) {
+        temp.setMonth(temp.getMonth() + 1);
+        if (temp <= exp) months++;
+      }
+      const rem = new Date(today);
+      rem.setMonth(rem.getMonth() + months);
+      const remDays = Math.ceil((exp - rem) / (1000 * 60 * 60 * 24));
+      const left = daysLeft <= 0 ? "Expired" : `${months > 0 ? months + " mo " : ""}${remDays > 0 ? remDays + " d" : ""}`;
+
+      return `<td class="px-4 py-2 ${getColorClass(status)}">
+        <div class="font-bold">${status}</div>
+        <div class="text-sm text-gray-300">${cert.expiryDate}</div>
+        <div class="text-xs text-blue-400">${left}</div>
+        <div class="mt-1">
+          <button onclick="viewCert('${cert.fileURL}')" class="text-white hover:text-blue-400">
+            <i class='fas fa-eye'></i>
+          </button>
+        </div>
+      </td>`;
+    }
+
+    function viewCert(url) {
+      const iframe = document.getElementById("certIframe");
+      const modal = document.getElementById("certViewerModal");
+      if (!iframe || !modal) return;
+      iframe.src = url;
+      modal.classList.remove("hidden");
+    }
+
+    function generateExpiryAndMissingReport() {
+      const certTypes = ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"];
+
+      const now = new Date();
+      const pad = (n) => (n < 10 ? "0" + n : n);
+      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+      const rows = [[`Report generated at: ${timestamp}`], []];
+      rows.push(["Name", ...certTypes]);
+
+      allCertRows.forEach(row => {
+        const dataRow = [row.name];
+        certTypes.forEach(type => {
+          const cert = row.certs[type];
+          if (!cert) {
+            dataRow.push("Missed");
+          } else {
+            const { status } = getCertStatus(cert.expiryDate);
+            if (status.includes("Expired")) dataRow.push("Expired");
+            else dataRow.push("✓");
+          }
+        });
+        rows.push(dataRow);
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Expired & Missing");
+      XLSX.writeFile(workbook, "Certificate_Report_Expired_Missing.xlsx");
+    }
+
+    async function loadRecentUploads() {
       const ul = document.getElementById("recentUploads");
+      if (!ul) return;
+
       ul.innerHTML = "<li class='italic text-gray-400'>Now Loading...</li>";
 
-      db.collection("Database").limit(50).get().then(async (snapshot) => {
+      try {
+        const snapshot = await db.collection("Database").limit(50).get();
         const items = [];
 
         snapshot.forEach(doc => {
@@ -350,42 +475,47 @@
             const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
 
             let colorClass = "text-green-400";
-            if (daysLeft < 0) {
+            if (isNaN(daysLeft)) {
+              colorClass = "text-gray-300";
+            } else if (daysLeft < 0) {
               colorClass = "text-red-400";
             } else if (daysLeft < 60) {
               colorClass = "text-yellow-400";
-            } else if (daysLeft > 90) {
-              colorClass = "text-green-400";
             } else {
-              colorClass = "text-gray-300";
+              colorClass = "text-green-400";
             }
 
             return `<li class="bg-gray-700 p-3 rounded shadow border-l-4 border-blue-500">
-              <span class="text-sm font-semibold text-blue-300">${name}</span>
-              <span class="text-xs block">Upload <strong>${item.certType}</strong> -
-                <span class="${colorClass}">Expire in ( ${item.expiry} )</span>
+              <span class="text-sm font-semibold text-blue-300">${name}</span><br>
+              <span class="text-xs">Uploaded <strong>${item.certType}</strong> -
+                <span class="${colorClass}">Expire on ( ${item.expiry} )</span>
               </span>
             </li>`;
           })
         );
 
         ul.innerHTML = htmlItems.join("") || "<li class='text-gray-400 italic'>لا توجد مشاركات حديثة.</li>";
-      });
+      } catch (err) {
+        console.error(err);
+        ul.innerHTML = "<li class='text-red-400'>Error loading uploads</li>";
+      }
     }
 
-    // Load user certificates for current user
     async function loadUserCertificates() {
       const container = document.getElementById("userCertTableBody");
+      if (!container || !currentUID) return;
       container.innerHTML = "";
 
       const doc = await db.collection("Database").doc(currentUID).get();
       if (!doc.exists) return;
       const data = doc.data();
       const today = new Date();
+      const staffIdForDownload = currentStaffId || currentUID;
 
-      ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(cert => {
-        if (!data[cert]) return;
-        const c = data[cert];
+      ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(certType => {
+        const c = data[certType];
+        if (!c) return;
+
         const exp = new Date(c.expiryDate);
         const daysLeft = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
         const status = daysLeft <= 0 ? "Expired" : daysLeft <= 30 ? "Near Expiry" : "Active";
@@ -401,166 +531,130 @@
         const remDays = Math.ceil((exp - rem) / (1000 * 60 * 60 * 24));
         const left = daysLeft <= 0 ? "Expired" : `${months > 0 ? months + " mo " : ""}${remDays > 0 ? remDays + " d" : ""}`;
 
+        const fileExt = getFileExtensionFromUrl(c.fileURL);
+        const downloadName = `${staffIdForDownload} ${certType}${fileExt}`;
+
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td class="px-4 py-2 font-semibold">${cert}</td>
+          <td class="px-4 py-2 font-semibold">${certType}</td>
           <td class="px-4 py-2">${c.expiryDate}</td>
           <td class="px-4 py-2 ${daysLeft <= 30 ? 'text-red-400' : 'text-green-400'}">${left}</td>
           <td class="px-4 py-2 capitalize ${c.status === 'approved' ? 'text-green-400' : c.status === 'pending' ? 'text-yellow-400' : 'text-red-400'}">${c.status}</td>
-          <td class="px-4 py-2"><a href="${c.fileURL}" target="_blank" class="text-blue-400 underline">View</a></td>
+          <td class="px-4 py-2 space-x-3">
+            <a href="${c.fileURL}" target="_blank" class="text-blue-400 underline">View</a>
+            <a href="${c.fileURL}" download="${downloadName}" class="text-green-400 underline">Download</a>
+          </td>
           <td class="px-4 py-2 italic text-sm text-gray-300">${c.comment || '-'}</td>
         `;
         container.appendChild(row);
       });
     }
 
-    // Upload certificate
     async function uploadCertificate() {
-      const fileInput = document.getElementById('certificateFile');
-      const expiryInput = document.getElementById('expiryDate');
-      const typeSelect = document.getElementById('certificateType');
-      const uploadBtn = document.getElementById('uploadBtn');
+      const fileInput = document.getElementById("certificateFile");
+      const expiryInput = document.getElementById("expiryDate");
+      const typeSelect = document.getElementById("certificateType");
+      const uploadBtn = document.getElementById("uploadBtn");
 
       const file = fileInput.files[0];
       const expiry = expiryInput.value;
       const type = typeSelect.value;
-      if (!file || !expiry || !type) return alert("Fill all fields");
+
+      if (!file || !expiry || !type) {
+        alert("Fill all fields");
+        return;
+      }
+
+      if (!currentUID) {
+        alert("User not logged in");
+        return;
+      }
 
       uploadBtn.disabled = true;
       uploadBtn.textContent = "Uploading...";
 
-      const fileName = `${type}_${Date.now()}_${file.name}`;
-      const ref = storage.ref(`certificates/${currentUID}/${fileName}`);
-      await ref.put(file);
-      const url = await ref.getDownloadURL();
+      try {
+        const fileName = `${type}_${Date.now()}_${file.name}`;
+        const ref = storage.ref(`certificates/${currentUID}/${fileName}`);
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
 
-      const docRef = db.collection("Database").doc(currentUID);
-      const oldDoc = await docRef.get();
-      const data = oldDoc.exists ? oldDoc.data() : {};
-      data[type] = {
-        fileURL: url,
-        expiryDate: expiry,
-        uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        status: "pending"
-      };
-      await docRef.set(data, { merge: true });
-      alert("Uploaded successfully.");
-      fileInput.value = "";
-      expiryInput.value = "";
-      loadUserCertificates();
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = "Upload Certificate";
-      document.getElementById("uploadModal").classList.add("hidden");
+        const docRef = db.collection("Database").doc(currentUID);
+        const oldDoc = await docRef.get();
+        const data = oldDoc.exists ? oldDoc.data() : {};
+        data[type] = {
+          fileURL: url,
+          expiryDate: expiry,
+          uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          status: "pending"
+        };
+        await docRef.set(data, { merge: true });
+
+        alert("Uploaded successfully.");
+        fileInput.value = "";
+        expiryInput.value = "";
+        loadUserCertificates();
+      } catch (err) {
+        console.error(err);
+        alert("Error uploading certificate");
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "Upload Certificate";
+      }
     }
 
-    // Admin check + load space certificates
     async function checkIfAdminAndLoadSpaceCertificates() {
       const user = auth.currentUser;
       if (!user) return;
+      const snap = await db.collection("spaces").where("createdBy", "==", user.uid).limit(1).get();
+      if (snap.empty) return;
 
-      const snap = await db.collection("spaces").get();
-      let isAdminOfSpace = false;
+      document.getElementById("spaceCertSummary").classList.remove("hidden");
+      await loadOverviewCertificateTable();
 
-      for (const doc of snap.docs) {
-        const data = doc.data();
-        if (data.createdBy === user.uid) {
-          isAdminOfSpace = true;
-          document.getElementById("spaceCertSummary").classList.remove("hidden");
-          await loadOverviewCertificateTable();
+      const container = document.getElementById("spaceSummaryBtnContainer");
+      if (!container) return;
 
-          document.getElementById("spaceSummaryBtnContainer").innerHTML = `
-            <button onclick="document.getElementById('spaceCertSummary').classList.remove('hidden'); document.getElementById('spaceCertSummary').scrollIntoView({behavior:'smooth'});"
-              class="bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
-              <i class="fas fa-users text-white text-2xl mb-2"></i>
-              <span class="text-white text-sm font-medium text-center">Space Members Summary</span>
-            </button>
-
-            <button onclick="openCertSummaryReport()" class="bg-gradient-to-br from-indigo-600 via-indigo-800 to-indigo-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
-              <i class="fas fa-chart-bar text-2xl mb-1"></i>
-              <span class="text-white text-sm font-medium text-center">Certificate Report</span>
-            </button>
-
-            <button onclick="downloadAllCertificatesZip()" 
-              class="bg-gradient-to-br from-sky-500 via-sky-700 to-sky-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
-              <i class="fas fa-download text-2xl mb-1"></i>
-              <span class="text-white text-sm font-medium text-center">Download All Certificates</span>
-            </button>
-
-            <button onclick="openCertRankingReport()" class="bg-gradient-to-br from-pink-600 via-pink-800 to-pink-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
-              <i class="fas a-trophy text-2xl mb-1"></i>
-              <span class="text-white text-sm font-medium text-center">Staff Ranking</span>
-            </button>
-          `;
-          break;
-        }
-      }
-
-      if (!isAdminOfSpace) {
-        document.getElementById("spaceCertSummary").classList.add("hidden");
-      }
+      container.innerHTML = `
+        <button onclick="document.getElementById('spaceCertSummary').classList.remove('hidden'); document.getElementById('spaceCertSummary').scrollIntoView({behavior:'smooth'});"
+          class="bg-gradient-to-br from-[#10b981] via-[#0f172a] to-[#1e293b] p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
+          <i class="fas fa-users text-white text-2xl mb-2"></i>
+          <span class="text-white text-sm font-medium text-center">Space Members Summary</span>
+        </button>
+        <button onclick="openCertSummaryReport()"
+          class="bg-gradient-to-br from-indigo-600 via-indigo-800 to-indigo-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
+          <i class="fas fa-chart-bar text-2xl mb-1"></i>
+          <span class="text-white text-sm font-medium text-center">Certificate Report</span>
+        </button>
+        <button onclick="generateExpiryAndMissingReport()"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-xl mt-2 shadow-lg flex items-center justify-center transition duration-300 hover:scale-105">
+          ⬇️ Generate Report (Excel)
+        </button>
+        <button onclick="openCertRankingReport()"
+          class="bg-gradient-to-br from-pink-600 via-pink-800 to-pink-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
+          <i class="fas fa-trophy text-2xl mb-1"></i>
+          <span class="text-white text-sm font-medium text-center">Staff Ranking</span>
+        </button>
+        <button onclick="openAdminPendingView()"
+          class="bg-gradient-to-br from-yellow-500 via-yellow-700 to-yellow-900 p-4 rounded-xl shadow-lg flex flex-col items-center justify-center hover:scale-105 transition duration-300 mt-2 backdrop-blur-md bg-opacity-60 border border-white/10">
+          <i class="fas fa-clock text-2xl mb-1"></i>
+          <span class="text-white text-sm font-medium text-center">Pending Certificates</span>
+        </button>
+      `;
     }
 
-    // Helper: status & color
-    function getCertStatus(expiryDate) {
-      if (!expiryDate) return { daysLeft: -9999, status: "❌ Expired" };
-      const today = new Date();
-      const exp = new Date(expiryDate);
-      const daysLeft = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
-      let status = "✅ Active";
-      if (daysLeft <= 0) status = "❌ Expired";
-      else if (daysLeft <= 30) status = "⚠️ Near Expiry";
-      return { daysLeft, status };
-    }
-
-    function getColorClass(status) {
-      if (status.includes("Expired")) return "text-red-400";
-      if (status.includes("Near")) return "text-yellow-400";
-      return "text-green-400";
-    }
-
-    function getCertCell(cert) {
-      if (!cert) {
-        return `<td class="px-4 py-2 text-gray-400 italic">-</td>`;
-      }
-
-      if (cert.status === "rejected") {
-        return `<td class="px-4 py-2 bg-red-600 text-white text-center font-bold rounded">REJECTED</td>`;
-      }
-
-      const { daysLeft, status } = getCertStatus(cert.expiryDate);
-      let months = 0;
-      const today = new Date();
-      let temp = new Date(today);
-      while (temp < new Date(cert.expiryDate)) {
-        temp.setMonth(temp.getMonth() + 1);
-        if (temp <= new Date(cert.expiryDate)) months++;
-      }
-      const rem = new Date(today);
-      rem.setMonth(rem.getMonth() + months);
-      const remDays = Math.ceil((new Date(cert.expiryDate) - rem) / (1000 * 60 * 60 * 24));
-      const left = daysLeft <= 0 ? "Expired" : `${months > 0 ? months + " mo " : ""}${remDays > 0 ? remDays + " d" : ""}`;
-
-      return `<td class="px-4 py-2 ${getColorClass(status)}">
-        <div class="font-bold">${status}</div>
-        <div class="text-sm text-gray-300">${cert.expiryDate}</div>
-        <div class="text-xs text-blue-400">${left}</div>
-        <div class="mt-1"><button onclick="viewCert('${cert.fileURL}')" class="text-white hover:text-blue-400"><i class='fas fa-eye'></i></button></div>
-      </td>`;
-    }
-
-    // Build overview table for space members
     async function loadOverviewCertificateTable() {
       const tbody = document.getElementById("overviewCertTableBody");
+      if (!tbody) return;
       tbody.innerHTML = "";
       allCertRows = [];
 
       const spaceSnap = await db.collection("spaces").get();
       const adminUID = auth.currentUser?.uid;
-      const spaceDoc = spaceSnap.docs.find(doc => doc.data().createdBy === adminUID);
-      if (!spaceDoc) return;
+      const space = spaceSnap.docs.find(doc => doc.data().createdBy === adminUID);
+      if (!space) return;
 
-      const uids = spaceDoc.data().joinedParticipants || [];
-      const certTypes = ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"];
+      const uids = space.data().joinedParticipants || [];
 
       for (const uid of uids) {
         const [userDoc, certDoc] = await Promise.all([
@@ -568,12 +662,13 @@
           db.collection("Database").doc(uid).get()
         ]);
 
-        const name = userDoc.exists ? userDoc.data().name || uid : uid;
+        const name = userDoc.exists ? (userDoc.data().name || uid) : uid;
+        const staffId = extractStaffIdFromName(name);
+
         const allCerts = certDoc.exists ? certDoc.data() : {};
         const certs = {};
-
         for (const [key, value] of Object.entries(allCerts)) {
-          if (value.status === "approved") {
+          if (value && value.status === "approved") {
             certs[key] = value;
           }
         }
@@ -590,20 +685,24 @@
           </tr>
         `;
 
-        const totalDaysLeft = certTypes
-          .map(t => certs[t])
-          .filter(Boolean)
-          .reduce((acc, cert) => acc + getCertStatus(cert.expiryDate).daysLeft, 0);
+        const certArray = [certs.BLS, certs.ACLS, certs.PALS, certs.SEDATION, certs.MOH, certs.SCFHS].filter(Boolean);
+        const totalDaysLeft = certArray.reduce((acc, cert) => acc + getCertStatus(cert.expiryDate).daysLeft, 0);
+
+        const active = countCertStatus(certs, "Active");
+        const nearExpiry = countCertStatus(certs, "Near Expiry");
+        const expired = countCertStatus(certs, "Expired");
+        const missing = 6 - Object.keys(certs).length;
 
         allCertRows.push({
           name,
+          staffId,
           html: rowHTML,
           certs,
           totalDaysLeft,
-          nearExpiry: countCertStatus(certs, "Near Expiry"),
-          expired: countCertStatus(certs, "Expired"),
-          active: countCertStatus(certs, "Active"),
-          missing: certTypes.length - Object.keys(certs).length
+          nearExpiry,
+          expired,
+          active,
+          missing
         });
 
         tbody.innerHTML += rowHTML;
@@ -617,48 +716,27 @@
       });
     }
 
-    function countCertStatus(certs, targetStatus) {
-      return Object.values(certs || {}).filter(cert => {
-        if (!cert?.expiryDate) return false;
-        const status = getCertStatus(cert.expiryDate).status;
-        if (targetStatus === "missing") return false;
-        if (targetStatus === "Near Expiry") return status.includes("Near");
-        if (targetStatus === "Expired") return status.includes("Expired");
-        if (targetStatus === "Active") return status.includes("Active");
-        return false;
-      }).length;
-    }
-
-    // Filter table
     function renderFilteredCertTable() {
-      const certFilter = document.getElementById("filterCertificateType").value;
-      const statusFilter = document.getElementById("filterStatus").value;
+      const certFilterEl = document.getElementById("filterCertificateType");
+      const statusFilterEl = document.getElementById("filterStatus");
       const tbody = document.getElementById("overviewCertTableBody");
+      if (!certFilterEl || !statusFilterEl || !tbody) return;
+
+      const certFilter = certFilterEl.value;
+      const statusFilter = statusFilterEl.value;
       tbody.innerHTML = "";
 
       allCertRows.forEach(row => {
-        const certTypes = ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"];
         if (certFilter === "ALL" && statusFilter === "ALL") {
           tbody.innerHTML += row.html;
         } else {
-          const cert = certFilter === "ALL"
-            ? null
-            : row.certs[certFilter];
-
+          const cert = certFilter === "ALL" ? null : row.certs[certFilter];
           if (certFilter !== "ALL" && !cert) return;
-          if (statusFilter === "ALL") {
-            tbody.innerHTML += row.html;
-            return;
-          }
-
-          const expiryDate = cert ? cert.expiryDate : null;
-          const { status } = getCertStatus(expiryDate);
+          const { status } = cert ? getCertStatus(cert.expiryDate) : { status: "" };
 
           if (
             (certFilter === "ALL" || cert) &&
-            (statusFilter === "Active" && status.includes("Active") ||
-             statusFilter === "Near Expiry" && status.includes("Near") ||
-             statusFilter === "Expired" && status.includes("Expired"))
+            (statusFilter === "ALL" || status.includes(statusFilter.split(" ")[0]))
           ) {
             tbody.innerHTML += row.html;
           }
@@ -666,25 +744,25 @@
       });
     }
 
-    document.getElementById("filterCertificateType").addEventListener("change", renderFilteredCertTable);
-    document.getElementById("filterStatus").addEventListener("change", renderFilteredCertTable);
-
-    // Load pending certificates
     async function loadPendingCertificates() {
       const certList = document.getElementById("certList");
+      if (!certList) return;
       certList.innerHTML = "";
 
       const snapshot = await db.collection("Database").get();
 
-      snapshot.forEach(async (doc) => {
+      for (const doc of snapshot.docs) {
         const data = doc.data();
         const uid = doc.id;
         const userDoc = await db.collection("users").doc(uid).get();
         const userName = userDoc.exists ? userDoc.data().name : uid;
+        const staffId = extractStaffIdFromName(userName) || uid;
 
         ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"].forEach(certType => {
-          if (data[certType] && data[certType].status === "pending") {
-            const cert = data[certType];
+          const cert = data[certType];
+          if (cert && cert.status === "pending") {
+            const fileExt = getFileExtensionFromUrl(cert.fileURL);
+            const downloadName = `${staffId} ${certType}${fileExt}`;
 
             const div = document.createElement("div");
             div.className = "p-4 bg-gray-700 rounded shadow";
@@ -692,16 +770,19 @@
               <p><strong>Name:</strong> ${userName}</p>
               <p><strong>Certificate:</strong> ${certType}</p>
               <p><strong>Expiry:</strong> ${cert.expiryDate}</p>
-              <a href="${cert.fileURL}" target="_blank" class="text-blue-400 underline">View Certificate</a>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <a href="${cert.fileURL}" target="_blank" class="btn btn-sm">👁 View</a>
+                <a href="${cert.fileURL}" download="${downloadName}" class="btn btn-sm btn-accent">⬇️ Download</a>
+              </div>
               <div class="mt-3 space-x-2">
-                <button class="btn btn-success" onclick="approve('${uid}', '${certType}')">✅ Approve</button>
-                <button class="btn btn-error" onclick="reject('${uid}', '${certType}')">❌ Reject</button>
+                <button class="btn btn-success btn-sm" onclick="approve('${uid}', '${certType}')">✅ Approve</button>
+                <button class="btn btn-error btn-sm" onclick="reject('${uid}', '${certType}')">❌ Reject</button>
               </div>
             `;
             certList.appendChild(div);
           }
         });
-      });
+      }
     }
 
     async function approve(uid, certType) {
@@ -728,44 +809,6 @@
       loadPendingCertificates();
     }
 
-    function viewCert(url) {
-      document.getElementById("certIframe").src = url;
-      document.getElementById("certViewerModal").classList.remove("hidden");
-    }
-
-    // Logout
-    document.getElementById("logout-btn").addEventListener("click", () => {
-      auth.signOut();
-    });
-
-    // Upload Modal control
-    const openBtn = document.getElementById('openUploadModal');
-    const modal = document.getElementById('uploadModal');
-    const closeBtn = document.getElementById('closeUploadModal');
-
-    openBtn.addEventListener('click', () => {
-      modal.classList.remove('hidden');
-    });
-
-    closeBtn.addEventListener('click', () => {
-      modal.classList.add('hidden');
-    });
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        modal.classList.add('hidden');
-      }
-    });
-
-    // Pending Approval button opens admin view + loads data
-    document.getElementById('showPendingApprovalBtn').addEventListener('click', function () {
-      const adminView = document.getElementById('adminView');
-      adminView.classList.remove('hidden');
-      adminView.scrollIntoView({ behavior: 'smooth' });
-      loadPendingCertificates();
-    });
-
-    // Certificate Summary Report
     function openCertSummaryReport() {
       const certTypes = ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"];
       const summary = {};
@@ -778,12 +821,12 @@
           const cert = row.certs[type];
           if (!cert) {
             summary[type].missing.push(row.name);
-            return;
+          } else {
+            const status = getCertStatus(cert.expiryDate).status;
+            if (status.includes("Active")) summary[type].active.push({ name: row.name, expiryDate: cert.expiryDate });
+            else if (status.includes("Near")) summary[type].near.push({ name: row.name, expiryDate: cert.expiryDate });
+            else if (status.includes("Expired")) summary[type].expired.push({ name: row.name, expiryDate: cert.expiryDate });
           }
-          const status = getCertStatus(cert.expiryDate).status;
-          if (status.includes("Active")) summary[type].active.push({ name: row.name, expiryDate: cert.expiryDate });
-          else if (status.includes("Near")) summary[type].near.push({ name: row.name, expiryDate: cert.expiryDate });
-          else if (status.includes("Expired")) summary[type].expired.push({ name: row.name, expiryDate: cert.expiryDate });
         });
       });
 
@@ -800,12 +843,12 @@
           <td class='px-4 py-2'><button onclick="openDetailedCert('${type}')" class="text-blue-400 underline">👁 View</button></td>
         </tr>`;
       });
-      window.certSummaryData = summary;
+      certSummaryData = summary;
       document.getElementById("certSummaryModal").classList.remove("hidden");
     }
 
     function openDetailedCert(certType) {
-      const data = window.certSummaryData[certType];
+      const data = certSummaryData[certType];
       const list = document.getElementById("detailedCertList");
       const title = document.getElementById("detailedCertTitle");
       title.textContent = `📄 ${certType} Details`;
@@ -813,20 +856,18 @@
 
       ["active", "near", "expired", "missing"].forEach(key => {
         const label = key === "active" ? "✅ Active" : key === "near" ? "⚠️ Near" : key === "expired" ? "❌ Expired" : "🚫 Missing";
-        const group = data[key] || [];
-        list.innerHTML += `<li class='font-bold mt-2'>${label} (${group.length})</li>`;
+        list.innerHTML += `<li class='font-bold mt-2'>${label} (${data[key].length})</li>`;
 
-        if (group.length === 0) {
+        if (data[key].length === 0) {
           list.innerHTML += `<li class='text-gray-400 italic'>No users</li>`;
         } else {
-          group.forEach(item => {
+          data[key].forEach(item => {
+            let name = item.name || item;
+            let expiry = item.expiryDate ? formatDate(item.expiryDate) : "N/A";
+            let remaining = item.expiryDate ? getRemaining(item.expiryDate) : "-";
             if (key === "missing") {
-              const name = typeof item === "string" ? item : item.name || "-";
               list.innerHTML += `<li class='pl-4 text-gray-400'>• ${name}</li>`;
             } else {
-              const name = item.name || "-";
-              const expiry = item.expiryDate ? formatDate(item.expiryDate) : "N/A";
-              const remaining = item.expiryDate ? getRemaining(item.expiryDate) : "-";
               list.innerHTML += `<li class='pl-4'>• ${name} - ${expiry} - Remaining: ${remaining}</li>`;
             }
           });
@@ -861,47 +902,47 @@
         if (a.nearExpiry !== b.nearExpiry) return a.nearExpiry - b.nearExpiry;
         return a.expired - b.expired;
       });
-      window.fullRankingList = sorted;
+      fullRankingList = sorted;
       renderRankingList();
       document.getElementById("certRankingModal").classList.remove("hidden");
     }
 
     function renderRankingList() {
-      const q = (document.getElementById("searchRankingInput").value || "").toLowerCase();
+      const q = (document.getElementById("searchRankingInput")?.value || "").toLowerCase();
       const div = document.getElementById("certRankingBody");
+      if (!div) return;
       div.innerHTML = "";
       let shown = 0;
-
-      (window.fullRankingList || []).forEach((row, index) => {
-        if (!row.name.toLowerCase().includes(q)) return;
-        if (q === "" && shown >= 5) return;
+      for (let i = 0; i < fullRankingList.length; i++) {
+        const row = fullRankingList[i];
+        if (!row.name.toLowerCase().includes(q)) continue;
+        if (q === "" && shown >= 5) break;
         div.innerHTML += `<div class='border-b border-gray-700 pb-1'>
-          <strong class='text-white'>${index + 1}. ${row.name}</strong><br>
+          <strong class='text-white'>${i + 1}. ${row.name}</strong><br>
           ✅ Active: <span class='text-green-400'>${row.active}</span>,
           ⚠️ Near: <span class='text-yellow-400'>${row.nearExpiry}</span>,
           ❌ Expired: <span class='text-red-400'>${row.expired}</span>,
           🚫 Missing: <span class='text-gray-400'>${row.missing}</span>
         </div>`;
         shown++;
-      });
+      }
     }
 
     function downloadDetailedCertExcel() {
-      const title = document.getElementById("detailedCertTitle").textContent || "";
+      const title = document.getElementById("detailedCertTitle").textContent;
       const certType = title.replace("📄 ", "").replace(" Details", "");
-      const data = window.certSummaryData[certType];
+      const data = certSummaryData[certType];
 
       const rows = [["Name", "Expiry Date", "Remaining", "Status"]];
       ["active", "near", "expired", "missing"].forEach(key => {
-        const group = data[key] || [];
-        group.forEach(item => {
+        data[key].forEach(item => {
           const name = typeof item === "string" ? item : item.name || "-";
           const expiry = item.expiryDate ? formatDate(item.expiryDate) : "N/A";
           const remaining = item.expiryDate ? getRemaining(item.expiryDate) : "-";
           const statusLabel = key === "active" ? "✅ Active" :
-            key === "near" ? "⚠️ Near Expiry" :
-            key === "expired" ? "❌ Expired" :
-            "🚫 Missing";
+                              key === "near" ? "⚠️ Near Expiry" :
+                              key === "expired" ? "❌ Expired" :
+                              "🚫 Missing";
           rows.push([name, expiry, remaining, statusLabel]);
         });
       });
@@ -912,140 +953,60 @@
       XLSX.writeFile(workbook, `${certType}_Details.xlsx`);
     }
 
-    // ---------- NEW PART: Expired & Missing Excel Report ----------
-    function generateExpiryAndMissingReport() {
-      const certTypes = ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"];
+    function openAdminPendingView() {
+      const adminView = document.getElementById('adminView');
+      if (adminView) {
+        adminView.classList.remove('hidden');
+        adminView.scrollIntoView({ behavior: 'smooth' });
+      }
+      loadPendingCertificates();
+    }
 
-      const now = new Date();
-      const pad = (n) => (n < 10 ? "0" + n : n);
-      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    // Attach filter events
+    const certFilterSelect = document.getElementById("filterCertificateType");
+    const statusFilterSelect = document.getElementById("filterStatus");
+    if (certFilterSelect && statusFilterSelect) {
+      certFilterSelect.addEventListener("change", renderFilteredCertTable);
+      statusFilterSelect.addEventListener("change", renderFilteredCertTable);
+    }
 
-      const rows = [[`Report generated at: ${timestamp}`], []];
-      rows.push(["Name", ...certTypes]);
+    // Pending button (top) click
+    const pendingBtn = document.getElementById('showPendingApprovalBtn');
+    if (pendingBtn) {
+      pendingBtn.addEventListener('click', openAdminPendingView);
+    }
 
-      allCertRows.forEach(row => {
-        const dataRow = [row.name];
-
-        certTypes.forEach(type => {
-          const cert = row.certs[type];
-          if (!cert) {
-            dataRow.push("Missed");
-          } else {
-            const { status } = getCertStatus(cert.expiryDate);
-            if (status.includes("Expired")) {
-              dataRow.push("Expired");
-            } else {
-              dataRow.push("✓");
-            }
-          }
-        });
-
-        rows.push(dataRow);
+    // Logout button
+    const logoutBtn = document.getElementById("logout-btn");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        auth.signOut();
       });
-
-      const worksheet = XLSX.utils.aoa_to_sheet(rows);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Expired & Missing");
-
-      XLSX.writeFile(workbook, "Certificate_Report_Expired_Missing.xlsx");
     }
 
-    // ---------- NEW PART: Download ALL certificates as ZIP ----------
+    // Auth listener
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUID = user.uid;
+        const userDoc = await db.collection("users").doc(currentUID).get();
+        const name = userDoc.exists ? userDoc.data().name : "User";
+        currentUserName = name;
+        currentStaffId = extractStaffIdFromName(name);
 
-    function sanitizeForFilename(str) {
-      return String(str || "")
-        .replace(/[\/\\:*?"<>|]/g, "_")
-        .replace(/\s+/g, "_")
-        .trim();
-    }
+        const greeting = document.getElementById("user-greeting");
+        if (greeting) greeting.textContent = `Welcome, ${name}`;
 
-    function getFileExtensionFromUrl(url) {
-      try {
-        const withoutQuery = url.split("?")[0];
-        const parts = withoutQuery.split(".");
-        const ext = parts[parts.length - 1].toLowerCase();
-        if (ext && ext.length <= 5) return ext;
-        return "pdf";
-      } catch (e) {
-        return "pdf";
-      }
-    }
+        await loadUserCertificates();
+        await checkIfAdminAndLoadSpaceCertificates();
+        await loadRecentUploads();
 
-    async function downloadAllCertificatesZip() {
-      if (!window.JSZip) {
-        alert("JSZip library not loaded. Please check the script tag.");
-        return;
-      }
-
-      const confirmDownload = confirm(
-        "This will download ALL certificates for all employees as a single ZIP file.\nContinue?"
-      );
-      if (!confirmDownload) return;
-
-      const zip = new JSZip();
-      const certTypes = ["BLS", "ACLS", "PALS", "SEDATION", "MOH", "SCFHS"];
-      let counter = 0;
-
-      try {
-        const snapshot = await db.collection("Database").get();
-
-        for (const doc of snapshot.docs) {
-          const uid = doc.id;
-          const data = doc.data();
-
-          const userDoc = await db.collection("users").doc(uid).get();
-          const name = userDoc.exists ? (userDoc.data().name || uid) : uid;
-
-          const folderName = sanitizeForFilename(`${uid}_${name}`);
-          const folder = zip.folder(folderName);
-
-          for (const certType of certTypes) {
-            const cert = data[certType];
-            if (!cert || !cert.fileURL) continue;
-
-            const expiry = cert.expiryDate || "NA";
-            const expiryClean = sanitizeForFilename(expiry);
-            const ext = getFileExtensionFromUrl(cert.fileURL);
-            const fileName = `${sanitizeForFilename(uid)}_${certType}_${expiryClean}.${ext}`;
-
-            try {
-              const response = await fetch(cert.fileURL);
-              if (!response.ok) {
-                console.warn("Failed to download file for", uid, certType, response.status);
-                continue;
-              }
-
-              const blob = await response.blob();
-              const arrayBuffer = await blob.arrayBuffer();
-              folder.file(fileName, arrayBuffer);
-              counter++;
-            } catch (err) {
-              console.error("Error fetching certificate", uid, certType, err);
-            }
-          }
+        const spacesSnap = await db.collection("spaces").get();
+        const isAdmin = spacesSnap.docs.some(doc => doc.data().createdBy === currentUID);
+        if (isAdmin) {
+          loadPendingCertificates();
         }
-
-        if (counter === 0) {
-          alert("No certificates found to download.");
-          return;
-        }
-
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        const today = new Date().toISOString().slice(0, 10);
-
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(zipBlob);
-        link.download = `certificates_backup_${today}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-
-        alert(`Download started.\nTotal files added: ${counter}`);
-      } catch (error) {
-        console.error("Error while generating ZIP:", error);
-        alert("Error while generating ZIP. Check console for details.");
       }
-    }
+    });
   </script>
 </body>
 </html>
