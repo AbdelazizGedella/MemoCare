@@ -123,6 +123,13 @@
     <input id="c_mrn" class="input input-bordered bg-[#0f172a]" />
   </label>
 
+
+
+  <label class="form-control md:col-span-1">
+    <span class="label-text">INITIAL RHYTHM</span>
+    <input id="i_ryth" class="input input-bordered bg-[#0f172a]" />
+  </label>
+	
   <label class="form-control md:col-span-1">
     <span class="label-text">Output of Code</span>
     <select id="c_output" class="select select-bordered bg-[#0f172a]">
@@ -354,6 +361,7 @@ toggleCodeExtras();
            line('MRN', c_mrn.value) +
            line('Output of Code', c_output.value) +
            line('Disposition', c_disposition.value);
+	  line('Initial Rhythm', i_ryth.value);
   }
 
   output_code.innerText = msg;
