@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unregistered Patients — November Dashboard</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <!-- CSV Parser + Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(129, 140, 248, 0.25), transparent 55%),
+        linear-gradient(135deg, #020617, #020617, #020617);
+      min-height: 100vh;
+      color: #e5ecff;
+    }
+    .glass {
+      background: radial-gradient(circle at top left, rgba(59,130,246,0.20), transparent 55%),
+                  rgba(15,23,42,0.85);
+      border: 1px solid rgba(148,163,184,0.35);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow:
+        0 18px 45px rgba(15,23,42,0.9),
+        0 0 0 1px rgba(15,23,42,0.8);
+    }
+    .stat-number {
+      letter-spacing: 0.04em;
+    }
+    .pill {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.5);
+      padding: 0.15rem 0.6rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .pill-ctas4 { background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.6); }
+    .pill-ctas3 { background: rgba(234,179,8,0.14); border-color: rgba(234,179,8,0.6); }
+    .pill-ctas5 { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.6); }
+    .pill-other { background: rgba(148,163,184,0.14); border-color: rgba(148,163,184,0.6); }
+
+    .table-wrapper::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    .table-wrapper::-webkit-scrollbar-thumb {
+      background: rgba(148,163,184,0.6);
+      border-radius: 10px;
+    }
+    .table-wrapper::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  </style>
+</head>
+<body class="text-slate-100">
+  <div class="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-sky-200 flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+          Unregistered Patients — November
+        </h1>
+        <p class="text-xs md:text-sm text-slate-400 mt-1">
+          ER — Financial / ID / Insurance / Refusal analysis
+          <span class="inline-block text-[0.65rem] ml-3 px-2 py-0.5 rounded-full bg-slate-800/80 border border-slate-600/70">
+            لوحة مرضى غير مسجلين - نوفمبر
+          </span>
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-xs text-slate-400">
+          <div>Last sync: <span id="lastUpdated" class="text-sky-300 font-semibold">—</span></div>
+          <div class="mt-0.5">Auto-refresh: every 60 sec</div>
+        </div>
+        <button id="refreshBtn"
+                class="btn btn-sm rounded-full border-sky-500/70 bg-sky-500/10 hover:bg-sky-500/20 text-sky-200">
+          <i class="fa-solid fa-rotate-right mr-1"></i> Refresh now
+        </button>
+      </div>
+    </header>
+
+    <!-- SMART FILTERS -->
+    <section class="glass rounded-2xl p-4 space-y-3">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold text-sky-100 flex items-center gap-2">
+            <i class="fa-solid fa-filter text-sky-400"></i>
+            Smart Filters
+          </h2>
+          <p class="text-[0.7rem] text-slate-400">
+            Filter by reason, arrival, CTAS & date range. Click on reason chart to drill-down.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="clearFiltersBtn"
+                  class="btn btn-xs rounded-full border-slate-500/70 bg-slate-800/70 hover:bg-slate-700 text-slate-200">
+            <i class="fa-solid fa-eraser mr-1"></i> Clear filters
+          </button>
+          <button id="exportBtn"
+                  class="btn btn-xs rounded-full border-emerald-500/70 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-200">
+            <i class="fa-solid fa-file-export mr-1"></i> Export filtered CSV
+          </button>
+        </div>
+      </div>
+      <div class="grid gap-3 md:grid-cols-4">
+        <div class="space-y-1">
+          <label class="text-[0.7rem] text-slate-400 uppercase tracking-[0.16em]">Reason</label>
+          <select id="filterReason"
+                  class="select select-xs w-full bg-slate-900/80 border-slate-700 text-[0.75rem]">
+            <option value="ALL">All reasons</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[0.7rem] text-slate-400 uppercase tracking-[0.16em]">Arrival</label>
+          <select id="filterArrival"
+                  class="select select-xs w-full bg-slate-900/80 border-slate-700 text-[0.75rem]">
+            <option value="ALL">All methods</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[0.7rem] text-slate-400 uppercase tracking-[0.16em]">CTAS</label>
+          <select id="filterCTAS"
+                  class="select select-xs w-full bg-slate-900/80 border-slate-700 text-[0.75rem]">
+            <option value="ALL">All levels</option>
+            <option value="CTAS3">CTAS3</option>
+            <option value="CTAS4">CTAS4</option>
+            <option value="CTAS5">CTAS5</option>
+            <option value="Unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[0.7rem] text-slate-400 uppercase tracking-[0.16em]">Date range</label>
+          <div class="grid grid-cols-2 gap-2">
+            <input id="filterFromDate" type="date"
+                   class="input input-xs bg-slate-900/80 border-slate-700 text-[0.7rem]" />
+            <input id="filterToDate" type="date"
+                   class="input input-xs bg-slate-900/80 border-slate-700 text-[0.7rem]" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOP STATS -->
+    <section class="grid gap-4 md:grid-cols-4">
+      <div class="glass rounded-2xl p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400 uppercase tracking-[0.18em]">Total Unregistered</span>
+          <span class="pill pill-other">Filtered</span>
+        </div>
+        <div class="text-3xl font-extrabold stat-number" id="statTotal">—</div>
+        <div class="text-xs text-slate-400 mt-1">
+          Within current filters. Global total:
+          <span id="statGlobalTotal" class="text-sky-300 font-semibold">—</span>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400 uppercase tracking-[0.18em]">Financial Issue</span>
+          <span class="pill pill-other">Billing</span>
+        </div>
+        <div class="text-2xl font-bold stat-number" id="statFinancial">—</div>
+        <div class="text-xs text-emerald-300/90 mt-1" id="statFinancialPct">—</div>
+      </div>
+
+      <div class="glass rounded-2xl p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400 uppercase tracking-[0.18em]">Refused / No ID</span>
+          <span class="pill pill-other">Access</span>
+        </div>
+        <div class="text-2xl font-bold stat-number" id="statRefusedNoId">—</div>
+        <div class="text-xs text-amber-300/90 mt-1" id="statRefusedNoIdPct">—</div>
+      </div>
+
+      <div class="glass rounded-2xl p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400 uppercase tracking-[0.18em]">CTAS Distribution</span>
+          <span class="pill pill-ctas4">CTAS</span>
+        </div>
+        <div class="flex flex-wrap gap-2 text-[0.7rem]" id="statCTASBadges">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- CHARTS GRID -->
+    <section class="grid gap-4 xl:grid-cols-3">
+      <!-- Reasons -->
+      <div class="glass rounded-2xl p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-sky-100">Reasons for Unregistered</h2>
+            <p class="text-[0.7rem] text-slate-400">Grouped & normalized (click to filter)</p>
+          </div>
+          <i class="fa-solid fa-list-ul text-sky-400/80 text-sm"></i>
+        </div>
+        <div class="h-64">
+          <canvas id="chartReasons"></canvas>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="glass rounded-2xl p-4 flex flex-col xl:col-span-1">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-sky-100">Daily Trend — November</h2>
+            <p class="text-[0.7rem] text-slate-400">Unregistered per day</p>
+          </div>
+          <i class="fa-solid fa-chart-line text-emerald-400/80 text-sm"></i>
+        </div>
+        <div class="h-64">
+          <canvas id="chartTimeline"></canvas>
+        </div>
+      </div>
+
+      <!-- Arrival / CTAS stack -->
+      <div class="flex flex-col gap-4">
+        <div class="glass rounded-2xl p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-sm font-semibold text-sky-100">Arrival Method</h2>
+              <p class="text-[0.7rem] text-slate-400">Self vs Red Crescent</p>
+            </div>
+            <i class="fa-solid fa-ambulance text-rose-400/80 text-sm"></i>
+          </div>
+          <div class="h-32">
+            <canvas id="chartArrival"></canvas>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-sm font-semibold text-sky-100">CTAS Levels</h2>
+              <p class="text-[0.7rem] text-slate-400">3 vs 4 vs 5 vs Unknown</p>
+            </div>
+            <i class="fa-solid fa-heart-pulse text-red-400/80 text-sm"></i>
+          </div>
+          <div class="h-32">
+            <canvas id="chartCTAS"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NATIONALITIES + TABLE -->
+    <section class="grid gap-4 lg:grid-cols-3">
+      <!-- Nationality chart -->
+      <div class="glass rounded-2xl p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-sky-100">Top Nationalities</h2>
+            <p class="text-[0.7rem] text-slate-400">Unregistered patients by nationality</p>
+          </div>
+          <i class="fa-solid fa-globe text-indigo-400/80 text-sm"></i>
+        </div>
+        <div class="h-72">
+          <canvas id="chartNationality"></canvas>
+        </div>
+      </div>
+
+      <!-- Raw data table -->
+      <div class="glass rounded-2xl p-4 lg:col-span-2 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-sky-100">Records (Filtered)</h2>
+            <p class="text-[0.7rem] text-slate-400">Auto-loaded from Google Sheets (CSV)</p>
+          </div>
+          <div class="text-[0.65rem] text-slate-400">
+            Showing <span id="tableCount">—</span> rows
+          </div>
+        </div>
+        <div class="table-wrapper overflow-auto rounded-xl border border-slate-700/70">
+          <table class="table table-xs table-zebra-zebra text-[0.7rem]">
+            <thead class="bg-slate-900/80 sticky top-0 z-10">
+              <tr class="text-slate-300">
+                <th>#</th>
+                <th>Triage No.</th>
+                <th>Patient</th>
+                <th>Arrival</th>
+                <th>Nationality</th>
+                <th>CTAS</th>
+                <th>Date</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="dataTableBody" class="bg-slate-900/40">
+              <!-- Rows injected by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ==========================
+    // CONFIG
+    // ==========================
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS11fDhf6q1fhrVN--t1n-TrLqxmq-42ObOxhB0C7fyMMWM_TpXIzigLGkCsTCYOe9iwLmuOkv_NnU6/pub?gid=377362140&single=true&output=csv";
+    const AUTO_REFRESH_MS = 60000;
+    let charts = {};
+    let allData = [];
+    let currentFilteredData = [];
+
+    // ==========================
+    // UTILITIES
+    // ==========================
+    function normStr(v) {
+      if (!v) return "";
+      return String(v).trim();
+    }
+
+    function normReason(raw) {
+      if (!raw) return "Unknown";
+      const s = raw.toLowerCase().trim();
+      if (s.includes("financial")) return "Financial issue";
+      if (s.includes("no id")) return "No ID";
+      if (s.includes("dental")) return "Dental clinic";
+      if (s.includes("insurance in")) return "Insurance inactive";
+      if (s.includes("refused registered") || s.includes("refused registration"))
+        return "Patient refused registration";
+      if (s.includes("declined icu")) return "Declined ICU admission";
+      return raw.trim() || "Unknown";
+    }
+
+    function normArrival(raw) {
+      if (!raw || raw === "/") return "Unknown";
+      const s = raw.toLowerCase();
+      if (s.includes("self")) return "Self";
+      if (s.includes("red")) return "Red Crescent";
+      return "Other";
+    }
+
+    function normCTAS(raw) {
+      if (!raw || raw === "/") return "Unknown";
+      let s = String(raw).toUpperCase().trim();
+      if (s.startsWith("CTAS")) return s;
+      if (["3", "4", "5"].includes(s)) return "CTAS" + s;
+      return "Unknown";
+    }
+
+    function normNationality(raw) {
+      if (!raw || raw === "/") return "Unknown";
+      let v = raw.trim();
+      return v.charAt(0).toUpperCase() + v.slice(1);
+    }
+
+    // التواريخ في Google Sheets بصيغة MM/D/YYYY
+    function parseSheetDate(str) {
+      if (!str) return null;
+      const clean = String(str).trim().split(" ")[0]; // لو فيه وقت
+      const parts = clean.split(/[\/\-]/);
+      if (parts.length !== 3) return null;
+
+      const month = parseInt(parts[0], 10);
+      const day   = parseInt(parts[1], 10);
+      let year    = parseInt(parts[2], 10);
+
+      if (!day || !month || !year) return null;
+      if (year < 100) year += 2000;
+
+      const d = new Date(year, month - 1, day);
+      if (isNaN(d.getTime())) return null;
+      return d;
+    }
+
+    function groupBy(arr, keyFn) {
+      const map = {};
+      for (const item of arr) {
+        const k = keyFn(item) ?? "Unknown";
+        map[k] = (map[k] || 0) + 1;
+      }
+      return map;
+    }
+
+    function sortEntriesByValueDesc(obj) {
+      return Object.entries(obj).sort((a, b) => b[1] - a[1]);
+    }
+
+    // ==========================
+    // FETCH & TRANSFORM
+    // ==========================
+async function fetchCSVData() {
+  const resp = await fetch(CSV_URL + "&cacheBust=" + Date.now());
+  const text = await resp.text();
+  return new Promise((resolve) => {
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) =>
+        h
+          .replace(/\uFEFF/g, "") // يشيل الـ BOM لو موجود
+          .trim()                 // يشيل المسافات من البداية والنهاية
+          .toLowerCase(),         // يخليها lowercase عشان نضمن الثبات
+      complete: (results) => resolve(results.data),
+    });
+  });
+}
+function transformRows(rows) {
+  return rows.map((r) => {
+    // دلوقتي كل المفاتيح lower-case و متشالة منها المسافات الزايدة
+    const triageNumber = r["triager numer"] || r["triage number"] || r["triage no"] || "";
+    const patientName  = r["patient name"]   || r["pt name"]       || "";
+    const tel          = r["tel"]            || r["phone"]         || "";
+    const arrival      = r["arrivel methode"]|| r["arrival method"]|| "";
+    const nationality  = r["nationality"]    || "";
+    const medDiag      = r["medical diagnosis"] || r["diagnosis"] || "";
+    const acuity       = r["acuity"]         || "";
+    const entryDate    = r["entry date"]     || r["date"]          || "";
+    const reason       = r["reason for unrigestared"] ||
+                         r["reason for unregistered"] ||
+                         r["reason"] || "";
+
+    return {
+      triageNumber: normStr(triageNumber),
+      patientName : normStr(patientName),
+      tel         : normStr(tel),
+      arrivalRaw  : normStr(arrival),
+      arrival     : normArrival(arrival),
+      nationality : normNationality(nationality),
+      medDiag     : normStr(medDiag),
+      acuityRaw   : normStr(acuity),
+      acuity      : normCTAS(acuity),
+      entryDateRaw: normStr(entryDate),
+      entryDate   : parseSheetDate(entryDate),   // الفورمات MM/D/YYYY اللي انت قلت عليه
+      reasonRaw   : normStr(reason),
+      reason      : normReason(reason),
+    };
+  });
+}
+
+    // ==========================
+    // FILTER OPTIONS
+    // ==========================
+    function buildFilterOptions(data) {
+      const reasonSel  = document.getElementById("filterReason");
+      const arrivalSel = document.getElementById("filterArrival");
+      const ctasSel    = document.getElementById("filterCTAS");
+      const fromInput  = document.getElementById("filterFromDate");
+      const toInput    = document.getElementById("filterToDate");
+
+      const prevReason  = reasonSel.value;
+      const prevArrival = arrivalSel.value;
+      const prevCTAS    = ctasSel.value;
+
+      const reasonCounts  = groupBy(data, d => d.reason);
+      const arrivalCounts = groupBy(data, d => d.arrival);
+
+      // Reasons
+      reasonSel.innerHTML = '<option value="ALL">All reasons</option>';
+      const sortedReasons = sortEntriesByValueDesc(reasonCounts);
+      for (const [label, count] of sortedReasons) {
+        if (!label) continue;
+        const opt = document.createElement("option");
+        opt.value = label;
+        opt.textContent = `${label} (${count})`;
+        reasonSel.appendChild(opt);
+      }
+      if (prevReason && [...reasonSel.options].some(o => o.value === prevReason)) {
+        reasonSel.value = prevReason;
+      }
+
+      // Arrival
+      arrivalSel.innerHTML = '<option value="ALL">All methods</option>';
+      const arrivalOrder = ["Self", "Red Crescent", "Other", "Unknown"];
+      const arrivalEntries = sortEntriesByValueDesc(arrivalCounts);
+
+      arrivalOrder.forEach(label => {
+        if (arrivalCounts[label]) {
+          const opt = document.createElement("option");
+          opt.value = label;
+          opt.textContent = `${label} (${arrivalCounts[label]})`;
+          arrivalSel.appendChild(opt);
+        }
+      });
+      for (const [label, count] of arrivalEntries) {
+        if (!arrivalOrder.includes(label)) {
+          const opt = document.createElement("option");
+          opt.value = label;
+          opt.textContent = `${label} (${count})`;
+          arrivalSel.appendChild(opt);
+        }
+      }
+      if (prevArrival && [...arrivalSel.options].some(o => o.value === prevArrival)) {
+        arrivalSel.value = prevArrival;
+      }
+
+      // Date range
+      const dates = data.map(d => d.entryDate).filter(d => d instanceof Date && !isNaN(d));
+      if (dates.length) {
+        const minDate = new Date(Math.min(...dates));
+        const maxDate = new Date(Math.max(...dates));
+        const toISO = d => d.toISOString().slice(0, 10);
+
+        const minStr = toISO(minDate);
+        const maxStr = toISO(maxDate);
+
+        fromInput.min = minStr;
+        fromInput.max = maxStr;
+        toInput.min   = minStr;
+        toInput.max   = maxStr;
+
+        if (!fromInput.value) fromInput.value = minStr;
+        if (!toInput.value)   toInput.value   = maxStr;
+      }
+    }
+
+    // ==========================
+    // METRICS
+    // ==========================
+    function computeMetrics(data) {
+      const total = data.length;
+
+      const reasonsCounts = groupBy(data, (d) => d.reason);
+      const ctasCounts    = groupBy(data, (d) => d.acuity);
+      const arrivalCounts = groupBy(data, (d) => d.arrival);
+      const natCounts     = groupBy(data, (d) => d.nationality);
+
+      let financial = 0, refused = 0, noId = 0, insuranceInactive = 0;
+      for (const d of data) {
+        const s = d.reason.toLowerCase();
+        if (s.includes("financial")) financial++;
+        if (s.includes("refused registration") || s.includes("refused registered")) refused++;
+        if (s.includes("no id")) noId++;
+        if (s.includes("insurance inactive")) insuranceInactive++;
+      }
+
+      const dateMap = {};
+      for (const d of data) {
+        if (!d.entryDate) continue;
+        const key = d.entryDate.toISOString().slice(0, 10); // yyyy-mm-dd
+        dateMap[key] = (dateMap[key] || 0) + 1;
+      }
+      const timelineEntries = Object.entries(dateMap).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+      const natSorted = sortEntriesByValueDesc(natCounts);
+      const topNat   = natSorted.slice(0, 7);
+      const otherNat = natSorted.slice(7).reduce((sum, [, v]) => sum + v, 0);
+      if (otherNat > 0) topNat.push(["Other", otherNat]);
+
+      return {
+        total,
+        reasonsCounts,
+        ctasCounts,
+        arrivalCounts,
+        natTop: topNat,
+        natCounts,
+        financial,
+        refused,
+        noId,
+        insuranceInactive,
+        timelineEntries,
+      };
+    }
+
+    // ==========================
+    // DOM UPDATE - STATS
+    // ==========================
+    function updateStatsCards(metrics, globalTotal) {
+      const {
+        total, financial, refused, noId, insuranceInactive, ctasCounts
+      } = metrics;
+
+      const $total       = document.getElementById("statTotal");
+      const $globalTotal = document.getElementById("statGlobalTotal");
+      const $fin         = document.getElementById("statFinancial");
+      const $finPct      = document.getElementById("statFinancialPct");
+      const $refNoId     = document.getElementById("statRefusedNoId");
+      const $refNoIdPct  = document.getElementById("statRefusedNoIdPct");
+      const $ctasBadges  = document.getElementById("statCTASBadges");
+
+      $total.textContent       = total || "0";
+      $globalTotal.textContent = globalTotal || 0;
+
+      const finPct = total ? ((financial / total) * 100).toFixed(1) : 0;
+      $fin.textContent = financial;
+      $finPct.textContent = `${finPct}% of filtered unregistered (billing related)`;
+
+      const combined = refused + noId + insuranceInactive;
+      const combinedPct = total ? ((combined / total) * 100).toFixed(1) : 0;
+      $refNoId.textContent = combined;
+      $refNoIdPct.textContent = `${combinedPct}% (Refused / No ID / Insurance inactive)`;
+
+      // CTAS badges
+      $ctasBadges.innerHTML = "";
+      const orderedCtas = ["CTAS3", "CTAS4", "CTAS5", "Unknown"];
+      for (const key of orderedCtas) {
+        const count = ctasCounts[key] || 0;
+        if (!count) continue;
+        const pct = total ? ((count / total) * 100).toFixed(1) : 0;
+        const span = document.createElement("span");
+        span.className = "pill " +
+          (key === "CTAS4" ? "pill-ctas4" :
+           key === "CTAS3" ? "pill-ctas3" :
+           key === "CTAS5" ? "pill-ctas5" : "pill-other");
+        span.textContent = `${key} · ${count} (${pct}%)`;
+        $ctasBadges.appendChild(span);
+      }
+    }
+
+    // ==========================
+    // DOM UPDATE - TABLE
+    // ==========================
+    function updateTable(data) {
+      const tbody = document.getElementById("dataTableBody");
+      const tableCount = document.getElementById("tableCount");
+      tbody.innerHTML = "";
+
+      const maxRows = 80; // show more rows
+      const slice = data.slice(0, maxRows);
+
+      slice.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/60";
+        const dateStr = row.entryDate
+          ? row.entryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+          : row.entryDateRaw || "-";
+
+        tr.innerHTML = `
+          <td class="text-slate-500">${index + 1}</td>
+          <td class="font-semibold text-slate-100">${row.triageNumber || "-"}</td>
+          <td class="text-slate-100">${row.patientName || "-"}</td>
+          <td class="text-slate-300 text-[0.68rem]">${row.arrival}</td>
+          <td class="text-slate-300 text-[0.68rem]">${row.nationality}</td>
+          <td class="text-[0.68rem]">
+            <span class="pill ${
+              row.acuity === "CTAS4" ? "pill-ctas4" :
+              row.acuity === "CTAS3" ? "pill-ctas3" :
+              row.acuity === "CTAS5" ? "pill-ctas5" : "pill-other"
+            }">
+              ${row.acuity}
+            </span>
+          </td>
+          <td class="text-slate-300">${dateStr}</td>
+          <td class="text-slate-300 max-w-xs truncate" title="${row.reasonRaw}">
+            ${row.reason}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tableCount.textContent = slice.length;
+    }
+
+    // ==========================
+    // CHART HELPERS
+    // ==========================
+    function destroyChart(id) {
+      if (charts[id]) {
+        charts[id].destroy();
+        charts[id] = null;
+      }
+    }
+
+    function createOrUpdateChart(id, ctx, config) {
+      destroyChart(id);
+      charts[id] = new Chart(ctx, config);
+    }
+
+    function updateCharts(metrics) {
+      const { reasonsCounts, timelineEntries, arrivalCounts, ctasCounts, natTop } = metrics;
+
+      // REASONS (doughnut)
+      const reasonsSorted = sortEntriesByValueDesc(reasonsCounts);
+      const reasonsLabels = reasonsSorted.map(([k]) => k);
+      const reasonsData   = reasonsSorted.map(([, v]) => v);
+
+      const ctxReasons = document.getElementById("chartReasons").getContext("2d");
+      createOrUpdateChart("reasons", ctxReasons, {
+        type: "doughnut",
+        data: {
+          labels: reasonsLabels,
+          datasets: [{
+            data: reasonsData,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { color: "#cbd5f5", font: { size: 10 } }
+            },
+          },
+          onClick: (evt, elements, chart) => {
+            if (!elements.length) return;
+            const index = elements[0].index;
+            const label = chart.data.labels[index];
+            const sel = document.getElementById("filterReason");
+            if (sel) {
+              sel.value = label;
+              applyFilters();
+            }
+          },
+        },
+      });
+
+      // TIMELINE (bar)
+      const tlLabels = timelineEntries.map(([date]) => date.slice(8, 10)); // day only
+      const tlData   = timelineEntries.map(([, count]) => count);
+
+      const ctxTimeline = document.getElementById("chartTimeline").getContext("2d");
+      createOrUpdateChart("timeline", ctxTimeline, {
+        type: "bar",
+        data: {
+          labels: tlLabels,
+          datasets: [{
+            label: "Unregistered / day",
+            data: tlData,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: "#cbd5f5", font: { size: 10 } },
+              grid: { color: "rgba(148,163,184,0.2)" },
+            },
+            y: {
+              ticks: { color: "#cbd5f5", font: { size: 10 }, stepSize: 1 },
+              grid: { color: "rgba(148,163,184,0.15)" },
+              beginAtZero: true,
+            },
+          },
+          plugins: {
+            legend: {
+              labels: { color: "#cbd5f5", font: { size: 10 } },
+            },
+          },
+        },
+      });
+
+      // ARRIVAL (bar)
+      const arrEntries = sortEntriesByValueDesc(arrivalCounts);
+      const arrLabels = arrEntries.map(([k]) => k);
+      const arrData   = arrEntries.map(([, v]) => v);
+
+      const ctxArrival = document.getElementById("chartArrival").getContext("2d");
+      createOrUpdateChart("arrival", ctxArrival, {
+        type: "bar",
+        data: {
+          labels: arrLabels,
+          datasets: [{
+            data: arrData,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: "#cbd5f5", font: { size: 9 } },
+              grid: { display: false },
+            },
+            y: {
+              ticks: { color: "#cbd5f5", font: { size: 9 }, stepSize: 1 },
+              grid: { color: "rgba(148,163,184,0.2)" },
+              beginAtZero: true,
+            },
+          },
+          plugins: {
+            legend: { display: false },
+          },
+        },
+      });
+
+      // CTAS (bar)
+      const ctasOrder = ["CTAS3", "CTAS4", "CTAS5", "Unknown"];
+      const ctasLabels = [];
+      const ctasData   = [];
+      for (const k of ctasOrder) {
+        if (ctasCounts[k]) {
+          ctasLabels.push(k);
+          ctasData.push(ctasCounts[k]);
+        }
+      }
+
+      const ctxCTAS = document.getElementById("chartCTAS").getContext("2d");
+      createOrUpdateChart("ctas", ctxCTAS, {
+        type: "bar",
+        data: {
+          labels: ctasLabels,
+          datasets: [{
+            data: ctasData,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: "#cbd5f5", font: { size: 9 } },
+              grid: { display: false },
+            },
+            y: {
+              ticks: { color: "#cbd5f5", font: { size: 9 }, stepSize: 1 },
+              grid: { color: "rgba(148,163,184,0.2)" },
+              beginAtZero: true,
+            },
+          },
+          plugins: {
+            legend: { display: false },
+          },
+        },
+      });
+
+      // NATIONALITY (horizontal bar)
+      const natLabels = natTop.map(([k]) => k);
+      const natData   = natTop.map(([, v]) => v);
+
+      const ctxNat = document.getElementById("chartNationality").getContext("2d");
+      createOrUpdateChart("nationality", ctxNat, {
+        type: "bar",
+        data: {
+          labels: natLabels,
+          datasets: [{
+            data: natData,
+          }],
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: "#cbd5f5", font: { size: 9 }, stepSize: 1 },
+              grid: { color: "rgba(148,163,184,0.2)" },
+              beginAtZero: true,
+            },
+            y: {
+              ticks: { color: "#cbd5f5", font: { size: 9 } },
+              grid: { display: false },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+          },
+        },
+      });
+    }
+
+    // ==========================
+    // FILTER APPLY + EXPORT
+    // ==========================
+    function applyFilters() {
+      const reasonSel  = document.getElementById("filterReason");
+      const arrivalSel = document.getElementById("filterArrival");
+      const ctasSel    = document.getElementById("filterCTAS");
+      const fromInput  = document.getElementById("filterFromDate");
+      const toInput    = document.getElementById("filterToDate");
+
+      const reasonVal  = reasonSel.value;
+      const arrivalVal = arrivalSel.value;
+      const ctasVal    = ctasSel.value;
+
+      let fromDate = fromInput.value ? new Date(fromInput.value) : null;
+      let toDate   = toInput.value   ? new Date(toInput.value)   : null;
+      if (toDate) {
+        toDate.setHours(23, 59, 59, 999);
+      }
+
+      currentFilteredData = allData.filter(row => {
+        if (reasonVal !== "ALL" && row.reason !== reasonVal) return false;
+        if (arrivalVal !== "ALL" && row.arrival !== arrivalVal) return false;
+        if (ctasVal !== "ALL" && row.acuity !== ctasVal) return false;
+
+        if (fromDate || toDate) {
+          if (!row.entryDate) return false;
+          if (fromDate && row.entryDate < fromDate) return false;
+          if (toDate && row.entryDate > toDate) return false;
+        }
+        return true;
+      });
+
+      const metrics = computeMetrics(currentFilteredData);
+      updateStatsCards(metrics, allData.length);
+      updateCharts(metrics);
+      updateTable(currentFilteredData);
+    }
+
+    function exportFiltered() {
+      const rows = currentFilteredData.length ? currentFilteredData : allData;
+      if (!rows.length) {
+        alert("No data to export.");
+        return;
+      }
+
+      const header = [
+        "triageNumber","patientName","tel","arrival","nationality",
+        "medicalDiagnosis","acuity","entryDate","reason"
+      ];
+      const csvLines = [];
+      csvLines.push(header.join(","));
+
+      const esc = (val) => {
+        if (val == null) return "";
+        const v = String(val);
+        if (v.includes('"') || v.includes(",") || v.includes("\n")) {
+          return '"' + v.replace(/"/g, '""') + '"';
+        }
+        return v;
+      };
+
+      for (const r of rows) {
+        const dateStr = r.entryDate
+          ? r.entryDate.toLocaleDateString("en-GB")
+          : r.entryDateRaw || "";
+        const rowArr = [
+          esc(r.triageNumber),
+          esc(r.patientName),
+          esc(r.tel),
+          esc(r.arrivalRaw || r.arrival),
+          esc(r.nationality),
+          esc(r.medDiag),
+          esc(r.acuity),
+          esc(dateStr),
+          esc(r.reasonRaw || r.reason),
+        ];
+        csvLines.push(rowArr.join(","));
+      }
+
+      const blob = new Blob([csvLines.join("\n")], {type: "text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "unregistered_filtered_" + new Date().toISOString().slice(0,10) + ".csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ==========================
+    // MAIN LOAD
+    // ==========================
+    async function loadAndRender() {
+      try {
+        const rows = await fetchCSVData();
+        allData = transformRows(rows);
+        buildFilterOptions(allData);
+        applyFilters();
+
+        const now = new Date();
+        document.getElementById("lastUpdated").textContent =
+          now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      } catch (err) {
+        console.error("Error loading dashboard:", err);
+        document.getElementById("lastUpdated").textContent = "Error";
+      }
+    }
+
+    // ==========================
+    // INIT
+    // ==========================
+    document.getElementById("refreshBtn").addEventListener("click", loadAndRender);
+    document.getElementById("filterReason").addEventListener("change", applyFilters);
+    document.getElementById("filterArrival").addEventListener("change", applyFilters);
+    document.getElementById("filterCTAS").addEventListener("change", applyFilters);
+    document.getElementById("filterFromDate").addEventListener("change", applyFilters);
+    document.getElementById("filterToDate").addEventListener("change", applyFilters);
+    document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+      document.getElementById("filterReason").value  = "ALL";
+      document.getElementById("filterArrival").value = "ALL";
+      document.getElementById("filterCTAS").value    = "ALL";
+
+      const fromInput = document.getElementById("filterFromDate");
+      const toInput   = document.getElementById("filterToDate");
+      if (fromInput.min) fromInput.value = fromInput.min;
+      else fromInput.value = "";
+      if (toInput.max) toInput.value = toInput.max;
+      else toInput.value = "";
+
+      applyFilters();
+    });
+    document.getElementById("exportBtn").addEventListener("click", exportFiltered);
+
+    loadAndRender();
+    setInterval(loadAndRender, AUTO_REFRESH_MS);
+  </script>
+</body>
+</html>
