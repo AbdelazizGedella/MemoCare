@@ -40,16 +40,27 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
     details summary { cursor:pointer; }
     .tiny { font-size:12px; opacity:.8; }
-    .split { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.split {
+  display: flex;
+  gap: 12px;
+}
+
+.chart-guard {
+  flex: 1;
+}
 
     /* Fix: prevent “runaway” page scrolling when interacting with Chart.js on touch devices */
-    .chart-guard{
-      touch-action: none;
-      overscroll-behavior: contain;
-      -webkit-user-select: none;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
+.chart-guard {
+  height: 220px;        /* ارتفاع ثابت للشارت */
+  max-height: 220px;    /* يمنع التمدد */
+  overflow: hidden;     /* يمنع أي تمدد داخلي */
+}
+
+.chart-guard canvas {
+  height: 100% !important;
+  width: 100% !important;
+}
+
     #chartDist, #chartMismatch {
       touch-action: none;
       -ms-touch-action: none;
@@ -60,9 +71,25 @@
       .table2{ min-width: 900px; }
       .split{ grid-template-columns: 1fr; }
     }
+
+    /* === HARD FIX (iOS/Safari): move scrolling to a dedicated container ===
+       This is LOCAL to this page only (inline CSS), so it won't affect other pages that share styles.css. */
+    html, body{
+      height:100%;
+      overflow:hidden;             /* body stops scrolling */
+      overscroll-behavior:none;    /* reduce rubber-band */
+    }
+    #scrollRoot{
+      height:100vh;
+      height:100dvh;
+      overflow:auto;               /* page scroll happens here */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior:contain;
+    }
   </style>
 </head>
 <body>
+  <div id="scrollRoot">
   <div class="container">
     <div class="header">
       <div class="ctas-big" id="lab-title">TEST LAB</div>
@@ -71,7 +98,8 @@
         <div>
           <h1>TriageXpert — CTAS Test Lab</h1>
           <div class="sub">Upload your triage databank → run evaluation → get accuracy + confusion analysis (without touching your main app).</div>
-        </div>
+	  </div>
+	</div>
       </div>
     </div>
 
@@ -203,7 +231,9 @@
     </div>
 
   </div>
+  </div>
 
-<script type="module" src="test_lab.js?v=2"></script>
+  <!-- cache-bust: Safari/iOS can keep the old JS even after you replace files -->
+  <script type="module" src="test_lab.js?v=20251214_1"></script>
 </body>
 </html>

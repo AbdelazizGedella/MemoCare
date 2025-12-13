@@ -55,148 +55,147 @@ let chartDist = null;
 let chartMismatch = null;
 
 // --- Prevent “runaway” page scrolling when interacting with charts (mobile / touch screens) ---
-// Some mobile browsers (especially iOS Safari) may still scroll the page even with touch-action:none.
-// This lock only activates *while the finger is on the chart*, then restores scroll instantly.
+// iOS/Safari can start scrolling on touchstart BEFORE touchmove, so stopping touchmove alone is not enough.
+// We solve it in a way that doesn't affect your other pages:
+// 1) test_lab.html uses a local #scrollRoot overflow container (inline CSS) so body doesn't scroll.
+// 2) While touching a chart canvas, we temporarily disable scrolling on #scrollRoot (fallback: lock <body>).
+
 const __TX_SCROLL_LOCK = {
   locked: false,
   y: 0,
-  prevBody: null,
-  prevHtml: null,
+  root: null,
+  prev: null,
   globalHooksInstalled: false,
-  blockersInstalled: false,
-  _blockMove: null,
-  _freezeScroll: null,
 };
 
-function lockBodyScroll(){
-  if(__TX_SCROLL_LOCK.locked) return;
-  __TX_SCROLL_LOCK.locked = true;
-  __TX_SCROLL_LOCK.y = window.scrollY || window.pageYOffset || 0;
-
-  // Save current inline styles so we restore cleanly
-  __TX_SCROLL_LOCK.prevBody = {
-    position: document.body.style.position,
-    top: document.body.style.top,
-    left: document.body.style.left,
-    right: document.body.style.right,
-    width: document.body.style.width,
-  };
-  __TX_SCROLL_LOCK.prevHtml = {
-    overflow: document.documentElement.style.overflow,
-    height: document.documentElement.style.height,
-  };
-
-  // Lock the viewport (works well on most browsers)
-  document.body.style.position = 'fixed';
-  document.body.style.top = `-${__TX_SCROLL_LOCK.y}px`;
-  document.body.style.left = '0';
-  document.body.style.right = '0';
-  document.body.style.width = '100%';
-
-  // iOS Safari sometimes scrolls the root element (<html>), so lock it too
-  document.documentElement.style.overflow = 'hidden';
-  document.documentElement.style.height = '100%';
-
-  // Hard-block scroll gestures while locked (touchmove / wheel)
-  if(!__TX_SCROLL_LOCK._blockMove){
-    __TX_SCROLL_LOCK._blockMove = (e)=>{
-      if(__TX_SCROLL_LOCK.locked && e.cancelable) e.preventDefault();
-    };
-  }
-  if(!__TX_SCROLL_LOCK.blockersInstalled){
-    document.addEventListener('touchmove', __TX_SCROLL_LOCK._blockMove, {passive:false});
-    document.addEventListener('wheel', __TX_SCROLL_LOCK._blockMove, {passive:false});
-    __TX_SCROLL_LOCK.blockersInstalled = true;
-  }
-
-  // Extra safety: if some scroll slips through, snap back
-  if(!__TX_SCROLL_LOCK._freezeScroll){
-    __TX_SCROLL_LOCK._freezeScroll = ()=>{
-      if(__TX_SCROLL_LOCK.locked && window.scrollY !== __TX_SCROLL_LOCK.y){
-        window.scrollTo(0, __TX_SCROLL_LOCK.y);
-      }
-    };
-  }
-  window.addEventListener('scroll', __TX_SCROLL_LOCK._freezeScroll, {passive:true});
-
-  ensureGlobalScrollUnlockHooks();
+function getScrollRoot(){
+  if(__TX_SCROLL_LOCK.root !== null) return __TX_SCROLL_LOCK.root;
+  const el = document.getElementById('scrollRoot');
+  __TX_SCROLL_LOCK.root = el || null;
+  return __TX_SCROLL_LOCK.root;
+}
+function getScrollY(){
+  const r = getScrollRoot();
+  if(r) return r.scrollTop;
+  return window.scrollY || document.documentElement.scrollTop || 0;
+}
+function setScrollY(y){
+  const r = getScrollRoot();
+  if(r) r.scrollTop = y;
+  else window.scrollTo(0, y);
 }
 
-function unlockBodyScroll(){
+function lockPageScroll(){
+  if(__TX_SCROLL_LOCK.locked) return;
+  __TX_SCROLL_LOCK.locked = true;
+  __TX_SCROLL_LOCK.y = getScrollY();
+
+  const r = getScrollRoot();
+  if(r){
+    __TX_SCROLL_LOCK.prev = {
+      overflow: r.style.overflow,
+      touchAction: r.style.touchAction,
+      overscrollBehavior: r.style.overscrollBehavior,
+    };
+    r.style.overflow = 'hidden';
+    r.style.touchAction = 'none';
+    r.style.overscrollBehavior = 'none';
+  }else{
+    // Fallback (if #scrollRoot isn't present): lock <body> (iOS-safe)
+    const body = document.body;
+    const html = document.documentElement;
+    __TX_SCROLL_LOCK.prev = {
+      bodyPos: body.style.position,
+      bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
+      bodyWidth: body.style.width,
+      bodyOverflow: body.style.overflow,
+      htmlOverflow: html.style.overflow,
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${__TX_SCROLL_LOCK.y}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
+  }
+
+  if(!__TX_SCROLL_LOCK.globalHooksInstalled){
+    __TX_SCROLL_LOCK.globalHooksInstalled = true;
+    const unlock = ()=> unlockPageScroll();
+    window.addEventListener('touchend', unlock, {passive:true});
+    window.addEventListener('touchcancel', unlock, {passive:true});
+    window.addEventListener('pointerup', unlock, {passive:true});
+    window.addEventListener('pointercancel', unlock, {passive:true});
+    window.addEventListener('blur', unlock);
+    document.addEventListener('visibilitychange', ()=>{ if(document.hidden) unlock(); });
+  }
+}
+
+function unlockPageScroll(){
   if(!__TX_SCROLL_LOCK.locked) return;
-
-  // Remove blockers first
-  if(__TX_SCROLL_LOCK.blockersInstalled && __TX_SCROLL_LOCK._blockMove){
-    document.removeEventListener('touchmove', __TX_SCROLL_LOCK._blockMove);
-    document.removeEventListener('wheel', __TX_SCROLL_LOCK._blockMove);
-    __TX_SCROLL_LOCK.blockersInstalled = false;
-  }
-  if(__TX_SCROLL_LOCK._freezeScroll){
-    window.removeEventListener('scroll', __TX_SCROLL_LOCK._freezeScroll);
-  }
-
-  const prevBody = __TX_SCROLL_LOCK.prevBody || {};
-  document.body.style.position = prevBody.position || '';
-  document.body.style.top = prevBody.top || '';
-  document.body.style.left = prevBody.left || '';
-  document.body.style.right = prevBody.right || '';
-  document.body.style.width = prevBody.width || '';
-
-  const prevHtml = __TX_SCROLL_LOCK.prevHtml || {};
-  document.documentElement.style.overflow = prevHtml.overflow || '';
-  document.documentElement.style.height = prevHtml.height || '';
-
   const y = __TX_SCROLL_LOCK.y || 0;
-  __TX_SCROLL_LOCK.locked = false;
-  __TX_SCROLL_LOCK.prevBody = null;
-  __TX_SCROLL_LOCK.prevHtml = null;
+  const r = getScrollRoot();
+  const prev = __TX_SCROLL_LOCK.prev || {};
 
+  if(r){
+    r.style.overflow = prev.overflow || '';
+    r.style.touchAction = prev.touchAction || '';
+    r.style.overscrollBehavior = prev.overscrollBehavior || '';
+    __TX_SCROLL_LOCK.locked = false;
+    __TX_SCROLL_LOCK.prev = null;
+    setScrollY(y);
+    return;
+  }
+
+  // fallback restore
+  const body = document.body;
+  const html = document.documentElement;
+  body.style.position = prev.bodyPos || '';
+  body.style.top = prev.bodyTop || '';
+  body.style.left = prev.bodyLeft || '';
+  body.style.right = prev.bodyRight || '';
+  body.style.width = prev.bodyWidth || '';
+  body.style.overflow = prev.bodyOverflow || '';
+  html.style.overflow = prev.htmlOverflow || '';
+  __TX_SCROLL_LOCK.locked = false;
+  __TX_SCROLL_LOCK.prev = null;
   window.scrollTo(0, y);
 }
 
-function ensureGlobalScrollUnlockHooks(){
-  if(__TX_SCROLL_LOCK.globalHooksInstalled) return;
-  __TX_SCROLL_LOCK.globalHooksInstalled = true;
-  // If touch/pointer ends outside the canvas, still unlock.
-  window.addEventListener('touchend', unlockBodyScroll, { passive:true });
-  window.addEventListener('touchcancel', unlockBodyScroll, { passive:true });
-  window.addEventListener('pointerup', unlockBodyScroll, { passive:true });
-  window.addEventListener('pointercancel', unlockBodyScroll, { passive:true });
-}
+function bindChartScrollGuards(canvas){
+  if(!canvas) return;
 
-function bindChartScrollGuards(el){
-  if(!el) return;
+  // CSS hint (also set in HTML, but keep it here as a safety net)
+  try{
+    canvas.style.touchAction = 'none';
+    canvas.style.overscrollBehavior = 'contain';
+    canvas.style.webkitUserSelect = 'none';
+    canvas.style.userSelect = 'none';
+  }catch(_e){}
 
-  // CSS hints (some browsers respect these more than event handlers)
-  try{ el.style.touchAction = 'none'; }catch(_e){}
-  try{ el.style.overscrollBehavior = 'contain'; }catch(_e){}
-
-  const onStart = (_e)=>{
-    // Lock scroll ONLY while user is interacting with the chart area
-    lockBodyScroll();
+  const start = (e)=>{
+    // prevent the browser from starting a scroll chain from this touch
+    if(e && e.cancelable) e.preventDefault();
+    lockPageScroll();
   };
+  const end = ()=> unlockPageScroll();
 
-  const onMove = (e)=>{
-    // Prevent the page from scrolling while the chart receives gestures
-    if(e.cancelable) e.preventDefault();
-  };
+  // Touch (iOS)
+  canvas.addEventListener('touchstart', start, {passive:false});
+  canvas.addEventListener('touchmove', (e)=>{ if(e.cancelable) e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchend', end, {passive:true});
+  canvas.addEventListener('touchcancel', end, {passive:true});
 
-  const onEnd = (_e)=>{
-    unlockBodyScroll();
-  };
+  // Pointer events (modern browsers)
+  canvas.addEventListener('pointerdown', start, {passive:false});
+  canvas.addEventListener('pointerup', end, {passive:true});
+  canvas.addEventListener('pointercancel', end, {passive:true});
 
-  // Touch
-  el.addEventListener('touchstart', onStart, {passive:false});
-  el.addEventListener('touchmove', onMove, {passive:false});
-  el.addEventListener('touchend', onEnd, {passive:true});
-  el.addEventListener('touchcancel', onEnd, {passive:true});
-
-  // Pointer (covers stylus + some mobile browsers)
-  el.addEventListener('pointerdown', onStart, {passive:false});
-  el.addEventListener('pointermove', onMove, {passive:false});
-  el.addEventListener('pointerup', onEnd, {passive:true});
-  el.addEventListener('pointercancel', onEnd, {passive:true});
-  el.addEventListener('lostpointercapture', onEnd, {passive:true});
+  // Trackpad / mouse wheel
+  canvas.addEventListener('wheel', (e)=>{ if(e.cancelable) e.preventDefault(); }, {passive:false});
 }
 
 // --- XLSX loader (prevents "XLSX is not defined" when a CDN is blocked) ---
