@@ -60,42 +60,97 @@ let chartMismatch = null;
 const __TX_SCROLL_LOCK = {
   locked: false,
   y: 0,
-  prev: null,
+  prevBody: null,
+  prevHtml: null,
   globalHooksInstalled: false,
+  blockersInstalled: false,
+  _blockMove: null,
+  _freezeScroll: null,
 };
 
 function lockBodyScroll(){
   if(__TX_SCROLL_LOCK.locked) return;
   __TX_SCROLL_LOCK.locked = true;
-  __TX_SCROLL_LOCK.y = window.scrollY || document.documentElement.scrollTop || 0;
-  __TX_SCROLL_LOCK.prev = {
+  __TX_SCROLL_LOCK.y = window.scrollY || window.pageYOffset || 0;
+
+  // Save current inline styles so we restore cleanly
+  __TX_SCROLL_LOCK.prevBody = {
     position: document.body.style.position,
     top: document.body.style.top,
     left: document.body.style.left,
     right: document.body.style.right,
     width: document.body.style.width,
   };
+  __TX_SCROLL_LOCK.prevHtml = {
+    overflow: document.documentElement.style.overflow,
+    height: document.documentElement.style.height,
+  };
 
-  // Freeze the page at its current scroll position
+  // Lock the viewport (works well on most browsers)
   document.body.style.position = 'fixed';
   document.body.style.top = `-${__TX_SCROLL_LOCK.y}px`;
   document.body.style.left = '0';
   document.body.style.right = '0';
   document.body.style.width = '100%';
+
+  // iOS Safari sometimes scrolls the root element (<html>), so lock it too
+  document.documentElement.style.overflow = 'hidden';
+  document.documentElement.style.height = '100%';
+
+  // Hard-block scroll gestures while locked (touchmove / wheel)
+  if(!__TX_SCROLL_LOCK._blockMove){
+    __TX_SCROLL_LOCK._blockMove = (e)=>{
+      if(__TX_SCROLL_LOCK.locked && e.cancelable) e.preventDefault();
+    };
+  }
+  if(!__TX_SCROLL_LOCK.blockersInstalled){
+    document.addEventListener('touchmove', __TX_SCROLL_LOCK._blockMove, {passive:false});
+    document.addEventListener('wheel', __TX_SCROLL_LOCK._blockMove, {passive:false});
+    __TX_SCROLL_LOCK.blockersInstalled = true;
+  }
+
+  // Extra safety: if some scroll slips through, snap back
+  if(!__TX_SCROLL_LOCK._freezeScroll){
+    __TX_SCROLL_LOCK._freezeScroll = ()=>{
+      if(__TX_SCROLL_LOCK.locked && window.scrollY !== __TX_SCROLL_LOCK.y){
+        window.scrollTo(0, __TX_SCROLL_LOCK.y);
+      }
+    };
+  }
+  window.addEventListener('scroll', __TX_SCROLL_LOCK._freezeScroll, {passive:true});
+
+  ensureGlobalScrollUnlockHooks();
 }
 
 function unlockBodyScroll(){
   if(!__TX_SCROLL_LOCK.locked) return;
-  const prev = __TX_SCROLL_LOCK.prev || {};
-  document.body.style.position = prev.position || '';
-  document.body.style.top = prev.top || '';
-  document.body.style.left = prev.left || '';
-  document.body.style.right = prev.right || '';
-  document.body.style.width = prev.width || '';
+
+  // Remove blockers first
+  if(__TX_SCROLL_LOCK.blockersInstalled && __TX_SCROLL_LOCK._blockMove){
+    document.removeEventListener('touchmove', __TX_SCROLL_LOCK._blockMove);
+    document.removeEventListener('wheel', __TX_SCROLL_LOCK._blockMove);
+    __TX_SCROLL_LOCK.blockersInstalled = false;
+  }
+  if(__TX_SCROLL_LOCK._freezeScroll){
+    window.removeEventListener('scroll', __TX_SCROLL_LOCK._freezeScroll);
+  }
+
+  const prevBody = __TX_SCROLL_LOCK.prevBody || {};
+  document.body.style.position = prevBody.position || '';
+  document.body.style.top = prevBody.top || '';
+  document.body.style.left = prevBody.left || '';
+  document.body.style.right = prevBody.right || '';
+  document.body.style.width = prevBody.width || '';
+
+  const prevHtml = __TX_SCROLL_LOCK.prevHtml || {};
+  document.documentElement.style.overflow = prevHtml.overflow || '';
+  document.documentElement.style.height = prevHtml.height || '';
 
   const y = __TX_SCROLL_LOCK.y || 0;
   __TX_SCROLL_LOCK.locked = false;
-  __TX_SCROLL_LOCK.prev = null;
+  __TX_SCROLL_LOCK.prevBody = null;
+  __TX_SCROLL_LOCK.prevHtml = null;
+
   window.scrollTo(0, y);
 }
 
@@ -109,48 +164,39 @@ function ensureGlobalScrollUnlockHooks(){
   window.addEventListener('pointercancel', unlockBodyScroll, { passive:true });
 }
 
-function bindChartScrollGuards(canvas){
-  if(!canvas) return;
-  ensureGlobalScrollUnlockHooks();
+function bindChartScrollGuards(el){
+  if(!el) return;
 
-  // Some browsers don't reliably dispatch gesture events to the <canvas> only.
-  // Guard both the canvas and its wrapper so the fix works without changing layout.
-  const wrapper = canvas.closest('.chart-guard') || canvas.parentElement;
-  const targets = Array.from(new Set([canvas, wrapper].filter(Boolean)));
+  // CSS hints (some browsers respect these more than event handlers)
+  try{ el.style.touchAction = 'none'; }catch(_e){}
+  try{ el.style.overscrollBehavior = 'contain'; }catch(_e){}
 
-  // CSS hints (keep them here as a safety net even if HTML changes)
-  for(const el of targets){
-    try{ el.style.touchAction = 'none'; }catch(_e){}
-    try{ el.style.webkitUserSelect = 'none'; }catch(_e){}
-    try{ el.style.userSelect = 'none'; }catch(_e){}
-    try{ el.style.webkitTapHighlightColor = 'transparent'; }catch(_e){}
-  }
-
-  const stop = (e)=>{
-    // Important: stop propagation too, otherwise the browser may still scroll.
-    try{ e.preventDefault(); }catch(_e){}
-    try{ e.stopPropagation(); }catch(_e){}
-    try{ e.stopImmediatePropagation(); }catch(_e){}
+  const onStart = (_e)=>{
+    // Lock scroll ONLY while user is interacting with the chart area
+    lockBodyScroll();
   };
 
-  // Prevent page scroll & rubber-band while interacting with the chart
-  for(const el of targets){
-    el.addEventListener('touchstart', (e)=>{ lockBodyScroll(); stop(e); }, { passive:false });
-    el.addEventListener('touchmove', stop, { passive:false });
-    el.addEventListener('touchend', ()=>{ unlockBodyScroll(); }, { passive:true });
-    el.addEventListener('touchcancel', ()=>{ unlockBodyScroll(); }, { passive:true });
+  const onMove = (e)=>{
+    // Prevent the page from scrolling while the chart receives gestures
+    if(e.cancelable) e.preventDefault();
+  };
 
-    // Pointer events (covers some Android/Windows touch devices)
-    el.addEventListener('pointerdown', (e)=>{
-      if(e.pointerType === 'touch' || e.pointerType === 'pen'){
-        lockBodyScroll();
-        stop(e);
-      }
-    }, { passive:false });
+  const onEnd = (_e)=>{
+    unlockBodyScroll();
+  };
 
-    // Trackpad/wheel: prevent the chart area from acting like a scroll"trap"
-    el.addEventListener('wheel', stop, { passive:false });
-  }
+  // Touch
+  el.addEventListener('touchstart', onStart, {passive:false});
+  el.addEventListener('touchmove', onMove, {passive:false});
+  el.addEventListener('touchend', onEnd, {passive:true});
+  el.addEventListener('touchcancel', onEnd, {passive:true});
+
+  // Pointer (covers stylus + some mobile browsers)
+  el.addEventListener('pointerdown', onStart, {passive:false});
+  el.addEventListener('pointermove', onMove, {passive:false});
+  el.addEventListener('pointerup', onEnd, {passive:true});
+  el.addEventListener('pointercancel', onEnd, {passive:true});
+  el.addEventListener('lostpointercapture', onEnd, {passive:true});
 }
 
 // --- XLSX loader (prevents "XLSX is not defined" when a CDN is blocked) ---
@@ -1082,6 +1128,7 @@ els.optSafetyMin.addEventListener('change', ()=>{
 
 // Fix: stop chart interaction from causing page to scroll down on touch devices
 bindChartScrollGuards(els.chartDist);
+bindChartScrollGuards(els.chartDist?.parentElement);
 bindChartScrollGuards(els.chartMismatch);
-
+bindChartScrollGuards(els.chartMismatch?.parentElement);
 resetAll();
