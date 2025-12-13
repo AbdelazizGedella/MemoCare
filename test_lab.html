@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TriageXpert — Test Lab</title>
+
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="color-scheme" content="dark" />
+
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+
+  <!-- Chart.js (optional charts) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Small additions without touching your main styles.css */
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--stroke); background: rgba(255,255,255,0.04); }
+    .pill b { font-size: 12px; opacity: .85; }
+    .muted { opacity:.75 }
+    .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .tools { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn2 { cursor:pointer; padding:10px 12px; border-radius:14px; border:1px solid var(--stroke); background: rgba(255,255,255,0.06); color: #eaf3ff; }
+    .btn2.primary { background: linear-gradient(90deg, rgba(0,220,255,.18), rgba(119,92,255,.14)); border-color: rgba(0,220,255,.35); }
+    .btn2.danger { border-color: rgba(255,70,120,.35); background: rgba(255,70,120,.08); }
+    .btn2:disabled { opacity:.45; cursor:not-allowed; }
+    .kpi { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border:1px solid var(--stroke); border-radius: 14px; background: rgba(255,255,255,0.03); }
+    .kpi .v { font-weight:800; letter-spacing:.3px; }
+    .kpi .l { opacity:.8; font-size:12px; }
+    .table-wrap { margin-top:14px; overflow:auto; border-radius: 16px; border:1px solid var(--stroke); }
+    .table2 { width:100%; border-collapse: collapse; min-width: 1100px; }
+    .table2 th, .table2 td { padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
+    .table2 th { position: sticky; top: 0; background: rgba(8,18,41,.92); backdrop-filter: blur(8px); text-align:left; font-size: 12px; opacity:.9; }
+    .tag2 { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); font-size: 12px; }
+    .warn { border-color: rgba(255,175,0,.35); background: rgba(255,175,0,.08); }
+    .ok { border-color: rgba(0,255,180,.35); background: rgba(0,255,180,.08); }
+    .bad { border-color: rgba(255,70,120,.35); background: rgba(255,70,120,.08); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    details summary { cursor:pointer; }
+    .tiny { font-size:12px; opacity:.8; }
+    .split { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+
+    /* Fix: prevent “runaway” page scrolling when interacting with Chart.js on touch devices */
+    .chart-guard{
+      touch-action: none;
+      overscroll-behavior: contain;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #chartDist, #chartMismatch {
+      touch-action: none;
+      -ms-touch-action: none;
+      overscroll-behavior: contain;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+      .table2{ min-width: 900px; }
+      .split{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="ctas-big" id="lab-title">TEST LAB</div>
+      <div class="brand">
+        <div class="logo">TX</div>
+        <div>
+          <h1>TriageXpert — CTAS Test Lab</h1>
+          <div class="sub">Upload your triage databank → run evaluation → get accuracy + confusion analysis (without touching your main app).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Upload + Settings -->
+      <div class="card">
+        <div class="section-title">Dataset</div>
+
+        <div class="list">
+          <div class="kpi">
+            <div>
+              <div class="l">Upload XLSX / CSV</div>
+              <div class="tiny muted">Supports the same header names you shared (MRNo., Chief Complaint, CTAS, Bp, Temp, Pulse, RR, O2 Sat, RBS, GCS, Pain Scale ...).</div>
+            </div>
+            <div class="v">📄</div>
+          </div>
+
+          <input id="file" type="file" class="btn2" accept=".xlsx,.xls,.csv" />
+          <div class="tiny muted" id="fileHint">No file loaded yet.</div>
+
+          <div class="section-title" style="margin-top:14px">Evaluation Mode</div>
+
+          <label class="pill"><input type="checkbox" id="optAutoModule" checked /> <b>Auto-detect Chief Complaint module</b> <span class="tiny muted">(keyword match)</span></label>
+          <label class="pill"><input type="checkbox" id="optAutoMods" /> <b>Auto-apply “default” modifiers</b> <span class="tiny muted">(best effort)</span></label>
+
+          <label class="pill"><input type="checkbox" id="optStrictApp" checked /> <b>Strict app logic</b> <span class="tiny muted">(Modifiers override Vitals)</span></label>
+          <label class="pill"><input type="checkbox" id="optSafetyMin" /> <b>Safety override</b> <span class="tiny muted">(Final = min(Modifiers, Vitals))</span></label>
+
+          <div class="section-title" style="margin-top:14px">Sepsis / Shock Inputs</div>
+          <div class="tiny muted">We compute <b>Shock Index</b> from Pulse/SBP, plus <b>qSOFA</b> & <b>SIRS</b> from vitals (and “suspected infection” from Chief Complaint keywords).</div>
+
+          <div class="tools" style="margin-top:12px">
+            <button id="run" class="btn2 primary" disabled>Run Evaluation</button>
+            <button id="reset" class="btn2 danger" disabled>Reset</button>
+          </div>
+
+          <div class="tiny muted" id="status" style="margin-top:10px">Ready.</div>
+        </div>
+      </div>
+
+      <!-- Middle: KPIs -->
+      <div class="card">
+        <div class="section-title">Executive Summary</div>
+        <div class="list" id="kpis">
+          <div class="kpi"><div><div class="l">Rows loaded</div><div class="v" id="kpiRows">—</div></div><div class="tag2">rows</div></div>
+          <div class="kpi"><div><div class="l">Valid CTAS rows</div><div class="v" id="kpiValid">—</div></div><div class="tag2">scored</div></div>
+          <div class="kpi"><div><div class="l">Accuracy</div><div class="v" id="kpiAcc">—</div></div><div class="tag2">%</div></div>
+          <div class="kpi"><div><div class="l">Balanced accuracy</div><div class="v" id="kpiBAcc">—</div></div><div class="tag2">CTAS 1–5</div></div>
+          <div class="kpi"><div><div class="l">Under-triage</div><div class="v" id="kpiUnder">—</div></div><div class="tag2 warn">pred > actual</div></div>
+          <div class="kpi"><div><div class="l">Over-triage</div><div class="v" id="kpiOver">—</div></div><div class="tag2 ok">pred < actual</div></div>
+        </div>
+
+        <div class="section-title" style="margin-top:14px">Quick Charts</div>
+          <div class="split">
+          <div class="chart-guard">
+            <div class="tiny muted">CTAS distribution (Actual vs Pred)</div>
+            <canvas id="chartDist" height="170"></canvas>
+          </div>
+          <div class="chart-guard">
+            <div class="tiny muted">Mismatch types</div>
+            <canvas id="chartMismatch" height="170"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Deep Dive -->
+      <div class="card">
+        <div class="section-title">Deep Dive (Confusion)</div>
+
+        <div class="list">
+          <div class="kpi">
+            <div>
+              <div class="l">Top mismatch patterns</div>
+              <div class="tiny muted">Where the model disagreed most often (Actual → Pred).</div>
+            </div>
+            <div class="v">🧠</div>
+          </div>
+
+          <div id="topPatterns" class="tiny muted">Run evaluation to generate insights.</div>
+
+          <div class="section-title" style="margin-top:14px">Downloads</div>
+          <div class="tools">
+            <button id="dlJson" class="btn2" disabled>Download JSON report</button>
+            <button id="dlCsv" class="btn2" disabled>Download mismatches CSV</button>
+            <button id="dlHtml" class="btn2" disabled>Open full HTML report</button>
+          </div>
+
+          <div class="section-title" style="margin-top:14px">What counts as “confusion” here?</div>
+          <div class="tiny muted">
+            • Missing / abnormal vitals (e.g., SpO₂ low, GCS low, Shock Index high).<br/>
+            • qSOFA≥2 or SIRS≥2 with suspected infection keywords.<br/>
+            • Vitals suggest higher acuity but were ignored because modifiers were applied (strict mode).<br/>
+            • Chief complaint ambiguous (multiple possible modules) or spelling variations.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="section-title">Results Table</div>
+      <div class="tiny muted">Click “Details” to see why CTAS was predicted (modules, modifiers, vitals, qSOFA/SIRS, shock index).</div>
+
+      <div class="tools" style="margin-top:12px">
+        <label class="pill"><input type="checkbox" id="filterMismatch" /> <b>Show mismatches only</b></label>
+        <label class="pill"><input type="checkbox" id="filterUnder" /> <b>Under-triage only</b></label>
+        <label class="pill"><input type="checkbox" id="filterOver" /> <b>Over-triage only</b></label>
+        <span class="pill"><b>Search:</b> <input id="search" placeholder="MRNo / complaint..." style="background:transparent;border:none;outline:none;color:#eaf3ff;min-width:240px" /></span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table2">
+          <thead>
+            <tr>
+              <th>MRNo</th>
+              <th>Chief Complaint</th>
+              <th>Actual</th>
+              <th>Pred</th>
+              <th>Δ</th>
+              <th>Vitals</th>
+              <th>Shock / Sepsis</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="8" class="muted">No results yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="test_lab.js"></script>
+</body>
+</html>
