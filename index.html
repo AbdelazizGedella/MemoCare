@@ -59,9 +59,12 @@
 
         <details class="spoiler" id="sp-hemo">
           <summary>Circulation <span class="summary-value" id="sv-hemo">—</span></summary>
-          <div class="row" style="display:flex; gap:10px; margin-top:8px">
+          <div class="row" style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; align-items:center">
             <label>Shock</label> <input id="shock" type="checkbox" />
             <label>Hemodynamic compromise</label> <input id="hemo" type="checkbox" />
+            <span class="divider" style="opacity:.4"></span>
+            <label>HR</label><input id="hr" type="number" inputmode="numeric" placeholder="bpm" style="width:110px" />
+            <span class="small">Shock Index = HR / SBP</span>
           </div>
         </details>
 
@@ -100,6 +103,18 @@
             <label>Unwell look</label><input id="unwell" type="checkbox" />
           </div>
         </details>
+
+        <details class="spoiler" id="sp-sepsis">
+          <summary>qSOFA / SIRS <span class="summary-value" id="sv-sepsis">—</span></summary>
+          <div class="row" style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; align-items:center">
+            <label>WBC (×10⁹/L)</label><input id="wbc" type="number" step="0.1" placeholder="e.g., 8.5" style="width:140px" />
+            <label>Suspected infection</label><input id="inf-sus" type="checkbox" />
+          </div>
+          <div class="small" style="margin-top:6px">
+            qSOFA uses RR, SBP, and mentation (GCS&lt;15). SIRS uses Temp, HR, RR, and WBC.
+          </div>
+        </details>
+
 
         <details class="spoiler" id="sp-pain">
           <summary>Pain <span class="summary-value" id="sv-pain">—</span></summary>

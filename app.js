@@ -31,6 +31,7 @@ const els = {
     glu: document.getElementById('sv-glu'),
     temp: document.getElementById('sv-temp'),
     pain: document.getElementById('sv-pain'),
+  sepsis: document.getElementById('sv-sepsis'),
   }
 };
 
@@ -39,6 +40,21 @@ const state = {
   selectedMods: new Set(), // keys "moduleId::modifierId"
   vitalsEffects: [],
 };
+
+// Heuristic: if any of these chief-complaint modules are selected, assume "possible infection" context
+const INFECTION_HINT_IDS = new Set([
+  'fever_only',
+  'flu_like',
+  'urti',
+  'pharyngitis',
+  'pneumonia',
+  'cough_simple',
+  'sob_basic',
+  'sob_and_cough',
+  'nausea_vomiting_fever',
+  'vomit_diarrhea',
+]);
+
 
 function keyFor(modId, subId){ return `${modId}::${subId}`; }
 function lowestCTAS(values){
@@ -58,15 +74,33 @@ function updateCTASCurrent(value){
 
 // Suggestions & Complaints
 function renderSuggestions(query = ''){
-  const q = query.trim().toLowerCase();
+  const qRaw = (query || '').trim().toLowerCase();
+  const tokens = qRaw.split(/[\s,\/.]+/).map(t=>t.trim()).filter(Boolean);
+
   const results = ALL_MODULES
     .map(m => {
-      const matchTitle = m.title.toLowerCase().includes(q);
-      const matchKw = (m.keywords || []).some(k => k.toLowerCase().includes(q));
-      return { ...m, score: (matchTitle?2:0) + (matchKw?1:0) };
+      const title = (m.title || '').toLowerCase();
+      const kws = (m.keywords || []).map(k => String(k).toLowerCase());
+      let score = 0;
+
+      if (!qRaw){
+        score = 1; // show defaults when empty
+      } else {
+        if (title.includes(qRaw)) score += 5;
+        if (kws.some(k => k.includes(qRaw))) score += 3;
+
+        tokens.forEach(t => {
+          if (t.length < 2 && t !== 'sob') return;
+          if (title.includes(t)) score += 2;
+          if (kws.some(k => k.includes(t))) score += 1;
+        });
+      }
+      return { m, score };
     })
-    .filter(m => q ? m.score>0 : true)
-    .slice(0, 120);
+    .filter(x => x.score > 0)
+    .sort((a,b)=> (b.score - a.score) || a.m.title.localeCompare(b.m.title))
+    .slice(0, 120)
+    .map(x => x.m);
 
   els.suggestions.innerHTML = '';
   results.forEach(m => {
@@ -77,6 +111,7 @@ function renderSuggestions(query = ''){
     els.suggestions.appendChild(div);
   });
 }
+
 
 function addComplaint(id){
   if (!ALL_MODULES.find(x=>x.id===id)) return;
@@ -179,38 +214,62 @@ function renderSelectedModifiersSummary(){
 // === First-order modifiers from vitals (subset) ===
 function computeVitalsEffects(){
   const effects = [];
+
   const gcs = num('gcs');
+  const rr = num('rr');
+  const hr = num('hr');
+  const wbc = num('wbc');
+
   const shock = checked('shock');
   const hemo = checked('hemo');
   const spo2 = num('spo2');
+
   const sbp = num('sbp');
   const dbp = num('dbp');
   const htnSx = checked('htn-sx');
+
   const glucose = num('glucose');
   const hypoSx = checked('hypo-sx');
   const hyperSx = checked('hyper-sx');
+
   const temp = num('temp');
   const immuno = checked('immuno');
   const septic = checked('septic');
   const unwell = checked('unwell');
+
+  const infSus = checked('inf-sus');
+
   const pain = num('pain');
   const painLoc = val('pain-loc');
   const painOnset = val('pain-onset');
 
+  // --- Hemodynamic flags (manual checkboxes)
   if (shock) effects.push({source:'Hemodynamic', detail:'Shock signs', ctas:1});
   else if (hemo) effects.push({source:'Hemodynamic', detail:'Hemodynamic compromise', ctas:2});
 
+  // --- Shock Index (HR/SBP)
+  if (Number.isFinite(hr) && Number.isFinite(sbp) && sbp > 0){
+    const si = hr / sbp;
+    const detail = `SI ${si.toFixed(2)} (HR ${hr}, SBP ${sbp})`;
+    if (si >= 1.30) effects.push({source:'Shock Index', detail, ctas:1});
+    else if (si >= 1.00) effects.push({source:'Shock Index', detail, ctas:2});
+    else if (si >= 0.90) effects.push({source:'Shock Index', detail, ctas:3});
+  }
+
+  // --- Mental status (GCS)
   if (Number.isFinite(gcs)){
     if (gcs <= 9) effects.push({source:'GCS', detail:`GCS ${gcs}`, ctas:1});
     else if (gcs >=10 && gcs <=13) effects.push({source:'GCS', detail:`GCS ${gcs}`, ctas:2});
   }
 
+  // --- Respiratory (SpO2 only; RR is used in qSOFA/SIRS)
   if (Number.isFinite(spo2)){
     if (spo2 < 90) effects.push({source:'Respiratory', detail:`SpO₂ ${spo2}%`, ctas:1});
     else if (spo2 < 92) effects.push({source:'Respiratory', detail:`SpO₂ ${spo2}%`, ctas:2});
     else if (spo2 <= 94) effects.push({source:'Respiratory', detail:`SpO₂ ${spo2}%`, ctas:3});
   }
 
+  // --- Hypertension
   if (Number.isFinite(sbp) || Number.isFinite(dbp)){
     const SBP = sbp||0, DBP = dbp||0;
     if (SBP >= 220 || DBP >= 130){
@@ -220,20 +279,46 @@ function computeVitalsEffects(){
     }
   }
 
+  // --- Glucose
   if (Number.isFinite(glucose)){
     if (glucose < 3){
-      effects.push({source:'Glucose', detail:`<3 mmol/L ${hypoSx?'+ symptoms':''}`, ctas: hypoSx ? 2 : 3});
-    } else if (glucose > 18){
-      effects.push({source:'Glucose', detail:`>18 mmol/L ${hyperSx?'+ symptoms':''}`, ctas: hyperSx ? 2 : 3});
+      effects.push({source:'Glucose', detail:`Low ${glucose} ${hypoSx?'+ symptoms':''}`, ctas: hypoSx ? 2 : 3});
+    } else if (glucose >= 20){
+      effects.push({source:'Glucose', detail:`High ${glucose} ${hyperSx?'+ symptoms':''}`, ctas: hyperSx ? 2 : 3});
     }
   }
 
+  // --- Fever (basic)
   if (Number.isFinite(temp) && temp >= 38){
     if (immuno || septic) effects.push({source:'Fever', detail:'Immunocompromised / septic look', ctas:2});
     else if (unwell) effects.push({source:'Fever', detail:'Looks unwell', ctas:3});
     else effects.push({source:'Fever', detail:'Looks well', ctas:4});
   }
 
+  // --- qSOFA & SIRS indicators (derived from vitals)
+  const hasInfHint = state.activeIds.some(id => INFECTION_HINT_IDS.has(id));
+  const infectionContext = infSus || septic || hasInfHint || (Number.isFinite(temp) && (temp >= 38 || temp < 36));
+
+  const qsofa =
+    (Number.isFinite(sbp) && sbp <= 100 ? 1 : 0) +
+    (Number.isFinite(rr) && rr >= 22 ? 1 : 0) +
+    (Number.isFinite(gcs) && gcs < 15 ? 1 : 0);
+
+  const sirs =
+    (Number.isFinite(temp) && (temp > 38 || temp < 36) ? 1 : 0) +
+    (Number.isFinite(hr) && hr > 90 ? 1 : 0) +
+    (Number.isFinite(rr) && rr > 20 ? 1 : 0) +
+    (Number.isFinite(wbc) && (wbc > 12 || wbc < 4) ? 1 : 0);
+
+  if (infectionContext){
+    if (qsofa >= 2){
+      effects.push({source:'Sepsis Screen', detail:`qSOFA ${qsofa} / SIRS ${sirs}`, ctas:2});
+    } else if (sirs >= 2){
+      effects.push({source:'Sepsis Screen', detail:`qSOFA ${qsofa} / SIRS ${sirs}`, ctas:(septic || unwell) ? 2 : 3});
+    }
+  }
+
+  // --- Pain (uses NRS + location + onset)
   if (Number.isFinite(pain) && painLoc && painOnset){
     let sev = 'mild';
     if (pain >= 8) sev = 'severe';
@@ -256,6 +341,7 @@ function computeVitalsEffects(){
 
   return effects;
 }
+
 
 // بدّل هذه الدالة في app.js
 function num(id){
@@ -313,19 +399,84 @@ function recalc(){
 function updateSummaries(){
   els.sv.age.textContent = val('age') || '—';
   els.sv.gcs.textContent = val('gcs') || '—';
-  const hemo = (checked('shock') ? 'Shock' : '') + (checked('hemo') ? (checked('shock')? ' + ' : '') + 'Compromise' : '');
-  els.sv.hemo.textContent = hemo || '—';
-  const resp = [val('rr')?`RR ${val('rr')}`:'', val('spo2')?`SpO₂ ${val('spo2')}%`:'' ].filter(Boolean).join(' · ');
-  els.sv.resp.textContent = resp || '—';
-  const bp = [val('sbp')?`SBP ${val('sbp')}`:'', val('dbp')?`DBP ${val('dbp')}`:'', checked('htn-sx')?'sx':'' ].filter(Boolean).join(' · ');
-  els.sv.bp && (els.sv.bp.textContent = bp || '—');
-  const glu = [val('glucose')?`${val('glucose')} mmol/L`:'', checked('hypo-sx')?'hypo sx':'', checked('hyper-sx')?'hyper sx':''].filter(Boolean).join(' · ');
-  els.sv.glu && (els.sv.glu.textContent = glu || '—');
-  const temp = [val('temp')?`${val('temp')}°C`:'', checked('immuno')?'immuno':'', checked('septic')?'septic':'', checked('unwell')?'unwell':''].filter(Boolean).join(' · ');
-  els.sv.temp && (els.sv.temp.textContent = temp || '—');
-  const pain = [val('pain')?`NRS ${val('pain')}`:'', val('pain-loc')||'', val('pain-onset')||''].filter(Boolean).join(' · ');
-  els.sv.pain && (els.sv.pain.textContent = pain || '—');
+
+  const HR = num('hr');
+  const SBP = num('sbp');
+  const si = (Number.isFinite(HR) && Number.isFinite(SBP) && SBP > 0) ? (HR / SBP).toFixed(2) : null;
+
+  const hemoBits = [];
+  if (checked('shock')) hemoBits.push('Shock');
+  if (checked('hemo')) hemoBits.push('Compromise');
+  if (Number.isFinite(HR)) hemoBits.push(`HR ${HR}`);
+  if (si) hemoBits.push(`SI ${si}`);
+  els.sv.hemo.textContent = hemoBits.length ? hemoBits.join(' · ') : '—';
+
+  const respBits = [];
+  const rrTxt = val('rr');
+  const spo2Txt = val('spo2');
+  if (rrTxt) respBits.push(`RR ${rrTxt}`);
+  if (spo2Txt) respBits.push(`SpO₂ ${spo2Txt}%`);
+  els.sv.resp.textContent = respBits.length ? respBits.join(' · ') : '—';
+
+  const sbpTxt = val('sbp');
+  const dbpTxt = val('dbp');
+  els.sv.bp.textContent = (sbpTxt || dbpTxt) ? `${sbpTxt || '—'}/${dbpTxt || '—'}` : '—';
+
+  els.sv.glu.textContent = val('glucose') || '—';
+
+  const tempTxt = val('temp');
+  const tempFlags = [];
+  if (checked('immuno')) tempFlags.push('immuno');
+  if (checked('septic')) tempFlags.push('septic');
+  if (checked('unwell')) tempFlags.push('unwell');
+  if (tempTxt){
+    els.sv.temp.textContent = `T ${tempTxt}°C${tempFlags.length ? ' · ' + tempFlags.join(', ') : ''}`;
+  } else {
+    els.sv.temp.textContent = tempFlags.length ? tempFlags.join(', ') : '—';
+  }
+
+  const painTxt = val('pain');
+  const painLoc = val('pain-loc');
+  const painOnset = val('pain-onset');
+  const painBits = [];
+  if (painTxt) painBits.push(`NRS ${painTxt}`);
+  if (painLoc) painBits.push(painLoc);
+  if (painOnset) painBits.push(painOnset);
+  els.sv.pain.textContent = painBits.length ? painBits.join(' · ') : '—';
+
+  // qSOFA / SIRS (optional section)
+  if (els.sv.sepsis){
+    const wbc = num('wbc');
+    const rr = num('rr');
+    const gcs = num('gcs');
+    const sbp = num('sbp');
+    const temp = num('temp');
+    const infSus = checked('inf-sus');
+
+    const qsofa =
+      (Number.isFinite(sbp) && sbp <= 100 ? 1 : 0) +
+      (Number.isFinite(rr) && rr >= 22 ? 1 : 0) +
+      (Number.isFinite(gcs) && gcs < 15 ? 1 : 0);
+
+    const sirs =
+      (Number.isFinite(temp) && (temp > 38 || temp < 36) ? 1 : 0) +
+      (Number.isFinite(HR) && HR > 90 ? 1 : 0) +
+      (Number.isFinite(rr) && rr > 20 ? 1 : 0) +
+      (Number.isFinite(wbc) && (wbc > 12 || wbc < 4) ? 1 : 0);
+
+    const any = [sbp, rr, gcs, temp, HR, wbc].some(Number.isFinite) || infSus || checked('septic');
+
+    if (!any){
+      els.sv.sepsis.textContent = '—';
+    } else {
+      const bits = [`qSOFA ${qsofa}`, `SIRS ${sirs}`];
+      if (Number.isFinite(wbc)) bits.push(`WBC ${wbc}`);
+      if (infSus) bits.push('infection?');
+      els.sv.sepsis.textContent = bits.join(' · ');
+    }
+  }
 }
+
 
 // Screenshot + Print must match the live page: use single capture() for both
 async function capture(){
