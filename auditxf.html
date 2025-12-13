@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audit Tool — Consumables & Services Linking (FULL FIXED)</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ===== Responsive item lists (PM + HM) ===== */
+    #pmItemsList, #hmItemsList{
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: .35rem;
+    }
+    @media (min-width: 768px){
+      #pmItemsList, #hmItemsList{ grid-template-columns: 1fr 1fr; }
+    }
+    #pmItemsList .btn, #hmItemsList .btn{ text-align: start; }
+
+    /* ===== Mobile tweak ===== */
+    @media (max-width: 640px){ .tableWrap{ max-height: 58vh; } }
+
+    :root { color-scheme: dark; }
+    body {
+      background: radial-gradient(1200px 600px at 80% 0%, rgba(34,211,238,.18), transparent 60%),
+                  radial-gradient(900px 500px at 10% 10%, rgba(59,130,246,.14), transparent 55%),
+                  linear-gradient(135deg, #071025, #07152f);
+      font-family: system-ui, -apple-system, "Segoe UI", "Cairo", "Noto Sans Arabic", sans-serif;
+    }
+    .glass {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .stickyhead th { position: sticky; top: 0; z-index: 10; background: rgba(10,18,40,.95); }
+    .small-muted { font-size: 12px; opacity: .75; }
+    .kbdlike { padding: .12rem .35rem; border-radius: .4rem; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); }
+
+    .chartBox { position: relative; height: 260px; width: 100%; }
+    .chartBox canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+
+    /* Heat cells */
+    .heat { transition: transform .08s ease, filter .08s ease; }
+    .heat:hover { transform: scale(1.02); filter: brightness(1.1); }
+
+    /* ===== Wide tables + real horizontal scroll ===== */
+    .tableWrap{
+      overflow: auto;
+      max-height: 65vh;
+      border-radius: 0.75rem;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tableWide{
+      width: max-content;
+      min-width: 100%;
+    }
+    .tableWide th, .tableWide td{
+      min-width: 84px;
+      vertical-align: top;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen text-slate-100">
+  <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
+
+    <header class="glass rounded-2xl p-4 md:p-5 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+      <div>
+        <h1 class="text-xl md:text-2xl font-extrabold text-cyan-300">Audit Tool — Linking Consumables/Medications ↔ Services/Billing (FULL FIXED)</h1>
+        <p class="text-sm text-slate-300 mt-1">
+          يشتغل محليًا على جهازك (No Upload). يدعم ملفات <span class="kbdlike">.xlsx</span> + ملفات <span class="kbdlike">.xls</span> اللي هي تقارير Oracle متصدّرة كـ HTML.
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <button id="btnSampleRules" class="btn btn-sm btn-outline btn-info">شرح الـ Flags</button>
+        <button id="btnReset" class="btn btn-sm btn-outline">Reset</button>
+      </div>
+    </header>
+
+    <!-- Upload -->
+    <section class="grid md:grid-cols-2 gap-4">
+      <div class="glass rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold text-blue-200">1) ملف الصرف / الاستهلاك (Disposables / Issued)</h2>
+          <span id="badgeCons" class="badge badge-ghost">Not loaded</span>
+        </div>
+
+        <input id="fileCons" type="file" class="file-input file-input-bordered w-full" accept=".xlsx,.xls,.csv,.html,.htm" />
+        <div class="small-muted text-slate-300">مثال: <span class="mono">Disposables.xlsx</span> (IssuedQty/UnchargedQty/Item/OrderNo/Service…)</div>
+
+        <div id="consMeta" class="text-sm text-slate-300"></div>
+
+        <details class="collapse collapse-arrow bg-transparent border border-white/10 rounded-xl">
+          <summary class="collapse-title font-semibold text-slate-200">Preview (أول 8 صفوف)</summary>
+          <div class="collapse-content">
+            <div id="consPreview" class="overflow-auto max-h-72"></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="glass rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold text-blue-200">2) ملف الخدمات / Billing (Patient Services by Doctor…)</h2>
+          <span id="badgeBill" class="badge badge-ghost">Not loaded</span>
+        </div>
+
+        <input id="fileBill" type="file" class="file-input file-input-bordered w-full" accept=".xls,.xlsx,.csv,.html,.htm" />
+        <div class="small-muted text-slate-300">يقبل <span class="mono">.xls</span> حتى لو هو تقرير Oracle متصدّر كـ HTML.</div>
+
+        <div id="billMeta" class="text-sm text-slate-300"></div>
+
+        <details class="collapse collapse-arrow bg-transparent border border-white/10 rounded-xl">
+          <summary class="collapse-title font-semibold text-slate-200">Preview (أول 8 صفوف)</summary>
+          <div class="collapse-content">
+            <div id="billPreview" class="overflow-auto max-h-72"></div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- Mapping -->
+    <section class="glass rounded-2xl p-4 space-y-3">
+      <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div>
+          <h2 class="font-bold text-cyan-200">3) Column Mapping (تلقائي + تقدر تعدّل)</h2>
+          <p class="text-sm text-slate-300">لو الأعمدة مختلفة، اختار الحقول الأساسية. لو مش متوفر حقل سيبه <span class="kbdlike">--</span>.</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="btnAutoMap" class="btn btn-sm btn-outline btn-info">Auto Map</button>
+          <button id="btnRun" class="btn btn-sm btn-info">Run Audit</button>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-xl border border-white/10 p-3">
+          <h3 class="font-semibold text-blue-200 mb-2">Mapping — Consumption (صرف/Issued)</h3>
+          <div id="mapCons" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+        </div>
+
+        <div class="rounded-xl border border-white/10 p-3">
+          <h3 class="font-semibold text-blue-200 mb-2">Mapping — Billing/Services (خدمات/محاسبة)</h3>
+          <div id="mapBill" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <progress id="prog" class="progress progress-info w-full" value="0" max="100"></progress>
+        <span id="progTxt" class="text-xs text-slate-300 w-28 text-left">0%</span>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="resultsSection" class="glass rounded-2xl p-4 space-y-4 hidden">
+      <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div>
+          <h2 class="font-bold text-cyan-200">4) Results</h2>
+          <p id="runMeta" class="text-sm text-slate-300"></p>
+        </div>
+        <div class="flex gap-2">
+          <button id="btnExportXlsx" class="btn btn-sm btn-outline btn-success">Export Excel</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid md:grid-cols-4 gap-3">
+        <div class="glass rounded-xl p-3 border border-white/10">
+          <div class="text-xs text-slate-300">Total Issued Qty</div>
+          <div id="kpiIssued" class="text-2xl font-extrabold text-white">—</div>
+        </div>
+        <div class="glass rounded-xl p-3 border border-white/10">
+          <div class="text-xs text-slate-300">Total Uncharged Qty</div>
+          <div id="kpiUncharged" class="text-2xl font-extrabold text-amber-300">—</div>
+        </div>
+        <div class="glass rounded-xl p-3 border border-white/10">
+          <div class="text-xs text-slate-300">Findings Count</div>
+          <div id="kpiFindings" class="text-2xl font-extrabold text-cyan-300">—</div>
+        </div>
+        <div class="glass rounded-xl p-3 border border-white/10">
+          <div class="text-xs text-slate-300">No Billing Match</div>
+          <div id="kpiNoBill" class="text-2xl font-extrabold text-rose-300">—</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-xl border border-white/10 p-3">
+          <div class="font-semibold text-slate-200 mb-2">Top Uncharged Items (Qty)</div>
+          <div class="chartBox"><canvas id="chartItems"></canvas></div>
+        </div>
+        <div class="rounded-xl border border-white/10 p-3">
+          <div class="font-semibold text-slate-200 mb-2">Top Staff by Uncharged (Qty)</div>
+          <div class="chartBox"><canvas id="chartStaff"></canvas></div>
+        </div>
+      </div>
+
+      <!-- =========================
+           Pivot: Patient × Items
+      ========================== -->
+      <details open class="collapse collapse-arrow bg-transparent border border-white/10 rounded-xl">
+        <summary class="collapse-title font-semibold text-slate-200">
+          Patient Consumption Pivot (Patient × Items) — اضغط على إجمالي المريض أو أي خلية
+        </summary>
+        <div class="collapse-content space-y-3">
+
+          <div class="grid md:grid-cols-12 gap-2">
+            <input id="pmSearch" class="input input-bordered w-full md:col-span-2" placeholder="بحث: رقم الملف أو الاسم..." />
+
+            <select id="pmMeasure" class="select select-bordered w-full md:col-span-2">
+              <option value="issued" selected>Measure: IssuedQty</option>
+              <option value="unch">Measure: UnchargedQty</option>
+            </select>
+
+            <label class="flex items-center gap-2 px-2 md:col-span-2">
+              <input id="pmAllItems" type="checkbox" class="checkbox checkbox-sm" />
+              <span class="text-sm text-slate-300">All items (كل المستلزمات)</span>
+            </label>
+
+            <input id="pmMaxCols" type="number" class="input input-bordered w-full md:col-span-1" min="5" max="300" value="20" />
+            <input id="pmMinDays" type="number" class="input input-bordered w-full md:col-span-1" min="0" placeholder="Min days" />
+            <input id="pmMaxDays" type="number" class="input input-bordered w-full md:col-span-1" min="0" placeholder="Max days" />
+
+            <label class="flex items-center gap-2 px-2 md:col-span-2">
+              <input id="pmOnlyWithUsage" type="checkbox" class="checkbox checkbox-sm" checked />
+              <span class="text-sm text-slate-300">مرضى عندهم صرف فقط</span>
+            </label>
+
+            <button id="pmBuild" class="btn btn-sm btn-outline btn-info w-full md:col-span-1">Build</button>
+            <button id="pmExport" class="btn btn-sm btn-outline btn-success w-full md:col-span-1">Export</button>
+          </div>
+
+          <div id="pmMeta" class="text-sm text-slate-300"></div>
+
+          <!-- ✅ Items Catalog (Pivot) -->
+          <div class="grid md:grid-cols-12 gap-2">
+            <input id="pmItemListSearch" class="input input-bordered w-full md:col-span-4" placeholder="قائمة الأصناف: ابحث هنا (code/name)..." />
+            <div id="pmItemListMeta" class="text-xs text-slate-300 md:col-span-8 flex items-center"></div>
+          </div>
+          <div id="pmItemsList" class="overflow-auto max-h-56 border border-white/10 rounded-xl p-2"></div>
+
+          <!-- ✅ Real scroll wrapper -->
+          <div id="pmTableWrap" class="tableWrap border border-white/10 rounded-xl">
+            <table class="table table-sm stickyhead tableWide">
+              <thead id="pmHead"></thead>
+              <tbody id="pmBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- =========================
+           Heatmap: Item × Dimension
+      ========================== -->
+      <details class="collapse collapse-arrow bg-transparent border border-white/10 rounded-xl">
+        <summary class="collapse-title font-semibold text-slate-200">
+          Heatmap — أعلى استهلاك رايح فين؟ (Item × Store/Section/Staff)
+        </summary>
+        <div class="collapse-content space-y-3">
+          <div class="grid md:grid-cols-8 gap-2">
+            <input id="hmSearchItem" class="input input-bordered w-full md:col-span-2" placeholder="بحث صنف (Item code/name)..." />
+            <select id="hmMeasure" class="select select-bordered w-full">
+              <option value="issued" selected>Measure: IssuedQty</option>
+              <option value="unch">Measure: UnchargedQty</option>
+            </select>
+            <select id="hmDim" class="select select-bordered w-full">
+              <option value="patient">Dimension: Patient</option>
+              <option value="store" selected>Dimension: Store</option>
+              <option value="section">Dimension: Section</option>
+              <option value="staff">Dimension: Staff</option>
+            </select>
+            <input id="hmTopItems" type="number" class="input input-bordered w-full" min="5" max="50" value="15" />
+            <input id="hmTopDims" type="number" class="input input-bordered w-full" min="3" max="30" value="10" />
+            <button id="hmBuild" class="btn btn-sm btn-outline btn-info w-full">Build</button>
+            <button id="hmExport" class="btn btn-sm btn-outline btn-success w-full">Export</button>
+          </div>
+
+          <div id="hmMeta" class="text-sm text-slate-300"></div>
+
+          <!-- ✅ Items Catalog (Heatmap) -->
+          <div class="grid md:grid-cols-12 gap-2">
+            <input id="hmItemListSearch" class="input input-bordered w-full md:col-span-4" placeholder="قائمة الأصناف: ابحث هنا (code/name)..." />
+            <div id="hmItemListMeta" class="text-xs text-slate-300 md:col-span-8 flex items-center"></div>
+          </div>
+          <div id="hmItemsList" class="overflow-auto max-h-56 border border-white/10 rounded-xl p-2"></div>
+
+          <!-- ✅ Real scroll wrapper -->
+          <div id="hmTableWrap" class="tableWrap border border-white/10 rounded-xl">
+            <table class="table table-sm stickyhead tableWide">
+              <thead id="hmHead"></thead>
+              <tbody id="hmBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <!-- =========================
+           Heatmap: Staff × Items (Top)
+      ========================== -->
+      <details class="collapse collapse-arrow bg-transparent border border-white/10 rounded-xl">
+        <summary class="collapse-title font-semibold text-slate-200">
+          Heatmap — Staff × Items (Top)
+        </summary>
+        <div class="collapse-content space-y-3">
+
+          <div class="grid md:grid-cols-10 gap-2">
+            <input id="siSearchStaff" class="input input-bordered w-full md:col-span-2" placeholder="بحث Staff..." />
+            <input id="siSearchItem" class="input input-bordered w-full md:col-span-2" placeholder="بحث Item..." />
+
+            <select id="siMeasure" class="select select-bordered w-full md:col-span-2">
+              <option value="issued" selected>Measure: IssuedQty</option>
+              <option value="unch">Measure: UnchargedQty</option>
+            </select>
+
+            <input id="siTopStaff" type="number" class="input input-bordered w-full" min="5" max="50" value="15" />
+            <input id="siTopItems" type="number" class="input input-bordered w-full" min="5" max="50" value="15" />
+
+            <button id="siBuild" class="btn btn-sm btn-outline btn-info w-full">Build</button>
+            <button id="siExport" class="btn btn-sm btn-outline btn-success w-full">Export</button>
+          </div>
+
+          <div id="siMeta" class="text-sm text-slate-300"></div>
+
+          <div id="siTableWrap" class="tableWrap border border-white/10 rounded-xl">
+            <table class="table table-sm stickyhead tableWide">
+              <thead id="siHead"></thead>
+              <tbody id="siBody"></tbody>
+            </table>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- Filters -->
+      <div class="grid md:grid-cols-4 gap-2">
+        <input id="qSearch" class="input input-bordered w-full" placeholder="بحث findings (patient/order/service/item/staff/doctor)..." />
+        <select id="qType" class="select select-bordered w-full">
+          <option value="">All finding types</option>
+          <option value="UNCHARGED">UNCHARGED</option>
+          <option value="NO_BILLING_MATCH">NO_BILLING_MATCH</option>
+          <option value="OUTLIER_OVERUSE">OUTLIER_OVERUSE</option>
+          <option value="UNCHARGED_WITH_BILLING">UNCHARGED_WITH_BILLING</option>
+        </select>
+        <input id="qMinScore" type="number" class="input input-bordered w-full" placeholder="Min score (0-100)" min="0" max="100" />
+        <button id="btnApplyFilter" class="btn btn-outline btn-info">Apply</button>
+      </div>
+
+      <!-- Findings table -->
+      <div class="overflow-auto border border-white/10 rounded-xl">
+        <table class="table table-sm stickyhead">
+          <thead>
+            <tr>
+              <th>Score</th>
+              <th>Type</th>
+              <th>Patient</th>
+              <th>OrderNo</th>
+              <th>Service</th>
+              <th>Date</th>
+              <th>Issued</th>
+              <th>Uncharged</th>
+              <th>Top Item</th>
+              <th>Staff</th>
+              <th>Store</th>
+              <th>Doctor</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="findingsBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Summaries -->
+      <details class="collapse collapse-arrow bg-transparent border border-white/10 rounded-xl">
+        <summary class="collapse-title font-semibold text-slate-200">Summaries (Items / Staff / Stores / Services)</summary>
+        <div class="collapse-content space-y-4">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <div class="font-semibold text-slate-200 mb-2">Top Items (Uncharged Qty)</div>
+              <div id="sumItems" class="overflow-auto max-h-72"></div>
+            </div>
+            <div>
+              <div class="font-semibold text-slate-200 mb-2">Top Staff (Uncharged Qty)</div>
+              <div id="sumStaff" class="overflow-auto max-h-72"></div>
+            </div>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <div class="font-semibold text-slate-200 mb-2">Top Stores (Uncharged Qty)</div>
+              <div id="sumStores" class="overflow-auto max-h-72"></div>
+            </div>
+            <div>
+              <div class="font-semibold text-slate-200 mb-2">Top Services (Uncharged Qty)</div>
+              <div id="sumServices" class="overflow-auto max-h-72"></div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Details Modal (Findings) -->
+    <dialog id="dlg" class="modal">
+      <div class="modal-box glass border border-white/10 max-w-4xl">
+        <h3 class="font-bold text-lg text-cyan-200">Finding Details</h3>
+        <p id="dlgMeta" class="text-sm text-slate-300 mt-1"></p>
+        <div class="mt-3 grid md:grid-cols-2 gap-3">
+          <div class="border border-white/10 rounded-xl p-3">
+            <div class="font-semibold text-slate-200 mb-2">Consumption lines (صرف)</div>
+            <div id="dlgCons" class="overflow-auto max-h-72"></div>
+          </div>
+          <div class="border border-white/10 rounded-xl p-3">
+            <div class="font-semibold text-slate-200 mb-2">Matched billing lines (خدمات)</div>
+            <div id="dlgBill" class="overflow-auto max-h-72"></div>
+          </div>
+        </div>
+        <div class="modal-action">
+          <form method="dialog"><button class="btn btn-outline">Close</button></form>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Help Modal -->
+    <dialog id="dlgHelp" class="modal">
+      <div class="modal-box glass border border-white/10">
+        <h3 class="font-bold text-lg text-cyan-200">شرح الـ Flags (ببساطة)</h3>
+        <div class="mt-3 space-y-2 text-sm text-slate-200">
+          <div><span class="badge badge-warning">UNCHARGED</span> = اتصرف Issued وفيه UnchargedQty > 0 → احتمال Undercharging/Leak.</div>
+          <div><span class="badge badge-error">NO_BILLING_MATCH</span> = صرف مرتبط بخدمة/Order لكن مفيش سطر خدمة مقابل في ملف Billing (حسب الربط المتاح).</div>
+          <div><span class="badge badge-info">OUTLIER_OVERUSE</span> = استهلاك Item داخل نفس Service أعلى من الطبيعي (IQR outlier).</div>
+          <div><span class="badge badge-accent">UNCHARGED_WITH_BILLING</span> = فيه Billing Match موجود لكن مازال Uncharged عالي.</div>
+          <div class="small-muted text-slate-300 mt-2">Score = درجة شدة (0–100) مبنية على Uncharged + عدم تطابق + Outlier.</div>
+        </div>
+        <div class="modal-action">
+          <form method="dialog"><button class="btn btn-outline">تمام</button></form>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Pivot Patient Modal -->
+    <dialog id="pmDlgPatient" class="modal">
+      <div class="modal-box glass border border-white/10 max-w-5xl">
+        <h3 class="font-bold text-lg text-cyan-200">Patient Items (كل الصرف)</h3>
+        <p id="pmPatientMeta" class="text-sm text-slate-300 mt-1"></p>
+
+        <div class="grid md:grid-cols-4 gap-2 mt-3">
+          <input id="pmPatientSearch" class="input input-bordered w-full md:col-span-2" placeholder="بحث داخل أصناف المريض..." />
+          <select id="pmPatientMeasure" class="select select-bordered w-full">
+            <option value="issued" selected>Sort by: IssuedQty</option>
+            <option value="unch">Sort by: UnchargedQty</option>
+          </select>
+          <button id="pmPatientExport" class="btn btn-outline btn-success">Export Patient Sheet</button>
+        </div>
+
+        <div class="overflow-auto border border-white/10 rounded-xl mt-3 max-h-[55vh]">
+          <table class="table table-sm stickyhead">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>IssuedQty</th>
+                <th>UnchargedQty</th>
+                <th>First Date</th>
+                <th>Last Date</th>
+                <th>Drill</th>
+              </tr>
+            </thead>
+            <tbody id="pmPatientBody"></tbody>
+          </table>
+        </div>
+
+        <div class="modal-action">
+          <form method="dialog"><button class="btn btn-outline">Close</button></form>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Pivot Cell Details Modal -->
+    <dialog id="pmDlgCell" class="modal">
+      <div class="modal-box glass border border-white/10 max-w-6xl">
+        <h3 class="font-bold text-lg text-cyan-200">Item Issue Details (مريض × صنف)</h3>
+        <p id="pmCellMeta" class="text-sm text-slate-300 mt-1"></p>
+
+        <div class="overflow-auto border border-white/10 rounded-xl mt-3 max-h-[60vh]">
+          <table class="table table-sm stickyhead">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Issued</th>
+                <th>Uncharged</th>
+                <th>Staff</th>
+                <th>Store</th>
+                <th>OrderNo</th>
+                <th>Service</th>
+                <th>Section</th>
+              </tr>
+            </thead>
+            <tbody id="pmCellBody"></tbody>
+          </table>
+        </div>
+
+        <div class="flex gap-2 mt-3">
+          <button id="pmCellExport" class="btn btn-outline btn-success">Export This Detail</button>
+          <div class="flex-1"></div>
+          <form method="dialog"><button class="btn btn-outline">Close</button></form>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Heatmap Cell Modal (shared for HM + SI) -->
+    <dialog id="hmDlgCell" class="modal">
+      <div class="modal-box glass border border-white/10 max-w-6xl">
+        <h3 class="font-bold text-lg text-cyan-200">Heatmap Details</h3>
+        <p id="hmCellMeta" class="text-sm text-slate-300 mt-1"></p>
+
+        <div class="overflow-auto border border-white/10 rounded-xl mt-3 max-h-[60vh]">
+          <table class="table table-sm stickyhead">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Name</th>
+                <th>Date</th>
+                <th>Item</th>
+                <th>Measure</th>
+                <th>Store</th>
+                <th>Section</th>
+                <th>Staff</th>
+                <th>OrderNo</th>
+                <th>Service</th>
+              </tr>
+            </thead>
+            <tbody id="hmCellBody"></tbody>
+          </table>
+        </div>
+
+        <div class="flex gap-2 mt-3">
+          <button id="hmCellExport" class="btn btn-outline btn-success">Export Detail</button>
+          <div class="flex-1"></div>
+          <form method="dialog"><button class="btn btn-outline">Close</button></form>
+        </div>
+      </div>
+    </dialog>
+
+  </div>
+
+<script>
+/* =========================
+   Global State
+========================= */
+const S = {
+  cons: null,
+  bill: null,
+  mapCons: {},
+  mapBill: {},
+  findings: [],
+  groups: [],
+  consLinesNorm: [],
+  billLinesNorm: [],
+  idx: { billByKey: new Map(), billByAltKey: new Map() },
+  charts: {},
+  details: { groupToConsLines: new Map(), groupToBillLines: new Map() },
+  ui: { lastDetailRows: [], lastDetailTitle: "" }
+};
+window.S = S;
+
+/* =========================
+   Config: Required fields + keyword guesses
+========================= */
+const REQUIRED_CONS = [
+  ["patientCode", "Patient Code", ["patientcode","patcode","mrn","patient id","patient_no","patientno","medno"]],
+  ["patientName", "Patient Name", ["patient name","patname","name","pat name","patientename"]],
+  ["orderNo", "Order No", ["order no","orderno","order","request no","requisition","req no"]],
+  ["serviceCode", "Service Code", ["servicecode","service code","svc code","procedure code","cpt","service"]],
+  ["serviceName", "Service Name", ["service name","procedure","service desc","servicename"]],
+  ["serviceDate", "Service Date", ["service date","date","service_dt","srv date","order date","service dt"]],
+  ["itemCode", "Item Code", ["itemcode","item code","material code","stock code","item"]],
+  ["itemName", "Item Name", ["itemname","item name","material name","description","item desc"]],
+  ["issuedQty", "Issued Qty", ["issuedqty","issued qty","issue qty","issued","qty issued","issued quantity"]],
+  ["unchargedQty", "Uncharged Qty", ["unchargedqty","uncharged qty","un-charged","not charged","uncharged","unch qty"]],
+  ["storeName", "Store Name", ["storename","store name","store","location store","location"]],
+  ["staffName", "Staff Name", ["empname","staff","employee","issuer","user","nurse"]],
+  ["sectionName", "Section", ["sectionname","section name","dept","department","section"]],
+];
+
+const REQUIRED_BILL = [
+  ["patientCode", "Patient Code", ["patientcode","patcode","mrn","patient id","patientno","medno"]],
+  ["orderNo", "Order No", ["order no","orderno","order","request no","requisition"]],
+  ["serviceCode", "Service Code", ["servicecode","service code","svc code","procedure code","cpt","service"]],
+  ["serviceName", "Service Name", ["service name","procedure","service desc","servicename"]],
+  ["serviceDate", "Service Date", ["service date","date","posting date","service_dt"]],
+  ["doctorName", "Doctor", ["doctor","physician","doctorname","doctor name","provider"]],
+  ["chargeQty", "Charge Qty", ["qty","quantity","charge qty","billed qty"]],
+  ["chargeAmount", "Charge Amount", ["amount","charge","net","price","total"]],
+  ["pkgFlag", "Package Flag", ["pkg","package","inc-pkg","included","in package"]],
+];
+
+/* =========================
+   DOM helpers
+========================= */
+const $ = (id) => document.getElementById(id);
+function setBadge(el, text, cls){ el.className = "badge " + cls; el.textContent = text; }
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function cssEsc(s){
+  try { return (window.CSS && CSS.escape) ? CSS.escape(String(s)) : String(s); }
+  catch(e){ return String(s).replace(/["\\]/g, "\\$&"); }
+}
+function toast(msg, kind="info", ms=2500){
+  let host = document.getElementById("toastHost");
+  if(!host){
+    host = document.createElement("div");
+    host.id = "toastHost";
+    host.className = "toast toast-top toast-end z-[9999]";
+    document.body.appendChild(host);
+  }
+  const div = document.createElement("div");
+  const cls =
+    kind==="error" ? "alert-error" :
+    kind==="success" ? "alert-success" :
+    kind==="warning" ? "alert-warning" : "alert-info";
+  div.className = `alert ${cls} shadow-lg`;
+  div.innerHTML = `<span class="text-sm">${esc(msg)}</span>`;
+  host.appendChild(div);
+  setTimeout(()=> div.remove(), ms);
+}
+
+/* =========================
+   File reading & parsing
+========================= */
+function readAsArrayBuffer(file){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onerror = () => rej(fr.error);
+    fr.onload = () => res(fr.result);
+    fr.readAsArrayBuffer(file);
+  });
+}
+function readAsText(file){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onerror = () => rej(fr.error);
+    fr.onload = () => res(fr.result);
+    fr.readAsText(file);
+  });
+}
+function uniqHeaders(rawHeaders){
+  const seen = new Map();
+  return rawHeaders.map(h => {
+    let name = String(h ?? "").trim();
+    if(!name) name = "COL";
+    const key = name.toLowerCase();
+    const n = (seen.get(key) || 0) + 1;
+    seen.set(key, n);
+    if(n > 1) name = `${name}_${n}`;
+    return name;
+  });
+}
+function pickFirstDataRow(rows){
+  for(let i=0;i<rows.length;i++){
+    const r = rows[i] || [];
+    const nonEmpty = r.filter(x => String(x ?? "").trim() !== "").length;
+    if(nonEmpty >= 2) return i;
+  }
+  return 0;
+}
+function toTablePreview(headers, rows, maxRows=8){
+  const head = `<tr>${headers.map(h=>`<th class="text-xs">${esc(h)}</th>`).join("")}</tr>`;
+  const body = rows.slice(0,maxRows).map(r =>
+    `<tr>${headers.map((_,i)=>`<td class="text-xs">${esc(r[i] ?? "")}</td>`).join("")}</tr>`
+  ).join("");
+  return `<div class="overflow-auto"><table class="table table-xs">${head}${body}</table></div>`;
+}
+function parseWorkbook(arrayBuffer){
+  const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+  const sheetName = wb.SheetNames?.[0];
+  const ws = wb.Sheets[sheetName];
+  if(!ws) throw new Error("No sheet found");
+  const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  if(!matrix || matrix.length === 0) throw new Error("Empty sheet");
+  const hdrRowIdx = pickFirstDataRow(matrix);
+  const rawHeaders = (matrix[hdrRowIdx] || []).map(v => String(v ?? "").trim());
+  const headers = uniqHeaders(rawHeaders);
+  const rows = matrix.slice(hdrRowIdx + 1).map(r => {
+    const rr = Array.from({length: headers.length}, (_,i)=> r?.[i] ?? "");
+    return rr;
+  }).filter(r => r.some(v => String(v ?? "").trim() !== ""));
+  return { headers, rows, sheetName };
+}
+function parseWorkbookFromText(text){
+  // fallback for CSV/text
+  const wb = XLSX.read(text, { type: "string", cellDates: true });
+  const sheetName = wb.SheetNames?.[0];
+  const ws = wb.Sheets[sheetName];
+  if(!ws) throw new Error("No sheet found");
+  const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  if(!matrix || matrix.length === 0) throw new Error("Empty sheet");
+  const hdrRowIdx = pickFirstDataRow(matrix);
+  const headers = uniqHeaders(matrix[hdrRowIdx] || []);
+  const rows = matrix.slice(hdrRowIdx + 1).map(r => {
+    const rr = Array.from({length: headers.length}, (_,i)=> r?.[i] ?? "");
+    return rr;
+  }).filter(r => r.some(v => String(v ?? "").trim() !== ""));
+  return { headers, rows, sheetName };
+}
+function parseHtmlReportTable(htmlText){
+  const doc = new DOMParser().parseFromString(htmlText, "text/html");
+  const tables = Array.from(doc.querySelectorAll("table"));
+  if(!tables.length) throw new Error("No <table> found in HTML");
+  let best = tables[0], bestScore = 0;
+  for(const t of tables){
+    const rc = t.querySelectorAll("tr").length;
+    const cc = t.querySelectorAll("tr td, tr th").length;
+    const score = rc * 10 + cc;
+    if(score > bestScore){ bestScore = score; best = t; }
+  }
+  const trs = Array.from(best.querySelectorAll("tr"));
+  const matrix = trs.map(tr => Array.from(tr.querySelectorAll("th,td")).map(td => td.textContent?.trim() ?? ""));
+  const hdrRowIdx = pickFirstDataRow(matrix);
+  const headers = uniqHeaders(matrix[hdrRowIdx] || []);
+  const rows = matrix.slice(hdrRowIdx+1).map(r => {
+    const rr = Array.from({length: headers.length}, (_,i)=> r?.[i] ?? "");
+    return rr;
+  }).filter(r => r.some(v => String(v ?? "").trim() !== ""));
+  return { headers, rows, sheetName: "HTML_TABLE" };
+}
+async function loadFile(file){
+  const ext = (file.name||"").toLowerCase();
+  const buf = await readAsArrayBuffer(file);
+  try{
+    return { ...parseWorkbook(buf), fileName: file.name };
+  }catch(e){
+    // try text workbook (CSV)
+    const txt = await readAsText(file);
+    try{
+      return { ...parseWorkbookFromText(txt), fileName: file.name };
+    }catch(e2){
+      return { ...parseHtmlReportTable(txt), fileName: file.name };
+    }
+  }
+}
+
+/* =========================
+   Mapping helpers
+========================= */
+function normHeader(h){
+  return String(h ?? "")
+    .toLowerCase()
+    .replace(/\s+/g," ")
+    .replace(/[_\-]+/g," ")
+    .trim();
+}
+function guess(headers, keywords){
+  let best = { idx: -1, score: 0 };
+  for(let i=0;i<headers.length;i++){
+    const h = normHeader(headers[i]);
+    let s = 0;
+    for(const k of keywords){
+      const kk = normHeader(k);
+      if(!kk) continue;
+      if(h === kk) s += 100;
+      if(h.includes(kk)) s += 30;
+      if(kk.includes(h) && h.length>3) s += 10;
+    }
+    if(s > best.score){ best = { idx: i, score: s }; }
+  }
+  return best.idx;
+}
+function buildMappingUI(containerId, dataset, requiredList, targetMap){
+  const wrap = $(containerId);
+  wrap.innerHTML = "";
+  const headers = dataset?.headers || [];
+  for(const [key, label, kw] of requiredList){
+    const sel = document.createElement("select");
+    sel.className = "select select-bordered select-sm w-full";
+    const optNone = document.createElement("option");
+    optNone.value = ""; optNone.textContent = "--";
+    sel.appendChild(optNone);
+
+    headers.forEach(h => {
+      const o = document.createElement("option");
+      o.value = h; o.textContent = h;
+      sel.appendChild(o);
+    });
+
+    const idx = guess(headers, kw);
+    if(idx >= 0) sel.value = headers[idx];
+    targetMap[key] = sel.value || "";
+
+    sel.addEventListener("change", () => { targetMap[key] = sel.value || ""; });
+
+    const box = document.createElement("div");
+    box.className = "space-y-1";
+    box.innerHTML = `<div class="text-xs text-slate-300">${esc(label)}</div>`;
+    box.appendChild(sel);
+    wrap.appendChild(box);
+  }
+}
+function autoMapAll(){
+  if(S.cons) buildMappingUI("mapCons", S.cons, REQUIRED_CONS, S.mapCons);
+  if(S.bill) buildMappingUI("mapBill", S.bill, REQUIRED_BILL, S.mapBill);
+}
+
+/* =========================
+   Value parsing
+========================= */
+function toNum(v){
+  if(v === null || v === undefined) return 0;
+  if(typeof v === "number" && isFinite(v)) return v;
+  const s = String(v).trim().replace(/,/g,"");
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+function toStr(v){ return (v === null || v === undefined) ? "" : String(v).trim(); }
+function toDateISO(v){
+  if(!v && v !== 0) return "";
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  if(typeof v === "number" && isFinite(v)) {
+    const epoch = new Date(Date.UTC(1899,11,30));
+    const d = new Date(epoch.getTime() + v * 86400000);
+    return isNaN(d) ? "" : d.toISOString().slice(0,10);
+  }
+  const s = String(v).trim();
+  const m1 = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if(m1){
+    const d = new Date(Date.UTC(+m1[1], +m1[2]-1, +m1[3]));
+    return isNaN(d) ? "" : d.toISOString().slice(0,10);
+  }
+  const m2 = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+  if(m2){
+    let y = +m2[3]; if(y < 100) y += 2000;
+    const dd = +m2[1], mm = +m2[2];
+    const d = new Date(Date.UTC(y, mm-1, dd));
+    return isNaN(d) ? "" : d.toISOString().slice(0,10);
+  }
+  const d = new Date(s);
+  return isNaN(d) ? "" : d.toISOString().slice(0,10);
+}
+function headerIndexMap(headers){
+  const m = new Map();
+  headers.forEach((h,i)=> m.set(h, i));
+  return m;
+}
+function getVal(row, idxMap, headerName){
+  if(!headerName) return "";
+  const i = idxMap.get(headerName);
+  if(i === undefined) return "";
+  return row[i];
+}
+
+/* =========================
+   Progress
+========================= */
+function setProgress(p){
+  const v = Math.max(0, Math.min(100, Math.round(p)));
+  $("prog").value = v;
+  $("progTxt").textContent = v + "%";
+}
+
+/* =========================
+   Audit logic
+========================= */
+function makeKey(patient, order, service, date){ return `${patient}||${order}||${service}||${date}`; }
+function makeAltKey(patient, service, date){ return `${patient}||${service}||${date}`; }
+function quantile(arr, q){
+  if(!arr.length) return 0;
+  const a = arr.slice().sort((x,y)=>x-y);
+  const pos = (a.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if(a[base+1] !== undefined) return a[base] + rest*(a[base+1]-a[base]);
+  return a[base];
+}
+
+function runAudit(){
+  if(!S.cons) throw new Error("Consumption file not loaded");
+  setProgress(2);
+
+  const consIdx = headerIndexMap(S.cons.headers);
+  const billIdx = S.bill ? headerIndexMap(S.bill.headers) : null;
+
+  // Normalize consumption lines
+  const consLines = [];
+  let totalIssued = 0, totalUncharged = 0;
+
+  for(const r of S.cons.rows){
+    const patient = toStr(getVal(r, consIdx, S.mapCons.patientCode));
+    const pname   = toStr(getVal(r, consIdx, S.mapCons.patientName));
+    const orderNo = toStr(getVal(r, consIdx, S.mapCons.orderNo));
+    const svcCode = toStr(getVal(r, consIdx, S.mapCons.serviceCode));
+    const svcName = toStr(getVal(r, consIdx, S.mapCons.serviceName));
+    const dateISO = toDateISO(getVal(r, consIdx, S.mapCons.serviceDate));
+    const itemC   = toStr(getVal(r, consIdx, S.mapCons.itemCode));
+    const itemN   = toStr(getVal(r, consIdx, S.mapCons.itemName));
+    const issued  = toNum(getVal(r, consIdx, S.mapCons.issuedQty));
+    const unch    = toNum(getVal(r, consIdx, S.mapCons.unchargedQty));
+    const store   = toStr(getVal(r, consIdx, S.mapCons.storeName));
+    const staff   = toStr(getVal(r, consIdx, S.mapCons.staffName));
+    const section = toStr(getVal(r, consIdx, S.mapCons.sectionName));
+
+    if(!patient && !orderNo && !svcCode && !itemC && !itemN) continue;
+
+    totalIssued += issued;
+    totalUncharged += unch;
+
+    consLines.push({
+      patient, pname, orderNo, svcCode, svcName, dateISO,
+      itemC, itemN,
+      itemKey: `${itemC}||${itemN}`,
+      issued, unch, store, staff, section,
+      _raw: r
+    });
+  }
+  S.consLinesNorm = consLines;
+  setProgress(12);
+
+  // Normalize billing lines
+  const billLines = [];
+  if(S.bill && billIdx){
+    for(const r of S.bill.rows){
+      const patient = toStr(getVal(r, billIdx, S.mapBill.patientCode));
+      const orderNo = toStr(getVal(r, billIdx, S.mapBill.orderNo));
+      const svcCode = toStr(getVal(r, billIdx, S.mapBill.serviceCode));
+      const svcName = toStr(getVal(r, billIdx, S.mapBill.serviceName));
+      const dateISO = toDateISO(getVal(r, billIdx, S.mapBill.serviceDate));
+      const doctor  = toStr(getVal(r, billIdx, S.mapBill.doctorName));
+      const qty     = toNum(getVal(r, billIdx, S.mapBill.chargeQty));
+      const amt     = toNum(getVal(r, billIdx, S.mapBill.chargeAmount));
+      const pkg     = toStr(getVal(r, billIdx, S.mapBill.pkgFlag));
+      if(!patient && !orderNo && !svcCode && !svcName && !doctor) continue;
+      billLines.push({ patient, orderNo, svcCode, svcName, dateISO, doctor, qty, amt, pkg, _raw: r });
+    }
+  }
+  S.billLinesNorm = billLines;
+  setProgress(20);
+
+  // Index billing
+  S.idx.billByKey = new Map();
+  S.idx.billByAltKey = new Map();
+  for(const b of billLines){
+    const key = makeKey(b.patient, b.orderNo, (b.svcCode || b.svcName), b.dateISO);
+    if(!S.idx.billByKey.has(key)) S.idx.billByKey.set(key, []);
+    S.idx.billByKey.get(key).push(b);
+
+    const alt = makeAltKey(b.patient, (b.svcCode || b.svcName), b.dateISO);
+    if(!S.idx.billByAltKey.has(alt)) S.idx.billByAltKey.set(alt, []);
+    S.idx.billByAltKey.get(alt).push(b);
+  }
+  setProgress(28);
+
+  // Group consumption
+  const groups = new Map();
+  for(const c of consLines){
+    const svcKey = c.svcCode || c.svcName;
+    const gkey = makeKey(c.patient, c.orderNo, svcKey, c.dateISO);
+    if(!groups.has(gkey)){
+      groups.set(gkey, {
+        gkey,
+        patient: c.patient, pname: c.pname, orderNo: c.orderNo,
+        svcKey, svcCode: c.svcCode, svcName: c.svcName, dateISO: c.dateISO,
+        store: c.store, staff: c.staff, section: c.section,
+        issuedTotal: 0, unchargedTotal: 0,
+        items: new Map()
+      });
+    }
+    const g = groups.get(gkey);
+    g.issuedTotal += c.issued;
+    g.unchargedTotal += c.unch;
+    const ik = `${c.itemC}||${c.itemN}`;
+    if(!g.items.has(ik)) g.items.set(ik, { itemC: c.itemC, itemN: c.itemN, issued: 0, unch: 0 });
+    const it = g.items.get(ik);
+    it.issued += c.issued;
+    it.unch += c.unch;
+  }
+  setProgress(40);
+
+  // Outlier detection per service+item
+  const dist = new Map();
+  for(const g of groups.values()){
+    for(const it of g.items.values()){
+      const k = `${g.svcKey}||${it.itemC || it.itemN}`;
+      if(!dist.has(k)) dist.set(k, []);
+      dist.get(k).push(it.issued);
+    }
+  }
+  const outlierThreshold = new Map();
+  for(const [k, arr] of dist.entries()){
+    if(arr.length < 8) continue;
+    const q1 = quantile(arr, 0.25);
+    const q3 = quantile(arr, 0.75);
+    const iqr = Math.max(0, q3 - q1);
+    const thr = q3 + 1.5 * iqr;
+    outlierThreshold.set(k, { thr });
+  }
+  setProgress(55);
+
+  // Details maps
+  S.details.groupToConsLines = new Map();
+  S.details.groupToBillLines = new Map();
+  const gkeyToCons = new Map();
+  for(const c of consLines){
+    const gkey = makeKey(c.patient, c.orderNo, (c.svcCode || c.svcName), c.dateISO);
+    if(!gkeyToCons.has(gkey)) gkeyToCons.set(gkey, []);
+    gkeyToCons.get(gkey).push(c);
+  }
+
+  // Findings
+  const findings = [];
+  let noBillCount = 0;
+
+  for(const g of groups.values()){
+    const consArr = gkeyToCons.get(g.gkey) || [];
+    S.details.groupToConsLines.set(g.gkey, consArr);
+
+    let billMatch = [];
+    if(S.bill){
+      const keyExact = makeKey(g.patient, g.orderNo, g.svcKey, g.dateISO);
+      billMatch = S.idx.billByKey.get(keyExact) || [];
+      if(!billMatch.length){
+        const alt = makeAltKey(g.patient, g.svcKey, g.dateISO);
+        billMatch = S.idx.billByAltKey.get(alt) || [];
+      }
+    }
+    S.details.groupToBillLines.set(g.gkey, billMatch);
+
+    let topItem = { itemN: "", itemC: "", unch: 0 };
+    let hasOutlier = false;
+
+    for(const it of g.items.values()){
+      if(it.unch > topItem.unch) topItem = it;
+      const k = `${g.svcKey}||${it.itemC || it.itemN}`;
+      const t = outlierThreshold.get(k);
+      if(t && it.issued > t.thr && it.issued >= 3) hasOutlier = true;
+    }
+
+    const types = [];
+    if(g.unchargedTotal > 0) types.push("UNCHARGED");
+    if(S.bill && (!billMatch || billMatch.length === 0)) { types.push("NO_BILLING_MATCH"); noBillCount++; }
+    if(hasOutlier) types.push("OUTLIER_OVERUSE");
+    if(S.bill && billMatch.length && g.unchargedTotal > 0) types.push("UNCHARGED_WITH_BILLING");
+    if(!types.length) continue;
+
+    const doctor = billMatch?.[0]?.doctor || "";
+    let score = 0;
+    score += Math.min(60, g.unchargedTotal * 5);
+    if(types.includes("NO_BILLING_MATCH")) score += 30;
+    if(types.includes("OUTLIER_OVERUSE")) score += 15;
+    score = Math.max(0, Math.min(100, Math.round(score)));
+
+    findings.push({
+      score,
+      type: types[0],
+      types: types.join(","),
+      patient: g.patient,
+      pname: g.pname,
+      orderNo: g.orderNo,
+      service: g.svcKey,
+      dateISO: g.dateISO,
+      issuedTotal: +g.issuedTotal.toFixed(2),
+      unchargedTotal: +g.unchargedTotal.toFixed(2),
+      topItem: `${topItem.itemC || ""} ${topItem.itemN || ""}`.trim(),
+      staff: g.staff,
+      store: g.store,
+      section: g.section,
+      doctor,
+      gkey: g.gkey
+    });
+  }
+
+  findings.sort((a,b)=> b.score - a.score);
+  setProgress(75);
+
+  // Summaries (uncharged)
+  const sumItems = new Map(), sumStaff = new Map(), sumStores = new Map(), sumServices = new Map();
+  for(const c of consLines){
+    if(c.unch <= 0) continue;
+    const itemKey = `${c.itemC||""}||${c.itemN||""}`;
+    sumItems.set(itemKey, (sumItems.get(itemKey)||0) + c.unch);
+
+    const staffKey = c.staff || "(Unknown)";
+    sumStaff.set(staffKey, (sumStaff.get(staffKey)||0) + c.unch);
+
+    const storeKey = c.store || "(Unknown)";
+    sumStores.set(storeKey, (sumStores.get(storeKey)||0) + c.unch);
+
+    const svcKey = (c.svcCode || c.svcName) || "(Unknown)";
+    sumServices.set(svcKey, (sumServices.get(svcKey)||0) + c.unch);
+  }
+
+  const sumToArray = (m, labelA, labelB) =>
+    Array.from(m.entries()).map(([k,v])=>{
+      const parts = k.split("||");
+      return (parts.length>1)
+        ? ({ [labelA]: (parts[0]||"").trim(), [labelB]: (parts[1]||"").trim(), UnchargedQty: +v.toFixed(2) })
+        : ({ [labelA]: k, UnchargedQty: +v.toFixed(2) });
+    }).sort((a,b)=> (b.UnchargedQty||0) - (a.UnchargedQty||0));
+
+  const topItemsArr = sumToArray(sumItems, "ItemCode", "ItemName").slice(0, 15);
+  const topStaffArr = sumToArray(sumStaff, "Staff", "X").map(x=>({Staff:x.Staff, UnchargedQty:x.UnchargedQty})).slice(0, 15);
+
+  renderBarChart("chartItems",
+    topItemsArr.map(x => (x.ItemName || x.ItemCode || "").slice(0,30)),
+    topItemsArr.map(x => x.UnchargedQty),
+    "Top Uncharged Items"
+  );
+  renderBarChart("chartStaff",
+    topStaffArr.map(x => String(x.Staff).slice(0,30)),
+    topStaffArr.map(x => x.UnchargedQty),
+    "Top Staff Uncharged"
+  );
+
+  renderSimpleTable("sumItems", sumToArray(sumItems, "ItemCode", "ItemName").slice(0, 30));
+  renderSimpleTable("sumStaff", sumToArray(sumStaff, "Staff", "X").map(x=>({Staff:x.Staff, UnchargedQty:x.UnchargedQty})).slice(0, 30));
+  renderSimpleTable("sumStores", sumToArray(sumStores, "Store", "X").map(x=>({Store:x.Store, UnchargedQty:x.UnchargedQty})).slice(0, 30));
+  renderSimpleTable("sumServices", sumToArray(sumServices, "Service", "X").map(x=>({Service:x.Service, UnchargedQty:x.UnchargedQty})).slice(0, 30));
+
+  // Save state
+  S.findings = findings;
+  S.groups = Array.from(groups.values());
+
+  // KPIs
+  $("kpiIssued").textContent = totalIssued.toFixed(2);
+  $("kpiUncharged").textContent = totalUncharged.toFixed(2);
+  $("kpiFindings").textContent = String(findings.length);
+  $("kpiNoBill").textContent = String(noBillCount);
+
+  $("runMeta").textContent =
+    `Consumption lines: ${consLines.length} | Groups: ${groups.size} | Billing lines: ${billLines.length} | Findings: ${findings.length}`;
+
+  applyFilterAndRender();
+  $("resultsSection").classList.remove("hidden");
+  setProgress(100);
+
+  // auto refresh pivots
+  PM.buildAndRender();
+  HM.buildAndRender();
+  SI.buildAndRender();
+}
+
+/* =========================
+   Rendering helpers
+========================= */
+function badgeForType(t){
+  if(t === "NO_BILLING_MATCH") return "badge-error";
+  if(t === "UNCHARGED") return "badge-warning";
+  if(t === "OUTLIER_OVERUSE") return "badge-info";
+  if(t === "UNCHARGED_WITH_BILLING") return "badge-accent";
+  return "badge-ghost";
+}
+function renderSimpleTable(containerId, rows){
+  if(!rows || !rows.length){
+    $(containerId).innerHTML = `<div class="text-sm text-slate-300">No data</div>`;
+    return;
+  }
+  const cols = Object.keys(rows[0]);
+  const head = `<tr>${cols.map(c=>`<th class="text-xs">${esc(c)}</th>`).join("")}</tr>`;
+  const body = rows.map(r => `<tr>${cols.map(c=>`<td class="text-xs">${esc(r[c])}</td>`).join("")}</tr>`).join("");
+  $(containerId).innerHTML = `<table class="table table-xs">${head}${body}</table>`;
+}
+function renderBarChart(canvasId, labels, data, title){
+  const canvas = document.getElementById(canvasId);
+  if(S.charts[canvasId]) { try { S.charts[canvasId].destroy(); } catch(e){} }
+  S.charts[canvasId] = new Chart(canvas, {
+    type: "bar",
+    data: { labels, datasets: [{ label: title, data }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      resizeDelay: 150,
+      animation: false,
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+/* =========================
+   Findings UI
+========================= */
+function applyFilterAndRender(){
+  const q = $("qSearch").value.trim().toLowerCase();
+  const type = $("qType").value.trim();
+  const minScore = toNum($("qMinScore").value);
+
+  let arr = S.findings.slice();
+  if(type) arr = arr.filter(x => x.types.includes(type) || x.type === type);
+  if(minScore) arr = arr.filter(x => x.score >= minScore);
+
+  if(q){
+    arr = arr.filter(x => {
+      const blob = [x.patient,x.pname,x.orderNo,x.service,x.topItem,x.staff,x.store,x.doctor,x.types].join(" ").toLowerCase();
+      return blob.includes(q);
+    });
+  }
+
+  const tbody = $("findingsBody");
+  tbody.innerHTML = arr.map(x => `
+    <tr>
+      <td class="font-bold">${x.score}</td>
+      <td><span class="badge ${badgeForType(x.type)}">${esc(x.type)}</span></td>
+      <td>${esc(x.patient)}<div class="small-muted">${esc(x.pname)}</div></td>
+      <td class="mono">${esc(x.orderNo)}</td>
+      <td>${esc(x.service)}</td>
+      <td class="mono">${esc(x.dateISO)}</td>
+      <td>${esc(x.issuedTotal)}</td>
+      <td class="text-amber-300 font-semibold">${esc(x.unchargedTotal)}</td>
+      <td class="small-muted">${esc(x.topItem)}</td>
+      <td>${esc(x.staff)}</td>
+      <td>${esc(x.store)}</td>
+      <td>${esc(x.doctor)}</td>
+      <td><button class="btn btn-xs btn-outline" data-gkey="${esc(x.gkey)}">View</button></td>
+    </tr>
+  `).join("");
+
+  tbody.querySelectorAll("button[data-gkey]").forEach(btn => {
+    btn.addEventListener("click", () => openDetails(btn.getAttribute("data-gkey")));
+  });
+}
+function openDetails(gkey){
+  const cons = S.details.groupToConsLines.get(gkey) || [];
+  const bill = S.details.groupToBillLines.get(gkey) || [];
+  const meta = S.findings.find(x => x.gkey === gkey);
+
+  $("dlgMeta").textContent = meta
+    ? `Score ${meta.score} | ${meta.types} | Patient ${meta.patient} | Order ${meta.orderNo} | Service ${meta.service} | ${meta.dateISO}`
+    : gkey;
+
+  const consRows = cons.map(x => ({
+    Patient: x.patient,
+    OrderNo: x.orderNo,
+    Service: x.svcCode || x.svcName,
+    Date: x.dateISO,
+    ItemCode: x.itemC,
+    ItemName: x.itemN,
+    IssuedQty: x.issued,
+    UnchargedQty: x.unch,
+    Staff: x.staff,
+    Store: x.store
+  }));
+  const billRows = bill.map(x => ({
+    Patient: x.patient,
+    OrderNo: x.orderNo,
+    Service: x.svcCode || x.svcName,
+    Date: x.dateISO,
+    Doctor: x.doctor,
+    Qty: x.qty,
+    Amount: x.amt,
+    PkgFlag: x.pkg
+  }));
+
+  renderSimpleTable("dlgCons", consRows.slice(0, 250));
+  renderSimpleTable("dlgBill", billRows.slice(0, 250));
+  $("dlg").showModal();
+}
+
+/* =========================
+   Export helpers
+========================= */
+function requireXLSX(){
+  if(!window.XLSX){
+    const msg = "XLSX library مش محمّلة. لو بتفتح Offline: نزّل xlsx.full.min.js محليًا وحطه داخل ./libs/ واربطه بدل CDN.";
+    toast(msg, "error", 6500);
+    throw new Error(msg);
+  }
+}
+function autoFitCols(ws, rows, maxScan=1200){
+  requireXLSX();
+  if(!rows?.length) return;
+  const cols = Object.keys(rows[0] || {});
+  const scanN = Math.min(rows.length, maxScan);
+
+  ws["!cols"] = cols.map((c)=>{
+    let w = String(c).length;
+    for(let i=0;i<scanN;i++){
+      const v = rows[i]?.[c];
+      const s = (v===null||v===undefined) ? "" : String(v);
+      if(s.length > w) w = s.length;
+    }
+    return { wch: Math.min(55, Math.max(8, w + 2)) };
+  });
+
+  if(cols.length){
+    const ref = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:0,c:cols.length-1} });
+    ws["!autofilter"] = { ref };
+  }
+  ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+}
+function exportRowsXlsx(filename, sheetName, rows){
+  if(!rows?.length) return alert("لا توجد بيانات للتصدير.");
+  requireXLSX();
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  autoFitCols(ws, rows);
+  XLSX.utils.book_append_sheet(wb, ws, String(sheetName||"Sheet1").slice(0,31));
+  XLSX.writeFile(wb, filename, { compression: true });
+}
+function exportWorkbookXlsx(filename, sheets){
+  requireXLSX();
+  const wb = XLSX.utils.book_new();
+
+  for(const sh of (sheets||[])){
+    if(!sh) continue;
+    const name = String(sh.name||"Sheet").slice(0,31);
+
+    let ws;
+    if(sh.aoa){
+      ws = XLSX.utils.aoa_to_sheet(sh.aoa);
+      try{
+        const rows = sh.aoa.slice(1).map(r=>{
+          const obj = {};
+          sh.aoa[0].forEach((h, i)=> obj[h]=r[i]);
+          return obj;
+        });
+        autoFitCols(ws, rows);
+      }catch(e){}
+    }else{
+      if(!sh.rows?.length) continue;
+      ws = XLSX.utils.json_to_sheet(sh.rows);
+      autoFitCols(ws, sh.rows);
+    }
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+  XLSX.writeFile(wb, filename, { compression: true });
+}
+function exportExcel(){
+  const rows = S.findings.map(x => ({
+    Score: x.score,
+    Types: x.types,
+    Patient: x.patient,
+    PatientName: x.pname,
+    OrderNo: x.orderNo,
+    Service: x.service,
+    Date: x.dateISO,
+    IssuedTotal: x.issuedTotal,
+    UnchargedTotal: x.unchargedTotal,
+    TopItem: x.topItem,
+    Staff: x.staff,
+    Store: x.store,
+    Section: x.section,
+    Doctor: x.doctor
+  }));
+
+  exportWorkbookXlsx(
+    `Audit_Report_${new Date().toISOString().slice(0,10)}.xlsx`,
+    [{ name:"Findings", rows }]
+  );
+}
+function exportLastDetail(){
+  const rows = S.ui?.lastDetailRows || [];
+  if(!rows.length) return alert("افتح أي تفاصيل (Modal) الأول.");
+  exportRowsXlsx(`Detail_${new Date().toISOString().slice(0,10)}.xlsx`, "Detail", rows);
+}
+
+/* =========================================================
+   Pivot Module (Patient × Items) + Items Catalog + Scroll
+========================================================= */
+const PM = (() => {
+  const state = {
+    patients: new Map(),
+    topItems: [],
+    allItems: [],
+    sort: { col: "total", asc: false },
+    lastPatient: { pid: "", rows: [] },
+    lastDetail: { rows: [] },
+    _lastMatrixRows: [],
+    _itemsTotalCount: 0,
+    _itemsShownCount: 0
+  };
+
+  function dateMin(a,b){ if(!a) return b||""; if(!b) return a||""; return a < b ? a : b; }
+  function dateMax(a,b){ if(!a) return b||""; if(!b) return a||""; return a > b ? a : b; }
+  function daysBetween(first,last){
+    if(!first || !last) return "";
+    const d1 = new Date(first+"T00:00:00Z");
+    const d2 = new Date(last+"T00:00:00Z");
+    const diff = Math.round((d2 - d1)/86400000);
+    return isFinite(diff) ? (diff + 1) : "";
+  }
+
+  function rebuildPatients(){
+    state.patients.clear();
+    const lines = S.consLinesNorm?.length ? S.consLinesNorm : [];
+    if(!lines.length) return;
+
+    for(const x of lines){
+      const pid = x.patient || x.pname || "(Unknown)";
+      if(!state.patients.has(pid)){
+        state.patients.set(pid, {
+          pid,
+          patient: x.patient,
+          name: x.pname || x.patient || pid,
+          first: x.dateISO,
+          last: x.dateISO,
+          items: new Map(),
+          lines: []
+        });
+      }
+      const p = state.patients.get(pid);
+      p.first = dateMin(p.first, x.dateISO);
+      p.last  = dateMax(p.last, x.dateISO);
+      p.lines.push(x);
+
+      const k = x.itemKey || `${x.itemC}||${x.itemN}`;
+      if(!p.items.has(k)){
+        p.items.set(k, { itemC:x.itemC, itemN:x.itemN, issued:0, unch:0, first:x.dateISO, last:x.dateISO });
+      }
+      const it = p.items.get(k);
+      it.issued += x.issued;
+      it.unch += x.unch;
+      it.first = dateMin(it.first, x.dateISO);
+      it.last  = dateMax(it.last, x.dateISO);
+    }
+  }
+
+  function computeTopItems(measure, maxCols, allItems){
+    const totals = new Map();
+    const maxLine = new Map();
+
+    for(const x of (S.consLinesNorm||[])){
+      const k = x.itemKey || `${x.itemC}||${x.itemN}`;
+      const v = (measure === "unch") ? (x.unch||0) : (x.issued||0);
+      totals.set(k, (totals.get(k)||0) + v);
+      if(v > (maxLine.get(k)||0)) maxLine.set(k, v);
+    }
+
+    const arr = Array.from(totals.entries()).map(([k,total])=>{
+      const [code,name] = String(k).split("||");
+      return {
+        key: k,
+        code: (code||"").trim(),
+        name: (name||"").trim(),
+        total: total || 0,
+        maxLine: maxLine.get(k) || 0
+      };
+    }).sort((a,b)=> b.total - a.total);
+
+    state.allItems = arr;
+    state._itemsTotalCount = arr.length;
+
+    const cap = allItems ? arr.length : Math.max(5, Math.min(300, maxCols || 20));
+    state.topItems = arr.slice(0, cap);
+    state._itemsShownCount = state.topItems.length;
+  }
+
+  function renderItemsList(){
+    const box = $("pmItemsList");
+    const meta = $("pmItemListMeta");
+    const q = ($("pmItemListSearch")?.value || "").trim().toLowerCase();
+
+    let arr = state.allItems || [];
+    if(q) arr = arr.filter(it => (`${it.code} ${it.name}`.toLowerCase().includes(q)));
+
+    const rankMap = new Map((state.allItems||[]).map((x,i)=>[x.key, i+1]));
+    const MAX = 400;
+    const show = arr.slice(0, MAX);
+
+    if(meta){
+      meta.textContent =
+        `All items: ${state._itemsTotalCount || 0} | Showing: ${show.length}${arr.length>MAX ? " (ضيّق البحث)" : ""} | Click item = auto show column`;
+    }
+    if(!box) return;
+    if(!show.length){
+      box.innerHTML = `<div class="text-sm text-slate-400 p-2">No items</div>`;
+      return;
+    }
+
+    function revealCol(key){
+      const wrap = $("pmTableWrap");
+      const th = wrap?.querySelector(`th[data-pm-col="${cssEsc(key)}"]`);
+      if(th){
+        th.scrollIntoView({ behavior:"smooth", inline:"center", block:"nearest" });
+        return true;
+      }
+      return false;
+    }
+
+    function ensureColThenScroll(key){
+      if(revealCol(key)) return;
+      const idx = (state.allItems||[]).findIndex(x => x.key === key);
+      if(idx < 0){ toast("الصنف مش موجود في القائمة.", "warning"); return; }
+
+      const all = !!$("pmAllItems")?.checked;
+      const currentMax = Math.max(5, Math.min(300, toNum($("pmMaxCols").value || 20)));
+
+      if(!all){
+        if(idx >= currentMax && idx < 300){
+          const next = Math.min(300, idx + 1);
+          $("pmMaxCols").value = String(next);
+          toast(`Auto: زوّدنا Max Cols لـ ${next} علشان يظهر الصنف.`, "info");
+        }else if(idx >= 300){
+          $("pmAllItems").checked = true;
+          $("pmMaxCols").disabled = true;
+          toast("Auto: فعلنا All items علشان يظهر الصنف.", "info");
+        }
+      }
+
+      buildAndRender();
+      requestAnimationFrame(()=>{
+        if(!revealCol(key)){
+          setTimeout(()=>{
+            if(!revealCol(key)){
+              toast("لسه العمود مش ظاهر — جرّب All items + Build.", "warning", 3500);
+            }
+          }, 80);
+        }
+      });
+    }
+
+    box.innerHTML = show.map(it => {
+      const label = `${(it.code||"").trim()} ${(it.name||"").trim()}`.trim() || it.key;
+      const t = Number(it.total||0).toFixed(2).replace(/\.00$/,"");
+      const mx = Number(it.maxLine||0).toFixed(2).replace(/\.00$/,"");
+      const rank = rankMap.get(it.key) || "";
+      return `
+        <button class="btn btn-xs btn-ghost w-full justify-between"
+                data-pm-item="${esc(it.key)}" title="${esc(label)}">
+          <span class="min-w-0 flex items-center gap-2">
+            <span class="badge badge-outline badge-info text-[10px]">#${esc(rank)}</span>
+            <span class="truncate text-left">${esc(label)}</span>
+          </span>
+          <span class="mono opacity-70 text-right leading-tight">
+            <div>Σ ${esc(t)}</div>
+            <div class="opacity-60">Max ${esc(mx)}</div>
+          </span>
+        </button>
+      `;
+    }).join("");
+
+    box.querySelectorAll("[data-pm-item]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const key = b.getAttribute("data-pm-item");
+        ensureColThenScroll(key);
+      });
+    });
+  }
+
+  function renderMatrix(){
+    // ✅ FIX: rows must be defined before any use
+    const search = ($("pmSearch").value || "").trim().toLowerCase();
+    const measure = $("pmMeasure").value || "issued";
+    const onlyWithUsage = !!$("pmOnlyWithUsage").checked;
+    const cols = state.topItems;
+
+    let rows = Array.from(state.patients.values()).map(p=>{
+      let totalAll = 0;
+      for(const it of p.items.values()){
+        totalAll += (measure==="unch") ? it.unch : it.issued;
+      }
+      const row = {
+        pid: p.pid,
+        patient: p.patient,
+        name: p.name,
+        first: p.first,
+        last: p.last,
+        days: daysBetween(p.first,p.last),
+        cells: {},
+        total: totalAll,
+        any: totalAll > 0,
+        _p: p
+      };
+      for(const c of cols){
+        const it = p.items.get(c.key);
+        const v = it ? ((measure==="unch") ? it.unch : it.issued) : 0;
+        row.cells[c.key] = v;
+      }
+      return row;
+    });
+
+    const minDays = toNum($("pmMinDays")?.value);
+    const maxDays = toNum($("pmMaxDays")?.value);
+    if(minDays) rows = rows.filter(r => toNum(r.days) >= minDays);
+    if(maxDays) rows = rows.filter(r => toNum(r.days) <= maxDays);
+    if(onlyWithUsage) rows = rows.filter(r => r.any);
+
+    if(search){
+      rows = rows.filter(r => {
+        const blob = `${r.patient||""} ${r.name||""}`.toLowerCase();
+        return blob.includes(search);
+      });
+    }
+
+    // ✅ Days range after filters
+    let dMin = Infinity, dMax = 0;
+    for(const r of rows){
+      const d = toNum(r.days);
+      if(!d) continue;
+      if(d < dMin) dMin = d;
+      if(d > dMax) dMax = d;
+    }
+    if(dMin === Infinity) dMin = 0;
+
+    // sort
+    const sortCol = state.sort.col;
+    const asc = state.sort.asc;
+    rows.sort((a,b)=>{
+      let va, vb;
+      if(sortCol === "patient"){
+        va = (a.pid || a.name || "").toLowerCase();
+        vb = (b.pid || b.name || "").toLowerCase();
+        return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+      }
+      if(sortCol === "total"){
+        va = a.total; vb = b.total;
+        return asc ? (va - vb) : (vb - va);
+      }
+      va = a.cells[sortCol] || 0;
+      vb = b.cells[sortCol] || 0;
+      return asc ? (va - vb) : (vb - va);
+    });
+
+    $("pmHead").innerHTML = `
+      <tr>
+        <th class="cursor-pointer" data-sort="patient">Patient No</th>
+        <th>Name</th>
+        <th>First</th>
+        <th>Last</th>
+        <th>Days</th>
+        <th class="cursor-pointer" data-sort="total">Total</th>
+        ${cols.map((c,i)=>{
+          const full = `${c.code} ${c.name}`.trim() || c.key;
+          const totalTxt = Number(c.total||0).toFixed(2).replace(/\.00$/,"");
+          const maxTxt   = Number(c.maxLine||0).toFixed(2).replace(/\.00$/,""); // ✅ FIX
+          return `
+            <th class="cursor-pointer whitespace-normal max-w-[200px]"
+                title="${esc(full)}"
+                data-sort="${esc(c.key)}"
+                data-pm-col="${esc(c.key)}">
+              <div class="flex items-start justify-between gap-2">
+                <span class="badge badge-outline badge-info text-[10px]">#${i+1}</span>
+                <div class="text-right">
+                  <div class="mono text-[10px] opacity-80">Σ ${esc(totalTxt)}</div>
+                  <div class="mono text-[10px] opacity-60">Max ${esc(maxTxt)}</div>
+                </div>
+              </div>
+              <div class="text-[10px] leading-tight font-bold">${esc(c.code || "-")}</div>
+              <div class="text-[10px] leading-tight opacity-80">${esc(c.name || "")}</div>
+            </th>
+          `;
+        }).join("")}
+      </tr>
+    `;
+
+    $("pmBody").innerHTML = rows.map(r=>{
+      const totalTxt = r.total ? Number(r.total).toFixed(2).replace(/\.00$/,"") : "";
+      return `
+        <tr class="hover">
+          <td class="mono font-semibold">${esc(r.patient || r.pid)}</td>
+          <td>${esc(r.name)}</td>
+          <td class="mono">${esc(r.first||"")}</td>
+          <td class="mono">${esc(r.last||"")}</td>
+          <td class="mono">${esc(r.days||"")}</td>
+          <td class="cursor-pointer font-bold text-cyan-200" data-total="1" data-patient="${esc(r.pid)}">${esc(totalTxt)}</td>
+          ${cols.map(c=>{
+            const v = r.cells[c.key] || 0;
+            const txt = v ? Number(v).toFixed(2).replace(/\.00$/,"") : "";
+            return `<td class="cursor-pointer ${v? "":"opacity-60"}" data-cell="1" data-patient="${esc(r.pid)}" data-item="${esc(c.key)}">${esc(txt)}</td>`;
+          }).join("")}
+        </tr>
+      `;
+    }).join("");
+
+    $("pmMeta").textContent =
+      `Patients: ${rows.length} | Items shown: ${cols.length} / ${state._itemsTotalCount || cols.length} | Measure: ${measure} | Days range: ${dMin} → ${dMax}`;
+
+    state._lastMatrixRows = rows;
+
+    $("pmHead").querySelectorAll("[data-sort]").forEach(th=>{
+      th.addEventListener("click", ()=>{
+        const col = th.getAttribute("data-sort");
+        if(state.sort.col === col) state.sort.asc = !state.sort.asc;
+        else { state.sort.col = col; state.sort.asc = false; }
+        renderMatrix();
+      });
+    });
+
+    $("pmBody").querySelectorAll("td[data-total='1']").forEach(td=>{
+      td.addEventListener("click", ()=> openPatient(td.getAttribute("data-patient")));
+    });
+
+    $("pmBody").querySelectorAll("td[data-cell='1']").forEach(td=>{
+      td.addEventListener("click", ()=>{
+        const pid = td.getAttribute("data-patient");
+        const itemKey = td.getAttribute("data-item");
+        openCell(pid, itemKey);
+      });
+    });
+  }
+
+  function openPatient(pid){
+    const p = state.patients.get(pid);
+    if(!p) return;
+
+    $("pmPatientMeta").textContent =
+      `Patient: ${p.patient || p.pid} | Name: ${p.name} | From: ${p.first||"-"} To: ${p.last||"-"} | Days: ${daysBetween(p.first,p.last)||"-"}`;
+
+    const search = ($("pmPatientSearch").value || "").trim().toLowerCase();
+    const measure = $("pmPatientMeasure").value || "issued";
+
+    let items = Array.from(p.items.entries()).map(([k,it])=>{
+      const label = `${(it.itemC||"").trim()} ${(it.itemN||"").trim()}`.trim() || k;
+      return { itemKey: k, item: label, issued: +it.issued.toFixed(2), unch: +it.unch.toFixed(2), first: it.first||"", last: it.last||"" };
+    });
+
+    if(search) items = items.filter(x => x.item.toLowerCase().includes(search));
+    items.sort((a,b)=>{
+      const va = (measure==="unch") ? a.unch : a.issued;
+      const vb = (measure==="unch") ? b.unch : b.issued;
+      return vb - va;
+    });
+
+    $("pmPatientBody").innerHTML = items.map(x=>`
+      <tr>
+        <td class="text-xs">${esc(x.item)}</td>
+        <td>${esc(x.issued)}</td>
+        <td class="text-amber-300 font-semibold">${esc(x.unch)}</td>
+        <td class="mono">${esc(x.first)}</td>
+        <td class="mono">${esc(x.last)}</td>
+        <td><button class="btn btn-xs btn-outline" data-drill="${esc(x.itemKey)}">Drill</button></td>
+      </tr>
+    `).join("");
+
+    $("pmPatientBody").querySelectorAll("button[data-drill]").forEach(b=>{
+      b.addEventListener("click", ()=> openCell(pid, b.getAttribute("data-drill")));
+    });
+
+    state.lastPatient = { pid, rows: items };
+    $("pmDlgPatient").showModal();
+  }
+
+  function openCell(pid, itemKey){
+    const p = state.patients.get(pid);
+    if(!p) return;
+    const it = p.items.get(itemKey);
+    const label = it ? `${(it.itemC||"").trim()} ${(it.itemN||"").trim()}`.trim() : itemKey;
+
+    const rows = (p.lines || [])
+      .filter(x => (x.itemKey || `${x.itemC}||${x.itemN}`) === itemKey)
+      .sort((a,b)=> (a.dateISO||"").localeCompare(b.dateISO||""));
+
+    $("pmCellMeta").textContent = `Patient: ${p.patient||p.pid} | Name: ${p.name} | Item: ${label} | Lines: ${rows.length}`;
+
+    $("pmCellBody").innerHTML = rows.map(x=>`
+      <tr>
+        <td class="mono">${esc(x.dateISO||"")}</td>
+        <td>${esc(x.issued||0)}</td>
+        <td class="text-amber-300 font-semibold">${esc(x.unch||0)}</td>
+        <td>${esc(x.staff||"")}</td>
+        <td>${esc(x.store||"")}</td>
+        <td class="mono">${esc(x.orderNo||"")}</td>
+        <td class="text-xs">${esc(x.svcCode || x.svcName || "")}</td>
+        <td class="text-xs">${esc(x.section||"")}</td>
+      </tr>
+    `).join("");
+
+    state.lastDetail = {
+      rows: rows.map(r=>({
+        Patient: p.patient || p.pid,
+        Name: p.name,
+        Date: r.dateISO,
+        Item: label,
+        IssuedQty: r.issued,
+        UnchargedQty: r.unch,
+        Staff: r.staff,
+        Store: r.store,
+        OrderNo: r.orderNo,
+        Service: r.svcCode || r.svcName,
+        Section: r.section
+      }))
+    };
+
+    $("pmDlgCell").showModal();
+  }
+
+  function exportMatrixExcel(){
+    requireXLSX();
+    const measure = $("pmMeasure").value || "issued";
+    const cols = state.topItems;
+
+    const rows = (state._lastMatrixRows || []).map(r=>{
+      const o = {
+        PatientNo: r.patient || r.pid,
+        PatientName: r.name,
+        FirstDate: r.first,
+        LastDate: r.last,
+        Days: r.days,
+        Total: +r.total.toFixed(2)
+      };
+      for(const c of cols){
+        const colName = (`${c.code||""} ${c.name||""}`).trim() || c.key;
+        o[colName] = +(r.cells[c.key] || 0).toFixed(2);
+      }
+      return o;
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), `Pivot_${measure}`);
+
+    if(state.lastPatient?.rows?.length){
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.lastPatient.rows), `Patient_${String(state.lastPatient.pid).slice(0,20)}`);
+    }
+    if(state.lastDetail?.rows?.length){
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.lastDetail.rows), `Detail`);
+    }
+
+    XLSX.writeFile(wb, `Patient_Pivot_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
+  function exportPatientSheet(){
+    requireXLSX();
+    if(!state.lastPatient?.rows?.length) return alert("افتح المريض (بالضغط على Total) الأول.");
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.lastPatient.rows), "Patient_Items");
+    XLSX.writeFile(wb, `Patient_Items_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
+  function exportCellDetail(){
+    if(!state.lastDetail?.rows?.length) return alert("افتح خلية (Cell) الأول.");
+    exportRowsXlsx(`Item_Details_${new Date().toISOString().slice(0,10)}.xlsx`, "Item_Details", state.lastDetail.rows);
+  }
+
+  function buildAndRender(){
+    if(!S.cons) return;
+
+    if(!S.consLinesNorm?.length){
+      const consIdx = headerIndexMap(S.cons.headers);
+      const tmp = [];
+      for(const r of S.cons.rows){
+        const patient = toStr(getVal(r, consIdx, S.mapCons.patientCode));
+        const pname   = toStr(getVal(r, consIdx, S.mapCons.patientName));
+        const dateISO = toDateISO(getVal(r, consIdx, S.mapCons.serviceDate));
+        const itemC   = toStr(getVal(r, consIdx, S.mapCons.itemCode));
+        const itemN   = toStr(getVal(r, consIdx, S.mapCons.itemName));
+        const issued  = toNum(getVal(r, consIdx, S.mapCons.issuedQty));
+        const unch    = toNum(getVal(r, consIdx, S.mapCons.unchargedQty));
+        const store   = toStr(getVal(r, consIdx, S.mapCons.storeName));
+        const staff   = toStr(getVal(r, consIdx, S.mapCons.staffName));
+        const section = toStr(getVal(r, consIdx, S.mapCons.sectionName));
+        const orderNo = toStr(getVal(r, consIdx, S.mapCons.orderNo));
+        const svcCode = toStr(getVal(r, consIdx, S.mapCons.serviceCode));
+        const svcName = toStr(getVal(r, consIdx, S.mapCons.serviceName));
+        if(!patient && !pname && !itemC && !itemN) continue;
+        tmp.push({ patient, pname, dateISO, itemC, itemN, itemKey:`${itemC}||${itemN}`, issued, unch, store, staff, section, orderNo, svcCode, svcName });
+      }
+      S.consLinesNorm = tmp;
+    }
+
+    const allItems = !!$("pmAllItems")?.checked;
+    const maxCols = Math.max(5, Math.min(300, toNum($("pmMaxCols").value || 20)));
+    const measure = $("pmMeasure").value || "issued";
+
+    rebuildPatients();
+    computeTopItems(measure, maxCols, allItems);
+    renderItemsList();
+    renderMatrix();
+  }
+
+  function wire(){
+    $("pmBuild").addEventListener("click", ()=> {
+      if(!S.cons) return alert("حمّل ملف الصرف (Consumption) الأول.");
+      buildAndRender();
+    });
+    $("pmExport").addEventListener("click", exportMatrixExcel);
+    $("pmPatientSearch").addEventListener("input", ()=> { if(state.lastPatient?.pid) openPatient(state.lastPatient.pid); });
+    $("pmPatientMeasure").addEventListener("change", ()=> { if(state.lastPatient?.pid) openPatient(state.lastPatient.pid); });
+    $("pmPatientExport").addEventListener("click", exportPatientSheet);
+    $("pmCellExport").addEventListener("click", exportCellDetail);
+
+    $("pmAllItems").addEventListener("change", ()=>{
+      $("pmMaxCols").disabled = $("pmAllItems").checked;
+      buildAndRender();
+    });
+
+    $("pmMinDays").addEventListener("input", ()=> { if(state.patients.size) renderMatrix(); });
+    $("pmMaxDays").addEventListener("input", ()=> { if(state.patients.size) renderMatrix(); });
+
+    $("pmSearch").addEventListener("input", ()=> { if(state.patients.size) renderMatrix(); });
+    $("pmMeasure").addEventListener("change", ()=> { if(state.patients.size) buildAndRender(); });
+    $("pmOnlyWithUsage").addEventListener("change", ()=> { if(state.patients.size) renderMatrix(); });
+
+    $("pmItemListSearch")?.addEventListener("input", ()=> { renderItemsList(); });
+  }
+
+  return { wire, buildAndRender };
+})();
+
+/* =========================================================
+   Heatmap Module (Item × Store/Section/Staff) + Items Catalog
+========================================================= */
+const HM = (() => {
+  let lastCellRows = [];
+  let allItemsArr = [];
+
+  function dimOf(line, dim){
+    if(dim === "store") return line.store || "(Unknown)";
+    if(dim === "section") return line.section || "(Unknown)";
+    if(dim === "staff") return line.staff || "(Unknown)";
+    if(dim === "patient"){
+      const pid = line.patient || "(Unknown)";
+      const pn  = line.pname || "";
+      return `${pid} — ${pn}`.trim();
+    }
+    return "(Unknown)";
+  }
+
+  function itemLabel(line){
+    const code = (line.itemC||"").trim();
+    const name = (line.itemN||"").trim();
+    return `${code} ${name}`.trim() || "(Item)";
+  }
+
+  function renderAllItemsList(){
+    const box = $("hmItemsList");
+    const meta = $("hmItemListMeta");
+    const q = ($("hmItemListSearch")?.value || "").trim().toLowerCase();
+
+    let arr = allItemsArr || [];
+    if(q) arr = arr.filter(it => it.label.toLowerCase().includes(q));
+
+    const rankMap = new Map((allItemsArr||[]).map((x,i)=>[x.key, i+1]));
+
+    const MAX = 400;
+    const show = arr.slice(0, MAX);
+
+    if(meta){
+      meta.textContent =
+        `All items: ${(allItemsArr||[]).length} | Showing: ${show.length}${arr.length>MAX ? " (ضيّق البحث)" : ""}`;
+    }
+    if(!box) return;
+
+    box.innerHTML = show.map(it=>{
+      const t = Number(it.total||0).toFixed(2).replace(/\.00$/,"");
+      const mx = Number(it.maxLine||0).toFixed(2).replace(/\.00$/,"");
+      const rank = rankMap.get(it.key) || "";
+      return `
+        <button class="btn btn-xs btn-ghost w-full justify-between"
+                data-hm-pick="${esc(it.key)}" title="${esc(it.label)}">
+          <span class="min-w-0 flex items-center gap-2">
+            <span class="badge badge-outline badge-info text-[10px]">#${esc(rank)}</span>
+            <span class="truncate text-left">${esc(it.label)}</span>
+          </span>
+          <span class="mono opacity-70 text-right leading-tight">
+            <div>Σ ${esc(t)}</div>
+            <div class="opacity-60">Max ${esc(mx)}</div>
+          </span>
+        </button>
+      `;
+    }).join("");
+
+    box.querySelectorAll("[data-hm-pick]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const key = b.getAttribute("data-hm-pick");
+        const [c,n] = String(key).split("||");
+        $("hmSearchItem").value = ((c||"").trim() || (n||"").trim() || "");
+        buildAndRender();
+        $("hmTableWrap")?.scrollIntoView({behavior:"smooth", block:"start"});
+      });
+    });
+  }
+
+  function buildAndRender(){
+    if(!S.cons) return;
+    if(!S.consLinesNorm?.length) PM.buildAndRender();
+
+    const search = ($("hmSearchItem").value || "").trim().toLowerCase();
+    const measure = $("hmMeasure").value || "issued";
+    const dim = $("hmDim").value || "store";
+    const topItemsN = Math.max(5, Math.min(50, toNum($("hmTopItems").value || 15)));
+    const topDimsN  = Math.max(3, Math.min(30, toNum($("hmTopDims").value || 10)));
+
+    const lines = S.consLinesNorm || [];
+    const allItemTotals = new Map();
+    const allItemMaxLine = new Map(); // ✅ FIX
+    const itemTotals = new Map();
+    const dimTotals  = new Map();
+
+    for(const x of lines){
+      const key = x.itemKey || `${x.itemC}||${x.itemN}`;
+      const v = (measure === "unch") ? (x.unch||0) : (x.issued||0);
+      if(v <= 0) continue;
+
+      allItemTotals.set(key, (allItemTotals.get(key)||0) + v);
+      if(v > (allItemMaxLine.get(key)||0)) allItemMaxLine.set(key, v);
+
+      if(search){
+        const blob = `${(x.itemC||"")} ${(x.itemN||"")}`.toLowerCase();
+        if(!blob.includes(search)) continue;
+      }
+
+      itemTotals.set(key, (itemTotals.get(key)||0) + v);
+      const d = dimOf(x, dim);
+      dimTotals.set(d, (dimTotals.get(d)||0) + v);
+    }
+
+    allItemsArr = Array.from(allItemTotals.entries())
+      .map(([k,total])=>{
+        const [c,n] = String(k).split("||");
+        const code = (c||"").trim(), name = (n||"").trim();
+        const label = `${code} ${name}`.trim() || k;
+        return { key:k, code, name, label, total, maxLine: allItemMaxLine.get(k) || 0 };
+      })
+      .sort((a,b)=> b.total - a.total);
+
+    renderAllItemsList();
+
+    const topItems = Array.from(itemTotals.entries())
+      .map(([k,total])=>{
+        const [c,n] = k.split("||");
+        const label = `${(c||"").trim()} ${(n||"").trim()}`.trim() || k;
+        return { key:k, label, total };
+      })
+      .sort((a,b)=> b.total - a.total)
+      .slice(0, topItemsN);
+
+    const topDims = Array.from(dimTotals.entries())
+      .map(([d,total])=>({ d, total }))
+      .sort((a,b)=> b.total - a.total)
+      .slice(0, topDimsN)
+      .map(x=>x.d);
+
+    const grid = new Map();
+    let maxVal = 0;
+
+    const topItemSet = new Set(topItems.map(t=>t.key));
+    const topDimSet = new Set(topDims);
+
+    for(const x of lines){
+      const itemKey = x.itemKey || `${x.itemC}||${x.itemN}`;
+      if(!topItemSet.has(itemKey)) continue;
+      const d = dimOf(x, dim);
+      if(!topDimSet.has(d)) continue;
+
+      const v = (measure === "unch") ? (x.unch||0) : (x.issued||0);
+      if(v <= 0) continue;
+
+      const k = `${itemKey}||${d}`;
+      const nv = (grid.get(k)||0) + v;
+      grid.set(k, nv);
+      if(nv > maxVal) maxVal = nv;
+    }
+
+    $("hmHead").innerHTML = `
+      <tr>
+        <th>Item</th>
+        <th class="mono">Total</th>
+        ${topDims.map(d=>`<th title="${esc(d)}">${esc(String(d).slice(0,22))}</th>`).join("")}
+      </tr>
+    `;
+
+    $("hmBody").innerHTML = topItems.map(it=>{
+      const rowCells = topDims.map(d=>{
+        const v = grid.get(`${it.key}||${d}`) || 0;
+        const alpha = maxVal ? Math.min(0.85, 0.10 + (v/maxVal)*0.75) : 0;
+        const bg = v ? `background: rgba(34,211,238,${alpha});` : "";
+        const txt = v ? Number(v).toFixed(2).replace(/\.00$/,"") : "";
+        return `
+          <td class="heat cursor-pointer" style="${bg}"
+              data-hm="1" data-item="${esc(it.key)}" data-dim="${esc(d)}"
+              title="${esc(d)} • ${esc(it.label)}">
+            ${esc(txt)}
+          </td>
+        `;
+      }).join("");
+
+      const totalTxt = Number(it.total).toFixed(2).replace(/\.00$/,"");
+      return `
+        <tr class="hover">
+          <td class="text-xs">${esc(it.label)}</td>
+          <td class="mono font-bold text-cyan-200">${esc(totalTxt)}</td>
+          ${rowCells}
+        </tr>
+      `;
+    }).join("");
+
+    $("hmMeta").textContent =
+      `Measure: ${measure} | Dimension: ${dim} | Items shown: ${topItems.length} | Columns shown: ${topDims.length}`;
+
+    $("hmBody").querySelectorAll("td[data-hm='1']").forEach(td=>{
+      td.addEventListener("click", ()=>{
+        const itemKey = td.getAttribute("data-item");
+        const dimVal = td.getAttribute("data-dim");
+        openCell(itemKey, dim, dimVal, measure);
+      });
+    });
+
+    HM._last = { topItems, topDims, grid, measure, dim };
+  }
+
+  function openCell(itemKey, dim, dimVal, measure){
+    const lines = (S.consLinesNorm||[]).filter(x=>{
+      const k = x.itemKey || `${x.itemC}||${x.itemN}`;
+      if(k !== itemKey) return false;
+      if(dimOf(x, dim) !== dimVal) return false;
+      const v = (measure === "unch") ? (x.unch||0) : (x.issued||0);
+      return v > 0;
+    });
+
+    const [c,n] = itemKey.split("||");
+    const item = `${(c||"").trim()} ${(n||"").trim()}`.trim() || itemKey;
+
+    $("hmCellMeta").textContent = `Item: ${item} | ${dim}: ${dimVal} | Measure: ${measure} | Lines: ${lines.length}`;
+
+    const rows = lines.map(x=>({
+      patient: x.patient,
+      name: x.pname,
+      date: x.dateISO,
+      item: itemLabel(x),
+      val: (measure==="unch") ? x.unch : x.issued,
+      store: x.store,
+      section: x.section,
+      staff: x.staff,
+      orderNo: x.orderNo,
+      service: x.svcCode || x.svcName
+    }));
+
+    lastCellRows = rows;
+
+    S.ui.lastDetailRows = rows.map(r=>({
+      Patient: r.patient, Name: r.name, Date: r.date, Item: r.item,
+      Measure: r.val, Store: r.store, Section: r.section, Staff: r.staff,
+      OrderNo: r.orderNo, Service: r.service
+    }));
+    S.ui.lastDetailTitle = `Heatmap_${new Date().toISOString().slice(0,10)}`;
+
+    $("hmCellBody").innerHTML = rows.slice(0, 600).map(r=>`
+      <tr>
+        <td class="mono">${esc(r.patient||"")}</td>
+        <td>${esc(r.name||"")}</td>
+        <td class="mono">${esc(r.date||"")}</td>
+        <td class="text-xs">${esc(r.item||"")}</td>
+        <td class="font-bold">${esc(Number(r.val||0).toFixed(2).replace(/\.00$/,""))}</td>
+        <td>${esc(r.store||"")}</td>
+        <td>${esc(r.section||"")}</td>
+        <td>${esc(r.staff||"")}</td>
+        <td class="mono">${esc(r.orderNo||"")}</td>
+        <td class="text-xs">${esc(r.service||"")}</td>
+      </tr>
+    `).join("");
+
+    $("hmDlgCell").showModal();
+  }
+
+  function exportHeatmap(){
+    requireXLSX();
+    if(!HM._last) return alert("اعمل Build للـ Heatmap الأول.");
+    const { topItems, topDims, grid, measure, dim } = HM._last;
+
+    const aoa = [];
+    aoa.push(["Item", "Total", ...topDims.map(d=>d)]);
+    for(const it of topItems){
+      const row = [it.label, +it.total.toFixed(2)];
+      for(const d of topDims){
+        row.push(+(grid.get(`${it.key}||${d}`)||0).toFixed(2));
+      }
+      aoa.push(row);
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), `Heatmap_${measure}_${dim}`);
+
+    if(lastCellRows?.length){
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(lastCellRows), `Last_Cell_Detail`);
+    }
+
+    XLSX.writeFile(wb, `Heatmap_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
+  function wire(){
+    $("hmBuild").addEventListener("click", ()=>{
+      if(!S.cons) return alert("حمّل ملف الصرف (Consumption) الأول.");
+      buildAndRender();
+    });
+    $("hmExport").addEventListener("click", exportHeatmap);
+    $("hmCellExport").addEventListener("click", exportLastDetail);
+
+    $("hmMeasure").addEventListener("change", ()=> { if(S.cons) buildAndRender(); });
+    $("hmDim").addEventListener("change", ()=> { if(S.cons) buildAndRender(); });
+    $("hmSearchItem").addEventListener("keydown", (e)=>{ if(e.key==="Enter" && S.cons) buildAndRender(); });
+
+    $("hmItemListSearch")?.addEventListener("input", ()=> { renderAllItemsList(); });
+  }
+
+  return { wire, buildAndRender };
+})();
+
+/* =========================================================
+   Staff × Items Heatmap (Top)
+========================================================= */
+const SI = (() => {
+  function itemKeyOf(x){ return x.itemKey || `${x.itemC}||${x.itemN}`; }
+  function itemLabelFromKey(k){
+    const [c,n] = String(k||"").split("||");
+    return `${(c||"").trim()} ${(n||"").trim()}`.trim() || k;
+  }
+  function staffOf(x){ return x.staff || "(Unknown)"; }
+
+  function buildAndRender(){
+    if(!S.cons) return;
+
+    const staffQ = ($("siSearchStaff").value||"").trim().toLowerCase();
+    const itemQ  = ($("siSearchItem").value||"").trim().toLowerCase();
+    const measure = $("siMeasure").value || "issued";
+    const topStaffN = Math.max(5, Math.min(50, toNum($("siTopStaff").value || 15)));
+    const topItemsN = Math.max(5, Math.min(50, toNum($("siTopItems").value || 15)));
+
+    const lines = S.consLinesNorm || [];
+    const staffTotals = new Map();
+    const itemTotals  = new Map();
+
+    for(const x of lines){
+      const v = (measure==="unch") ? (x.unch||0) : (x.issued||0);
+      if(v <= 0) continue;
+
+      const staff = staffOf(x);
+      const ik = itemKeyOf(x);
+      const ilabel = `${(x.itemC||"")} ${(x.itemN||"")}`.toLowerCase();
+
+      if(staffQ && !staff.toLowerCase().includes(staffQ)) continue;
+      if(itemQ && !ilabel.includes(itemQ)) continue;
+
+      staffTotals.set(staff, (staffTotals.get(staff)||0) + v);
+      itemTotals.set(ik, (itemTotals.get(ik)||0) + v);
+    }
+
+    const topStaff = Array.from(staffTotals.entries())
+      .map(([k,total])=>({ staff:k, total }))
+      .sort((a,b)=> b.total - a.total)
+      .slice(0, topStaffN);
+
+    const topItems = Array.from(itemTotals.entries())
+      .map(([k,total])=>({ key:k, label:itemLabelFromKey(k), total }))
+      .sort((a,b)=> b.total - a.total)
+      .slice(0, topItemsN);
+
+    const topStaffKeys = new Set(topStaff.map(x=>x.staff));
+    const topItemKeys  = new Set(topItems.map(x=>x.key));
+
+    const grid = new Map();
+    let maxVal = 0;
+
+    for(const x of lines){
+      const staff = staffOf(x);
+      if(!topStaffKeys.has(staff)) continue;
+
+      const ik = itemKeyOf(x);
+      if(!topItemKeys.has(ik)) continue;
+
+      const v = (measure==="unch") ? (x.unch||0) : (x.issued||0);
+      if(v <= 0) continue;
+
+      const k = `${staff}||${ik}`;
+      const nv = (grid.get(k)||0) + v;
+      grid.set(k, nv);
+      if(nv > maxVal) maxVal = nv;
+    }
+
+    $("siHead").innerHTML = `
+      <tr>
+        <th>Staff</th>
+        <th class="mono">Total</th>
+        ${topItems.map(it=>`<th class="whitespace-normal max-w-[180px]" title="${esc(it.label)}">${esc(it.label)}</th>`).join("")}
+      </tr>
+    `;
+
+    $("siBody").innerHTML = topStaff.map(st=>{
+      const cells = topItems.map(it=>{
+        const v = grid.get(`${st.staff}||${it.key}`) || 0;
+        const alpha = maxVal ? Math.min(0.85, 0.10 + (v/maxVal)*0.75) : 0;
+        const bg = v ? `background: rgba(34,211,238,${alpha});` : "";
+        const txt = v ? Number(v).toFixed(2).replace(/\.00$/,"") : "";
+        return `
+          <td class="heat cursor-pointer" style="${bg}"
+              data-si="1" data-staff="${esc(st.staff)}" data-item="${esc(it.key)}"
+              title="${esc(st.staff)} • ${esc(it.label)}">${esc(txt)}</td>
+        `;
+      }).join("");
+
+      return `
+        <tr class="hover">
+          <td>${esc(st.staff)}</td>
+          <td class="mono font-bold text-cyan-200">${esc(Number(st.total).toFixed(2).replace(/\.00$/,""))}</td>
+          ${cells}
+        </tr>
+      `;
+    }).join("");
+
+    $("siMeta").textContent = `Measure: ${measure} | Staff shown: ${topStaff.length} | Items shown: ${topItems.length}`;
+
+    $("siBody").querySelectorAll("td[data-si='1']").forEach(td=>{
+      td.addEventListener("click", ()=>{
+        const staff = td.getAttribute("data-staff");
+        const itemKey = td.getAttribute("data-item");
+        openCell(staff, itemKey, measure);
+      });
+    });
+
+    SI._last = { topStaff, topItems, grid, measure };
+  }
+
+  function openCell(staff, itemKey, measure){
+    const lines = (S.consLinesNorm||[]).filter(x=>{
+      const v = (measure==="unch") ? (x.unch||0) : (x.issued||0);
+      if(v <= 0) return false;
+      const st = x.staff || "(Unknown)";
+      const ik = x.itemKey || `${x.itemC}||${x.itemN}`;
+      return st === staff && ik === itemKey;
+    });
+
+    const item = itemLabelFromKey(itemKey);
+    $("hmCellMeta").textContent = `Staff: ${staff} | Item: ${item} | Measure: ${measure} | Lines: ${lines.length}`;
+
+    const rows = lines.map(x=>({
+      patient: x.patient,
+      name: x.pname,
+      date: x.dateISO,
+      item: `${(x.itemC||"").trim()} ${(x.itemN||"").trim()}`.trim(),
+      val: (measure==="unch") ? x.unch : x.issued,
+      store: x.store,
+      section: x.section,
+      staff: x.staff,
+      orderNo: x.orderNo,
+      service: x.svcCode || x.svcName
+    }));
+
+    S.ui.lastDetailRows = rows.map(r=>({
+      Patient: r.patient, Name: r.name, Date: r.date, Item: r.item,
+      Measure: r.val, Store: r.store, Section: r.section, Staff: r.staff,
+      OrderNo: r.orderNo, Service: r.service
+    }));
+    S.ui.lastDetailTitle = `StaffItems_${new Date().toISOString().slice(0,10)}`;
+
+    $("hmCellBody").innerHTML = rows.slice(0, 600).map(r=>`
+      <tr>
+        <td class="mono">${esc(r.patient||"")}</td>
+        <td>${esc(r.name||"")}</td>
+        <td class="mono">${esc(r.date||"")}</td>
+        <td class="text-xs">${esc(r.item||"")}</td>
+        <td class="font-bold">${esc(Number(r.val||0).toFixed(2).replace(/\.00$/,""))}</td>
+        <td>${esc(r.store||"")}</td>
+        <td>${esc(r.section||"")}</td>
+        <td>${esc(r.staff||"")}</td>
+        <td class="mono">${esc(r.orderNo||"")}</td>
+        <td class="text-xs">${esc(r.service||"")}</td>
+      </tr>
+    `).join("");
+
+    $("hmDlgCell").showModal();
+  }
+
+  function exportHeatmap(){
+    requireXLSX();
+    if(!SI._last) return alert("اعمل Build للـ Staff×Items heatmap الأول.");
+    const { topStaff, topItems, grid, measure } = SI._last;
+
+    const aoa = [];
+    aoa.push(["Staff", "Total", ...topItems.map(it=>it.label)]);
+    for(const st of topStaff){
+      const row = [st.staff, +st.total.toFixed(2)];
+      for(const it of topItems){
+        row.push(+(grid.get(`${st.staff}||${it.key}`)||0).toFixed(2));
+      }
+      aoa.push(row);
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), `StaffItems_${measure}`);
+
+    if(S.ui?.lastDetailRows?.length){
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(S.ui.lastDetailRows), `Last_Detail`);
+    }
+
+    XLSX.writeFile(wb, `StaffItems_Heatmap_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
+  function wire(){
+    $("siBuild").addEventListener("click", ()=> {
+      if(!S.cons) return alert("حمّل ملف الصرف (Consumption) الأول.");
+      buildAndRender();
+    });
+    $("siExport").addEventListener("click", exportHeatmap);
+    $("siMeasure").addEventListener("change", ()=> { if(S.cons) buildAndRender(); });
+
+    // extra: live refresh
+    $("siSearchStaff").addEventListener("keydown", (e)=>{ if(e.key==="Enter" && S.cons) buildAndRender(); });
+    $("siSearchItem").addEventListener("keydown", (e)=>{ if(e.key==="Enter" && S.cons) buildAndRender(); });
+    $("siTopStaff").addEventListener("change", ()=>{ if(S.cons) buildAndRender(); });
+    $("siTopItems").addEventListener("change", ()=>{ if(S.cons) buildAndRender(); });
+  }
+
+  return { wire, buildAndRender };
+})();
+
+/* =========================
+   Load handlers
+========================= */
+async function handleLoadCons(file){
+  setProgress(0);
+  $("resultsSection").classList.add("hidden");
+  setBadge($("badgeCons"), "Loading...", "badge-info");
+
+  try{
+    const ds = await loadFile(file);
+    S.cons = ds;
+
+    $("consMeta").innerHTML = `
+      <div>File: <span class="mono">${esc(ds.fileName)}</span></div>
+      <div>Sheet/Table: <span class="mono">${esc(ds.sheetName)}</span> | Rows: <b>${ds.rows.length}</b> | Cols: <b>${ds.headers.length}</b></div>
+    `;
+    $("consPreview").innerHTML = toTablePreview(ds.headers, ds.rows, 8);
+    setBadge($("badgeCons"), "Loaded", "badge-success");
+
+    buildMappingUI("mapCons", S.cons, REQUIRED_CONS, S.mapCons);
+
+    S.consLinesNorm = [];
+    PM.buildAndRender();
+    HM.buildAndRender();
+    SI.buildAndRender();
+
+  }catch(e){
+    console.error(e);
+    setBadge($("badgeCons"), "Failed", "badge-error");
+    $("consMeta").innerHTML = `<div class="text-rose-300">Error: ${esc(e.message || e)}</div>`;
+  }
+}
+
+async function handleLoadBill(file){
+  setProgress(0);
+  $("resultsSection").classList.add("hidden");
+  setBadge($("badgeBill"), "Loading...", "badge-info");
+
+  try{
+    const ds = await loadFile(file);
+    S.bill = ds;
+
+    $("billMeta").innerHTML = `
+      <div>File: <span class="mono">${esc(ds.fileName)}</span></div>
+      <div>Sheet/Table: <span class="mono">${esc(ds.sheetName)}</span> | Rows: <b>${ds.rows.length}</b> | Cols: <b>${ds.headers.length}</b></div>
+    `;
+    $("billPreview").innerHTML = toTablePreview(ds.headers, ds.rows, 8);
+    setBadge($("badgeBill"), "Loaded", "badge-success");
+
+    buildMappingUI("mapBill", S.bill, REQUIRED_BILL, S.mapBill);
+
+  }catch(e){
+    console.error(e);
+    setBadge($("badgeBill"), "Failed", "badge-error");
+    $("billMeta").innerHTML = `<div class="text-rose-300">Error: ${esc(e.message || e)}</div>`;
+  }
+}
+
+function resetAll(){
+  S.cons = null; S.bill = null;
+  S.mapCons = {}; S.mapBill = {};
+  S.findings = []; S.groups = [];
+  S.consLinesNorm = []; S.billLinesNorm = [];
+  S.idx.billByKey = new Map(); S.idx.billByAltKey = new Map();
+  S.details.groupToConsLines = new Map(); S.details.groupToBillLines = new Map();
+  S.ui.lastDetailRows = [];
+
+  $("consMeta").innerHTML = ""; $("billMeta").innerHTML = "";
+  $("consPreview").innerHTML = ""; $("billPreview").innerHTML = "";
+  $("mapCons").innerHTML = ""; $("mapBill").innerHTML = "";
+  $("resultsSection").classList.add("hidden");
+
+  setProgress(0);
+  setBadge($("badgeCons"), "Not loaded", "badge-ghost");
+  setBadge($("badgeBill"), "Not loaded", "badge-ghost");
+  $("fileCons").value = ""; $("fileBill").value = "";
+
+  for(const k of Object.keys(S.charts)){
+    try { S.charts[k].destroy(); } catch(e){}
+  }
+  S.charts = {};
+}
+
+/* =========================
+   Wiring
+========================= */
+function wireAll(){
+  $("fileCons").addEventListener("change", e => {
+    const f = e.target.files?.[0];
+    if(f) handleLoadCons(f);
+  });
+  $("fileBill").addEventListener("change", e => {
+    const f = e.target.files?.[0];
+    if(f) handleLoadBill(f);
+  });
+
+  $("btnAutoMap").addEventListener("click", autoMapAll);
+
+  $("btnRun").addEventListener("click", () => {
+    try{
+      setProgress(0);
+      runAudit();
+    }catch(e){
+      console.error(e);
+      alert("Audit failed: " + (e.message || e));
+    }
+  });
+
+  $("btnApplyFilter").addEventListener("click", applyFilterAndRender);
+  $("qSearch").addEventListener("keydown", (e)=>{ if(e.key==="Enter") applyFilterAndRender(); });
+
+  $("btnExportXlsx").addEventListener("click", exportExcel);
+  $("btnReset").addEventListener("click", resetAll);
+  $("btnSampleRules").addEventListener("click", ()=> $("dlgHelp").showModal());
+
+  PM.wire();
+  HM.wire();
+  SI.wire();
+}
+wireAll();
+</script>
+</body>
+</html>
