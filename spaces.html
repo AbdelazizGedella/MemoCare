@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -74,14 +73,29 @@
       <h1 class="text-lg sm:text-2xl font-bold">Memo Acknowledgment System</h1>
     </div>
     <div class="flex items-center gap-3">
-      <a href="Dashboard.html" class="btn btn-ghost btn-sm" title="Home"><i class="fa-solid fa-house mr-2"></i>Home</a>
       <span id="user-greeting" class="text-sm sm:text-base text-sky-200"></span>
       <button id="logout-btn" class="btn btn-ghost btn-sm" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
     </div>
   </div>
 
+  <!-- Sidebar -->
+  <aside class="fixed top-16 left-3 sm:left-4 z-30 glass rounded-2xl p-3 sm:p-4">
+    <ul class="flex sm:flex-col gap-3">
+      <li><a href="Dashboard.html" class="tooltip tooltip-right" data-tip="Home"><i class="fa-solid fa-house text-xl"></i></a></li>
+      <li><a href="Profile.html" class="tooltip tooltip-right" data-tip="Profile"><i class="fa-solid fa-user text-xl"></i></a></li>
+      <li><a href="shift-portal.html" class="tooltip tooltip-right" data-tip="Shift Portal"><i class="fa-solid fa-clock text-xl"></i></a></li>
+      <li><a href="request.html" class="tooltip tooltip-right" data-tip="Request"><i class="fa-solid fa-paper-plane text-xl"></i></a></li>
+      <li><a href="leave.html" class="tooltip tooltip-right" data-tip="Leave Planner"><i class="fa-solid fa-calendar-days text-xl"></i></a></li>
+      <li><a href="spaces.html" class="text-sky-300 tooltip tooltip-right" data-tip="Spaces"><i class="fa-solid fa-rocket text-xl"></i></a></li>
+      <li><a href="Memos.html" class="tooltip tooltip-right" data-tip="Memos"><i class="fa-solid fa-file-lines text-xl"></i></a></li>
+      <li><a href="device.html" class="tooltip tooltip-right" data-tip="Devices"><i class="fa-solid fa-tablet-screen-button text-xl"></i></a></li>
+      <li><a href="leaderboard.html" class="tooltip tooltip-right" data-tip="Leaderboard"><i class="fa-solid fa-trophy text-xl"></i></a></li>
+      <li><a href="admin.html" class="tooltip tooltip-right" data-tip="Admin"><i class="fa-solid fa-lock text-xl"></i></a></li>
+    </ul>
+  </aside>
+
   <!-- Main -->
-  <main class="pt-24 sm:pt-24 pb-16 px-4 sm:px-8 max-w-7xl mx-auto">
+  <main class="pt-24 sm:pt-24 pb-16 sm:pl-24 px-4 sm:px-8 max-w-7xl mx-auto">
     <div class="flex flex-col gap-6">
 
       <!-- Header & Actions -->
@@ -300,8 +314,8 @@ function subscribeSpaces(){
   $('#spaces-cards').innerHTML = '';
 
   unsubSpaces = db.collection('spaces').orderBy('createdAt','desc').onSnapshot(async (snap)=>{
+    const rows = [];
     spacesData = [];
-    const countPromises = [];
 
     for(const doc of snap.docs){
       const s = { id: doc.id, ...(doc.data()||{}) };
@@ -310,19 +324,8 @@ function subscribeSpaces(){
       s.joinedParticipants = Array.isArray(s.joinedParticipants) ? s.joinedParticipants : [];
       s.postedMemos = Array.isArray(s.postedMemos) ? s.postedMemos : [];
       s.creatorName = await getUserName(s.createdBy);
-
-      // Memos count: prefer explicit memosCount field, else count subcollection, else fallback to postedMemos length
-      if(typeof s.memosCount !== 'number'){
-        const p = db.collection('spaces').doc(s.id).collection('memos').get()
-          .then(q=>{ s.memosCount = q.size; })
-          .catch(()=>{ s.memosCount = Array.isArray(s.postedMemos) ? s.postedMemos.length : 0; });
-        countPromises.push(p);
-      }
-
       spacesData.push(s);
     }
-
-    if(countPromises.length){ await Promise.all(countPromises); }
 
     renderSpaces(spacesData);
   }, (err)=>{
@@ -346,7 +349,7 @@ function renderSpaces(list){
   spaces.forEach(s=>{
     const pendingCount = s.pendingParticipants.length;
     const acceptedCount = s.joinedParticipants.length;
-    const postedMemos = (typeof s.memosCount === 'number') ? s.memosCount : (Array.isArray(s.postedMemos) ? s.postedMemos.length : 0);
+    const postedMemos = s.postedMemos.length;
 
     // Desktop row
     const tr = document.createElement('tr');
@@ -374,7 +377,8 @@ function renderSpaces(list){
         <div class="flex justify-end gap-2">
           <button class="btn btn-xs btn-info" onclick="viewSpaceDetails('${s.id}')"><i class='fa-regular fa-eye mr-1'></i>View</button>
           ${ currentUser && isAdminOf(s, currentUser.uid) ?
-            `<button class='btn btn-xs btn-warning' onclick="goManage('${s.id}')"><i class='fa-solid fa-screwdriver-wrench mr-1'></i>Manage</button>`
+            `<button class='btn btn-xs btn-warning' onclick="goManage('${s.id}')"><i class='fa-solid fa-screwdriver-wrench mr-1'></i>Manage</button>
+             <button class='btn btn-xs btn-error' onclick="deleteSpace('${s.id}')"><i class='fa-regular fa-trash-can mr-1'></i>Delete</button>`
             : ''
           }
         </div>
@@ -404,7 +408,8 @@ function renderSpaces(list){
           <div class="mt-4 flex gap-2">
             <button class="btn btn-sm btn-info" onclick="viewSpaceDetails('${s.id}')"><i class='fa-regular fa-eye mr-1'></i>View</button>
             ${ currentUser && isAdminOf(s, currentUser.uid) ?
-              `<button class='btn btn-sm btn-warning' onclick="goManage('${s.id}')"><i class='fa-solid fa-screwdriver-wrench mr-1'></i>Manage</button>`
+              `<button class='btn btn-sm btn-warning' onclick="goManage('${s.id}')"><i class='fa-solid fa-screwdriver-wrench mr-1'></i>Manage</button>
+               <button class='btn btn-sm btn-error' onclick="deleteSpace('${s.id}')"><i class='fa-regular fa-trash-can mr-1'></i>Delete</button>`
               : ''
             }
           </div>
@@ -529,6 +534,23 @@ window.rejectParticipant = function(spaceId, userUID){
   });
 }
 
+window.deleteSpace = function(spaceId){
+  if(!currentUser){ toast('Please log in','warning'); return; }
+  // extra guard: check server-side rules too in Firestore security
+  db.collection('spaces').doc(spaceId).get().then(doc=>{
+    const s = doc.data()||{};
+    if(!isAdminOf(s,currentUser.uid)){
+      toast('Not authorized','error');
+      return;
+    }
+    if(confirm('Delete this space? This cannot be undone.')){
+      db.collection('spaces').doc(spaceId).delete().then(()=>{
+        toast('Space deleted','success');
+      }).catch(e=>{ console.error(e); toast('Error deleting space','error'); });
+    }
+  });
+}
+
 /********************
  * Create Space & Requests
  ********************/
@@ -588,5 +610,8 @@ requestBtn.addEventListener('click', ()=>{
 searchBox.addEventListener('input', ()=> renderSpaces(spacesData));
 
 </script>
+<div id="toastContainer" class="toast toast-end toast-bottom z-[9999]"></div>
+
 </body>
 </html>
+
