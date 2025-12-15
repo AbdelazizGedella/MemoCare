@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="ar" dir="ltr" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CTAS Review Center — Physician Status Dashboard (Read Only)</title>
+
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <!-- CSV + Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{ --glass-bg: rgba(255,255,255,.06); --glass-bd: rgba(255,255,255,.12); }
+    html,body{ background:#07102F; color:#fff; font-family:'Cairo',system-ui,sans-serif; }
+    .glass{ background:var(--glass-bg); border:1px solid var(--glass-bd); backdrop-filter: blur(8px); border-radius:18px; }
+    .kpi{ display:flex; align-items:center; gap:12px; padding:14px; }
+    .kpi .num{ font-size:26px; font-weight:800; }
+    .kpi .lbl{ font-size:12px; opacity:.82; }
+    .chart-wrap{ height: 240px; }
+    @media (min-width:1024px){ .chart-wrap{ height: 290px; } }
+
+    /* Status colors */
+    .badge-pending{ background:#38bdf8 !important; color:#001 !important; }
+    .badge-acc{ background:#10b981 !important; color:#021 !important; }
+    .badge-over{ background:#ef4444 !important; color:#fff !important; }
+    .badge-under{ background:#f59e0b !important; color:#111 !important; }
+
+    /* CTAS colors */
+    .ctas-1{ background:#3b82f6 !important; color:#fff !important; } /* blue */
+    .ctas-2{ background:#ef4444 !important; color:#fff !important; } /* red */
+    .ctas-3{ background:#f59e0b !important; color:#111 !important; } /* yellow */
+    .ctas-4{ background:#10b981 !important; color:#021 !important; } /* green */
+    .ctas-5{ background:#ffffff !important; color:#111 !important; border:1px solid rgba(0,0,0,.15) !important; } /* white */
+
+    /* Vitals highlighting */
+    .cell-ok{ background: rgba(16,185,129,.16) !important; }
+    .cell-warn{ background: rgba(245,158,11,.16) !important; }
+    .cell-na{ opacity:.75; }
+
+    .table :where(th,td){ white-space:nowrap; }
+    .hint{ font-size:11px; opacity:.72; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    /* Diagnosis smaller */
+    .dx-cell{
+      font-size: 12px;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    @media (max-width: 640px){
+      .dx-cell{ max-width: 170px; }
+    }
+
+    /* filter row inputs inside table */
+    .col-filter{
+      width: 92px;
+      height: 28px;
+      font-size: 12px;
+      padding: 0 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: #fff;
+      outline: none;
+    }
+    .col-filter::placeholder{ color: rgba(255,255,255,.55); }
+
+    /* small table */
+    .tiny td, .tiny th{ font-size: 12px; }
+    .soft{ opacity:.85; }
+  </style>
+</head>
+
+<body class="pb-20">
+
+<header class="sticky top-0 z-50 glass">
+  <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <i class="fa-solid fa-stethoscope text-cyan-300 text-xl"></i>
+      <div>
+        <div class="text-base sm:text-xl font-extrabold">CTAS Review Center</div>
+        <div class="text-xs opacity-70">Read-Only from Google Sheet (CSV)</div>
+      </div>
+    </div>
+
+    <div class="text-xs opacity-80 flex items-center gap-3">
+      <span id="lastUpdated">—</span>
+      <span class="badge badge-outline" id="activeFilters">Filters: none</span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-2 sm:px-4 mt-4 space-y-4">
+
+  <!-- KPIs -->
+  <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3">
+    <div class="glass kpi"><i class="fa-solid fa-layer-group text-cyan-300"></i><div><div class="num" id="kpiTotal">0</div><div class="lbl">Total Cases</div></div></div>
+    <div class="glass kpi"><i class="fa-solid fa-hourglass-half text-sky-300"></i><div><div class="num" id="kpiPending">0</div><div class="lbl">Pending</div></div></div>
+    <div class="glass kpi"><i class="fa-solid fa-check text-emerald-300"></i><div><div class="num" id="kpiAcc">0</div><div class="lbl">Accurate</div></div></div>
+    <div class="glass kpi"><i class="fa-solid fa-triangle-exclamation text-amber-300"></i><div><div class="num" id="kpiUnder">0</div><div class="lbl">Under</div></div></div>
+    <div class="glass kpi"><i class="fa-solid fa-arrow-down text-red-300"></i><div><div class="num" id="kpiOver">0</div><div class="lbl">Over</div></div></div>
+
+    <div class="glass kpi"><i class="fa-solid fa-ban text-slate-200"></i><div><div class="num" id="kpiNoCtas">0</div><div class="lbl">No CTAS</div></div></div>
+
+    <div class="glass kpi"><i class="fa-solid fa-repeat text-violet-300"></i><div><div class="num" id="kpiRepeatedMrn">0</div><div class="lbl">Repeated MRNs</div></div></div>
+    <div class="glass kpi"><i class="fa-solid fa-calendar-day text-fuchsia-300"></i><div><div class="num" id="kpiSameDay">0</div><div class="lbl">Same-day duplicates</div></div></div>
+    <div class="glass kpi"><i class="fa-solid fa-calendar-plus text-pink-300"></i><div><div class="num" id="kpiDiffDays">0</div><div class="lbl">Different-day repeats</div></div></div>
+  </section>
+
+  <!-- Charts -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="glass p-4">
+      <div class="font-bold mb-2">Status Distribution (click to filter)</div>
+      <div class="chart-wrap"><canvas id="chStatus"></canvas></div>
+      <div class="hint mt-2">Click slice to filter table + all charts. Click again to clear.</div>
+    </div>
+
+    <div class="glass p-4">
+      <div class="font-bold mb-2">Top Diagnoses (click to filter)</div>
+      <div class="chart-wrap"><canvas id="chDx"></canvas></div>
+      <div class="hint mt-2">Click bar to filter by Diagnosis. Click again to clear.</div>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="glass p-4">
+      <div class="font-bold mb-2">CTAS Distribution (click to filter)</div>
+      <div class="chart-wrap"><canvas id="chCtas"></canvas></div>
+      <div class="hint mt-2">Click CTAS bar to filter table + all charts.</div>
+    </div>
+
+    <div class="glass p-4">
+      <div class="font-bold mb-2">Monthly Trend (click point to filter)</div>
+      <div class="chart-wrap"><canvas id="chMonthly"></canvas></div>
+      <div class="hint mt-2">Click a point to filter by month (YYYY-MM).</div>
+    </div>
+  </section>
+
+  <!-- Dx x CTAS stacked chart -->
+  <section class="glass p-4">
+    <div class="font-bold mb-2">🔥 Diagnosis × CTAS (Top Diagnoses — stacked)</div>
+    <div class="chart-wrap"><canvas id="chDxCtas"></canvas></div>
+    <div class="hint mt-2">
+      Click a stacked segment = filter by (Diagnosis + CTAS). Click again to clear.
+    </div>
+  </section>
+
+  <!-- Insights -->
+  <section class="glass p-3 sm:p-4">
+    <div class="font-bold mb-2">Auto Insights (from current filtered data)</div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div class="glass p-3 rounded-xl">
+        <div class="font-semibold mb-1"><i class="fa-solid fa-wave-square text-cyan-300"></i> Common Vitals Pattern by CTAS</div>
+        <div id="insVitals" class="text-sm soft space-y-1"></div>
+        <div class="hint mt-2">Uses median values + abnormal-rate based on your thresholds.</div>
+      </div>
+
+      <div class="glass p-3 rounded-xl">
+        <div class="font-semibold mb-1"><i class="fa-solid fa-user-group text-emerald-300"></i> Age → Most frequent CTAS</div>
+        <div id="insAge" class="text-sm soft space-y-1"></div>
+        <div class="hint mt-2">Age bins: &lt;18, 18–39, 40–59, 60+.</div>
+      </div>
+
+      <div class="glass p-3 rounded-xl">
+        <div class="font-semibold mb-1"><i class="fa-solid fa-stethoscope text-amber-300"></i> Top Diagnoses per CTAS</div>
+        <div id="insDxPerCtas" class="text-sm soft space-y-1"></div>
+        <div class="hint mt-2">Top 3 diagnoses for each CTAS.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cases Table -->
+  <section class="glass p-3 sm:p-4">
+    <div class="flex items-center justify-between mb-2">
+      <div class="font-bold">Cases</div>
+      <div class="hint">
+        Click: Status / CTAS / MRN to filter (toggle). Row shows vitals with soft highlighting.
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table table-zebra table-sm" id="tbl">
+        <thead>
+          <tr>
+            <th>MRN</th>
+            <th>Age</th>
+            <th>Diagnosis</th>
+            <th>BP</th>
+            <th>Temp</th>
+            <th>Pulse</th>
+            <th>Resp</th>
+            <th>Trauma</th>
+            <th>CTAS</th>
+            <th>Status</th>
+          </tr>
+          <!-- Column filters -->
+          <tr>
+            <th></th>
+
+            <th>
+              <input id="fAgeMin" class="col-filter" placeholder="Age min">
+              <div class="h-1"></div>
+              <input id="fAgeMax" class="col-filter" placeholder="Age max">
+            </th>
+
+            <th></th>
+
+            <th>
+              <input id="fSBPMin" class="col-filter" placeholder="SBP min">
+              <div class="h-1"></div>
+              <input id="fSBPMax" class="col-filter" placeholder="SBP max">
+            </th>
+
+            <th>
+              <input id="fTempMin" class="col-filter" placeholder="Temp min">
+              <div class="h-1"></div>
+              <input id="fTempMax" class="col-filter" placeholder="Temp max">
+            </th>
+
+            <th>
+              <input id="fPulseMin" class="col-filter" placeholder="Pulse min">
+              <div class="h-1"></div>
+              <input id="fPulseMax" class="col-filter" placeholder="Pulse max">
+            </th>
+
+            <th>
+              <input id="fRRMin" class="col-filter" placeholder="RR min">
+              <div class="h-1"></div>
+              <input id="fRRMax" class="col-filter" placeholder="RR max">
+            </th>
+
+            <th></th><th></th><th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ✅ MOVED HERE: Visits Monitor at the end -->
+  <section class="glass p-3 sm:p-4">
+    <div class="flex items-center justify-between mb-2">
+      <div class="font-bold">Visits Monitor (MRN Repeats & Duplications)</div>
+      <div class="hint">Shows only repeated MRNs based on current filters. Click MRN to filter the whole dashboard.</div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table table-zebra table-sm tiny" id="tblVisits">
+        <thead>
+          <tr>
+            <th>MRN</th>
+            <th>Total Records</th>
+            <th>Unique Days</th>
+            <th>Same-day Duplicates</th>
+            <th>Different-day?</th>
+            <th>First Date</th>
+            <th>Last Date</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- Details Modal -->
+<dialog id="dlgDetails" class="modal">
+  <div class="modal-box max-w-4xl glass">
+    <form method="dialog"><button class="btn btn-sm btn-circle absolute right-2 top-2">✕</button></form>
+    <h3 class="font-extrabold text-lg mb-3">Case Details</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div><span class="opacity-70">MRN:</span> <span id="dMRN" class="mono"></span></div>
+      <div><span class="opacity-70">Visit Date:</span> <span id="dVisit" class="mono"></span></div>
+      <div><span class="opacity-70">Age:</span> <span id="dAge"></span></div>
+      <div><span class="opacity-70">CTAS:</span> <span id="dCtas"></span></div>
+
+      <div class="md:col-span-2"><span class="opacity-70">Diagnosis:</span> <span id="dDx"></span></div>
+      <div class="md:col-span-2"><span class="opacity-70">Chief Complaint:</span> <span id="dCC"></span></div>
+
+      <div class="md:col-span-2">
+        <div class="opacity-70 mb-1">Significant Sign:</div>
+        <div id="dSig" class="whitespace-pre-wrap break-words glass p-3 rounded-xl"></div>
+      </div>
+
+      <div><span class="opacity-70">BP:</span> <span id="dBP"></span></div>
+      <div><span class="opacity-70">Temp:</span> <span id="dTemp"></span></div>
+      <div><span class="opacity-70">Pulse:</span> <span id="dPulse"></span></div>
+      <div><span class="opacity-70">RR:</span> <span id="dRR"></span></div>
+
+      <div><span class="opacity-70">Weight:</span> <span id="dW"></span></div>
+      <div><span class="opacity-70">Height:</span> <span id="dH"></span></div>
+      <div><span class="opacity-70">BMI:</span> <span id="dBMI"></span></div>
+      <div><span class="opacity-70">Trauma:</span> <span id="dTrauma"></span></div>
+
+      <div><span class="opacity-70">ECG:</span> <span id="dECG"></span></div>
+      <div><span class="opacity-70">ECG Date:</span> <span id="dECGDate"></span></div>
+
+      <div class="md:col-span-2"><span class="opacity-70">Reviewed By:</span> <span id="dBy"></span></div>
+      <div class="md:col-span-2"><span class="opacity-70">Notes:</span> <span id="dNotes"></span></div>
+      <div class="md:col-span-2"><span class="opacity-70">Status:</span> <span id="dStatus"></span></div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Toast -->
+<div id="toast" class="toast toast-top toast-center hidden">
+  <div class="alert alert-info glass"><span id="toastMsg">—</span></div>
+</div>
+
+<script>
+/** ========= CONFIG ========= **/
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT7M-mFoBFVT4e6gyhvCXCww9QwE520QWbDgc-rmIJ7dVnxejkVNyNmz8wwBe_ioW9d8TrfcOMXnhJc/pub?gid=496257091&single=true&output=csv";
+/** ========================== **/
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+const $ = (s,p=document)=>p.querySelector(s);
+
+let ENTRIES = [];
+let charts = { status:null, dx:null, ctas:null, monthly:null, dxctas:null };
+
+const FILTERS = {
+  status: null,
+  dx: null,
+  ctas: null,
+  month: null,
+  mrn: null,
+
+  ageMin: null, ageMax: null,
+  sbpMin: null, sbpMax: null,
+  tempMin: null, tempMax: null,
+  pulseMin: null, pulseMax: null,
+  rrMin: null, rrMax: null,
+};
+
+function toast(msg){
+  $('#toastMsg').textContent = msg;
+  $('#toast').classList.remove('hidden');
+  setTimeout(()=> $('#toast').classList.add('hidden'), 2200);
+}
+
+/** tolerant header matching **/
+const normalizeKey = s => String(s||'').toLowerCase().replace(/\s+/g,' ').replace(/[^\w\u0600-\u06FF]+/g,'').trim();
+function pickField(row, candidates){
+  const keys = Object.keys(row||{});
+  const norm = new Map(keys.map(k => [normalizeKey(k), k]));
+  for(const c of candidates){
+    const nk = normalizeKey(c);
+    if(norm.has(nk)) return row[norm.get(nk)];
+  }
+  for(const k of keys){
+    const nk = normalizeKey(k);
+    for(const c of candidates){
+      const nc = normalizeKey(c);
+      if(nk.includes(nc)) return row[k];
+    }
+  }
+  return '';
+}
+
+function parseDateFlexible(val){
+  if(!val) return null;
+  const s = String(val);
+  let d = new Date(s);
+  if(!isNaN(d)) return d;
+
+  const m = s.trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if(m){
+    const D = +m[1], M = +m[2], Y = (String(m[3]).length===2? +('20'+m[3]) : +m[3]);
+    const hh = m[4]? +m[4] : 0;
+    const mm = m[5]? +m[5] : 0;
+    return new Date(Y, M-1, D, hh, mm);
+  }
+  return null;
+}
+
+function fmtDateOnly(d){
+  if(!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const da = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${da}`;
+}
+function monthKey(d){
+  if(!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  return `${y}-${m}`;
+}
+
+function parseCTAS(x){
+  const m = String(x||'').match(/([1-5])/);
+  return m ? +m[1] : NaN;
+}
+function clean(x){ return String(x ?? '').trim(); }
+
+function statusKind(status){
+  const s = String(status||'').toLowerCase().trim();
+  if(!s) return 'pending';
+  if(s.includes('under')) return 'under';
+  if(s.includes('over')) return 'over';
+  if(s.includes('accurate')) return 'accurate';
+  return 'pending';
+}
+function statusBadgeHTML(status){
+  const k = statusKind(status);
+  const cls = k==='under'?'badge-under' : k==='over'?'badge-over' : k==='accurate'?'badge-acc' : 'badge-pending';
+  const txt = k==='pending' ? 'Pending' : status;
+  return `<span class="badge ${cls}">${txt}</span>`;
+}
+function ctasBadgeHTML(ctasVal){
+  const n = parseCTAS(ctasVal);
+  if(!isFinite(n)) return `<span class="badge badge-outline">—</span>`;
+  const cls = n===1?'ctas-1' : n===2?'ctas-2' : n===3?'ctas-3' : n===4?'ctas-4' : 'ctas-5';
+  return `<span class="badge ${cls}">CTAS ${n}</span>`;
+}
+
+/** vitals */
+function toNum(x){
+  const n = parseFloat(String(x||'').replace(/[^\d.]+/g,''));
+  return isFinite(n) ? n : null;
+}
+function parseBP(bp){
+  const s = clean(bp);
+  const m = s.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
+  if(!m) return { sys:null, dia:null };
+  return { sys: +m[1], dia: +m[2] };
+}
+function inRange(n, lo, hi){
+  return (n != null && isFinite(n) && n >= lo && n <= hi);
+}
+function bpClass(bp){
+  const {sys,dia} = parseBP(bp);
+  if(sys==null || dia==null) return 'cell-na';
+  const ok = inRange(sys, 100, 140) && inRange(dia, 60, 100);
+  return ok ? 'cell-ok' : 'cell-warn';
+}
+function tempClass(t){
+  const n = toNum(t);
+  if(n==null) return 'cell-na';
+  return inRange(n, 36.5, 37.5) ? 'cell-ok' : 'cell-warn';
+}
+function pulseClass(p){
+  const n = toNum(p);
+  if(n==null) return 'cell-na';
+  return inRange(n, 60, 120) ? 'cell-ok' : 'cell-warn';
+}
+function rrClass(r){
+  const n = toNum(r);
+  if(n==null) return 'cell-na';
+  return inRange(n, 12, 20) ? 'cell-ok' : 'cell-warn';
+}
+
+/* Trauma: default empty if no trauma; only show EXIST if trauma exists */
+function traumaCellHTML(trauma){
+  const t = clean(trauma).toUpperCase();
+  const hasTrauma = t.includes('TRUAMA') && !t.includes('NON');
+  if(hasTrauma) return `<span class="badge badge-error">EXIST</span>`;
+  return '';
+}
+
+/** chart filters **/
+function setFilter(key, value){
+  const current = FILTERS[key];
+  FILTERS[key] = (current === value) ? null : value;
+}
+function filtersSummary(){
+  const parts = [];
+  if(FILTERS.status) parts.push(`Status=${FILTERS.status}`);
+  if(FILTERS.ctas) parts.push(`CTAS=${FILTERS.ctas}`);
+  if(FILTERS.month) parts.push(`Month=${FILTERS.month}`);
+  if(FILTERS.dx) parts.push(`Dx=${FILTERS.dx}`);
+  if(FILTERS.mrn) parts.push(`MRN=${FILTERS.mrn}`);
+
+  const num = [];
+  if(FILTERS.ageMin!=null) num.push(`Age≥${FILTERS.ageMin}`);
+  if(FILTERS.ageMax!=null) num.push(`Age≤${FILTERS.ageMax}`);
+  if(FILTERS.sbpMin!=null) num.push(`SBP≥${FILTERS.sbpMin}`);
+  if(FILTERS.sbpMax!=null) num.push(`SBP≤${FILTERS.sbpMax}`);
+  if(FILTERS.tempMin!=null) num.push(`Temp≥${FILTERS.tempMin}`);
+  if(FILTERS.tempMax!=null) num.push(`Temp≤${FILTERS.tempMax}`);
+  if(FILTERS.pulseMin!=null) num.push(`Pulse≥${FILTERS.pulseMin}`);
+  if(FILTERS.pulseMax!=null) num.push(`Pulse≤${FILTERS.pulseMax}`);
+  if(FILTERS.rrMin!=null) num.push(`RR≥${FILTERS.rrMin}`);
+  if(FILTERS.rrMax!=null) num.push(`RR≤${FILTERS.rrMax}`);
+
+  const summary = parts.length ? parts.join(' | ') : 'none';
+  return num.length ? `Filters: ${summary} | ${num.join(' | ')}` : `Filters: ${summary}`;
+}
+
+async function loadCSV(){
+  return new Promise((resolve, reject)=>{
+    Papa.parse(CSV_URL, {
+      download:true,
+      header:true,
+      skipEmptyLines:true,
+      complete: r => resolve(r.data),
+      error: reject
+    });
+  });
+}
+
+function normalizeRows(rows){
+  return rows.map((r, idx)=>{
+    const mrn = clean(pickField(r, ['MRN']));
+    const age = clean(pickField(r, ['AGE','Age']));
+    const dx  = clean(pickField(r, ['Final Diagnosis Name','Diagnosis']));
+    const vt  = pickField(r, ['Visit Time','VisitTime','Visit Date','VisitDate']);
+    const visitDate = parseDateFlexible(vt);
+
+    const bp = clean(pickField(r, ['Blood Pressure','BP']));
+    const temp = clean(pickField(r, ['Temperature','Temp']));
+    const pulse = clean(pickField(r, ['Pulse','HR']));
+    const rr = clean(pickField(r, ['Respiration','RR']));
+
+    const w = clean(pickField(r, ['Weight']));
+    const h = clean(pickField(r, ['Heigth','Height']));
+    const bmiRaw = clean(pickField(r, ['Body Mass Index','BMI']));
+    const cc = clean(pickField(r, ['Chief Complain','Chief Complaint']));
+    const sig = pickField(r, ['Significant Sign']); // keep formatting
+    const ctas = clean(pickField(r, ['Ctas','CTAS']));
+    const trauma = clean(pickField(r, ['Truama Type','Trauma Type']));
+    const isEcg = clean(pickField(r, ['Is Ecg','ECG']));
+    const ecgDate = clean(pickField(r, ['Ecg Date','ECG Date']));
+
+    const status = clean(pickField(r, ['Status']));
+    const reviewedBy = clean(pickField(r, ['ReviewedBy','Physician','Reviewer']));
+    const notes = clean(pickField(r, ['Notes','Comment']));
+
+    let bmi = bmiRaw;
+    const wf = parseFloat(w), hf = parseFloat(h);
+    if(!bmi && isFinite(wf) && isFinite(hf) && hf > 10){
+      const hm = (hf > 3 ? hf/100 : hf);
+      const v = wf / (hm*hm);
+      if(isFinite(v)) bmi = v.toFixed(1);
+    }
+
+    const vDateOnly = visitDate ? fmtDateOnly(visitDate) : clean(vt);
+    const vMonth = visitDate ? monthKey(visitDate) : '';
+
+    const {sys,dia} = parseBP(bp);
+    const ageNum = toNum(age);
+
+    return {
+      _row: idx + 2, // still kept internally
+      mrn, age, ageNum, dx,
+      visitDate, visitDateOnly: vDateOnly, visitMonth: vMonth,
+      bp, bpSys: sys, bpDia: dia,
+      temp, tempNum: toNum(temp),
+      pulse, pulseNum: toNum(pulse),
+      rr, rrNum: toNum(rr),
+      weight:w, height:h, bmi,
+      cc, sigRaw: String(sig ?? ''), ctas, trauma, isEcg, ecgDate,
+      status, reviewedBy, notes
+    };
+  }).filter(x => x.mrn || x.visitDateOnly || x.dx);
+}
+
+function passNumericFilters(e){
+  if(FILTERS.ageMin!=null && (e.ageNum==null || e.ageNum < FILTERS.ageMin)) return false;
+  if(FILTERS.ageMax!=null && (e.ageNum==null || e.ageNum > FILTERS.ageMax)) return false;
+
+  if(FILTERS.sbpMin!=null && (e.bpSys==null || e.bpSys < FILTERS.sbpMin)) return false;
+  if(FILTERS.sbpMax!=null && (e.bpSys==null || e.bpSys > FILTERS.sbpMax)) return false;
+
+  if(FILTERS.tempMin!=null && (e.tempNum==null || e.tempNum < FILTERS.tempMin)) return false;
+  if(FILTERS.tempMax!=null && (e.tempNum==null || e.tempNum > FILTERS.tempMax)) return false;
+
+  if(FILTERS.pulseMin!=null && (e.pulseNum==null || e.pulseNum < FILTERS.pulseMin)) return false;
+  if(FILTERS.pulseMax!=null && (e.pulseNum==null || e.pulseNum > FILTERS.pulseMax)) return false;
+
+  if(FILTERS.rrMin!=null && (e.rrNum==null || e.rrNum < FILTERS.rrMin)) return false;
+  if(FILTERS.rrMax!=null && (e.rrNum==null || e.rrNum > FILTERS.rrMax)) return false;
+
+  return true;
+}
+
+function applyFilters(){
+  return ENTRIES.filter(e=>{
+    if(FILTERS.status && statusKind(e.status) !== FILTERS.status) return false;
+    if(FILTERS.dx && clean(e.dx) !== clean(FILTERS.dx)) return false;
+
+    if(FILTERS.ctas){
+      const n = parseCTAS(e.ctas);
+      if(!(isFinite(n) && n === FILTERS.ctas)) return false;
+    }
+    if(FILTERS.month && e.visitMonth !== FILTERS.month) return false;
+    if(FILTERS.mrn && clean(e.mrn) !== clean(FILTERS.mrn)) return false;
+
+    if(!passNumericFilters(e)) return false;
+    return true;
+  });
+}
+
+/** stats helpers **/
+function median(arr){
+  const a = arr.filter(x=>x!=null && isFinite(x)).sort((x,y)=>x-y);
+  if(!a.length) return null;
+  const mid = Math.floor(a.length/2);
+  return a.length%2 ? a[mid] : (a[mid-1]+a[mid])/2;
+}
+function pct(x, total){
+  if(!total) return 0;
+  return Math.round((x/total)*100);
+}
+function fmt(n, d=0){
+  if(n==null || !isFinite(n)) return '—';
+  return Number(n).toFixed(d);
+}
+
+function buildVisitsTable(view){
+  const mapMrn = new Map();
+  for(const e of view){
+    const m = clean(e.mrn);
+    if(!m) continue;
+    const d = e.visitDateOnly || '';
+    if(!mapMrn.has(m)) mapMrn.set(m, { total:0, dates:new Map(), first:null, last:null });
+    const obj = mapMrn.get(m);
+    obj.total++;
+    obj.dates.set(d, (obj.dates.get(d)||0)+1);
+    obj.first = (!obj.first || (d && d < obj.first)) ? d : obj.first;
+    obj.last  = (!obj.last  || (d && d > obj.last))  ? d : obj.last;
+  }
+
+  const rows = [];
+  for(const [mrn, obj] of mapMrn.entries()){
+    if(obj.total <= 1) continue;
+    const uniqueDays = obj.dates.size;
+    let sameDayDups = 0;
+    for(const [,c] of obj.dates.entries()) if(c>1) sameDayDups += (c-1);
+    const diffDays = uniqueDays > 1;
+
+    rows.push({
+      mrn,
+      total: obj.total,
+      uniqueDays,
+      sameDayDups,
+      diffDays,
+      first: obj.first || '',
+      last: obj.last || ''
+    });
+  }
+
+  rows.sort((a,b)=> (b.total - a.total) || (b.sameDayDups - a.sameDayDups));
+
+  const tb = $('#tblVisits tbody');
+  tb.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono"><a href="#" class="link link-info">${r.mrn}</a></td>
+      <td>${r.total}</td>
+      <td>${r.uniqueDays}</td>
+      <td>${r.sameDayDups}</td>
+      <td>${r.diffDays ? '<span class="badge badge-secondary">YES</span>' : '<span class="badge badge-ghost">NO</span>'}</td>
+      <td class="mono">${r.first}</td>
+      <td class="mono">${r.last}</td>
+    `;
+    tr.querySelector('a').addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      setFilter('mrn', r.mrn);
+      updateAll();
+      toast(filtersSummary());
+    });
+    frag.appendChild(tr);
+  });
+  tb.appendChild(frag);
+
+  return rows;
+}
+
+function renderKPIs(view){
+  const total = view.length;
+  const pending = view.filter(x=> statusKind(x.status)==='pending').length;
+  const acc = view.filter(x=> statusKind(x.status)==='accurate').length;
+  const under = view.filter(x=> statusKind(x.status)==='under').length;
+  const over = view.filter(x=> statusKind(x.status)==='over').length;
+  const noCtas = view.filter(x=> !isFinite(parseCTAS(x.ctas))).length;
+
+  const mrnCounts = new Map();
+  const mrnDateCounts = new Map();
+  const mrnDatesSet = new Map();
+
+  for(const e of view){
+    const m = clean(e.mrn);
+    const d = e.visitDateOnly || '';
+    if(!m) continue;
+
+    mrnCounts.set(m, (mrnCounts.get(m)||0)+1);
+    mrnDateCounts.set(m+'|'+d, (mrnDateCounts.get(m+'|'+d)||0)+1);
+
+    if(!mrnDatesSet.has(m)) mrnDatesSet.set(m, new Set());
+    if(d) mrnDatesSet.get(m).add(d);
+  }
+
+  const repeatedMrns = [...mrnCounts.entries()].filter(([,c])=>c>1).length;
+  let sameDayDupCount = 0;
+  for(const [,c] of mrnDateCounts.entries()) if(c>1) sameDayDupCount += (c-1);
+
+  let diffDaysRepeats = 0;
+  for(const [,set] of mrnDatesSet.entries()) if(set.size > 1) diffDaysRepeats++;
+
+  $('#kpiTotal').textContent = total;
+  $('#kpiPending').textContent = pending;
+  $('#kpiAcc').textContent = acc;
+  $('#kpiUnder').textContent = under;
+  $('#kpiOver').textContent = over;
+  $('#kpiNoCtas').textContent = noCtas;
+
+  $('#kpiRepeatedMrn').textContent = repeatedMrns;
+  $('#kpiSameDay').textContent = sameDayDupCount;
+  $('#kpiDiffDays').textContent = diffDaysRepeats;
+}
+
+function destroyCharts(){
+  for(const k of Object.keys(charts)){
+    if(charts[k]){ charts[k].destroy(); charts[k]=null; }
+  }
+}
+function tallyTop(view, key, n=10){
+  const m = new Map();
+  for(const e of view){
+    const v = clean(e[key]);
+    if(!v) continue;
+    m.set(v, (m.get(v)||0)+1);
+  }
+  return [...m.entries()].sort((a,b)=> b[1]-a[1]).slice(0,n);
+}
+function groupMonthly(view){
+  const m = new Map();
+  for(const e of view){
+    const k = e.visitMonth;
+    if(!k) continue;
+    m.set(k, (m.get(k)||0)+1);
+  }
+  const arr = [...m.entries()].sort((a,b)=> a[0].localeCompare(b[0]));
+  return { labels: arr.map(x=>x[0]), values: arr.map(x=>x[1]) };
+}
+
+function drawCharts(view){
+  destroyCharts();
+
+  // Status
+  {
+    const counts = new Map([['over',0],['under',0],['accurate',0],['pending',0]]);
+    for(const e of view) counts.set(statusKind(e.status), (counts.get(statusKind(e.status))||0)+1);
+
+    const labels = ['Over','Under','Accurate','Pending'];
+    const keys = ['over','under','accurate','pending'];
+    const values = keys.map(k=>counts.get(k)||0);
+
+    charts.status = new Chart($('#chStatus'), {
+      type:'doughnut',
+      data:{ labels, datasets:[{ data: values, backgroundColor:['#ef4444','#f59e0b','#10b981','#38bdf8'] }] },
+      options:{
+        cutout:'72%', maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#fff' } } },
+        onClick:(evt)=>{
+          const p = charts.status.getElementsAtEventForMode(evt,'nearest',{intersect:true},true)[0];
+          if(!p) return;
+          setFilter('status', keys[p.index]);
+          updateAll();
+          toast(filtersSummary());
+        }
+      }
+    });
+  }
+
+  // Dx
+  {
+    const top = tallyTop(view, 'dx', 10);
+    const labels = top.map(x=>x[0]);
+    const values = top.map(x=>x[1]);
+
+    charts.dx = new Chart($('#chDx'), {
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Cases', data: values }] },
+      options:{
+        indexAxis:'y', maintainAspectRatio:false,
+        scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } },
+        plugins:{ legend:{ display:false } },
+        onClick:(evt)=>{
+          const p = charts.dx.getElementsAtEventForMode(evt,'nearest',{intersect:true},true)[0];
+          if(!p) return;
+          setFilter('dx', labels[p.index]);
+          updateAll();
+          toast(filtersSummary());
+        }
+      }
+    });
+  }
+
+  // CTAS
+  {
+    const ctasCounts = new Map([[1,0],[2,0],[3,0],[4,0],[5,0]]);
+    for(const e of view){
+      const n = parseCTAS(e.ctas);
+      if(ctasCounts.has(n)) ctasCounts.set(n, ctasCounts.get(n)+1);
+    }
+    const labels = [1,2,3,4,5].map(x=>`CTAS ${x}`);
+    const values = [1,2,3,4,5].map(x=>ctasCounts.get(x)||0);
+
+    charts.ctas = new Chart($('#chCtas'), {
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Count', data: values, backgroundColor:['#3b82f6','#ef4444','#f59e0b','#10b981','#ffffff'] }] },
+      options:{
+        maintainAspectRatio:false,
+        scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } },
+        plugins:{ legend:{ display:false } },
+        onClick:(evt)=>{
+          const p = charts.ctas.getElementsAtEventForMode(evt,'nearest',{intersect:true},true)[0];
+          if(!p) return;
+          setFilter('ctas', p.index+1);
+          updateAll();
+          toast(filtersSummary());
+        }
+      }
+    });
+  }
+
+  // Monthly
+  {
+    const g = groupMonthly(view);
+    charts.monthly = new Chart($('#chMonthly'), {
+      type:'line',
+      data:{ labels:g.labels, datasets:[{ label:'Cases', data:g.values, tension:.35, fill:false, borderColor:'#a78bfa', pointRadius:4 }] },
+      options:{
+        maintainAspectRatio:false,
+        scales:{ x:{ ticks:{ color:'#fff' } }, y:{ ticks:{ color:'#fff' } } },
+        plugins:{ legend:{ display:false } },
+        onClick:(evt)=>{
+          const p = charts.monthly.getElementsAtEventForMode(evt,'nearest',{intersect:true},true)[0];
+          if(!p) return;
+          setFilter('month', g.labels[p.index]);
+          updateAll();
+          toast(filtersSummary());
+        }
+      }
+    });
+  }
+
+  // Dx x CTAS stacked
+  {
+    const topDx = tallyTop(view, 'dx', 12).map(x=>x[0]);
+    const counts = new Map();
+    for(const dx of topDx) counts.set(dx, [0,0,0,0,0]);
+
+    for(const e of view){
+      const dx = clean(e.dx);
+      if(!counts.has(dx)) continue;
+      const n = parseCTAS(e.ctas);
+      if(isFinite(n) && n>=1 && n<=5){
+        counts.get(dx)[n-1]++;
+      }
+    }
+
+    const labels = topDx;
+    const ds = [
+      { label:'CTAS 1', data: labels.map(d=>counts.get(d)[0]), backgroundColor:'#3b82f6' },
+      { label:'CTAS 2', data: labels.map(d=>counts.get(d)[1]), backgroundColor:'#ef4444' },
+      { label:'CTAS 3', data: labels.map(d=>counts.get(d)[2]), backgroundColor:'#f59e0b' },
+      { label:'CTAS 4', data: labels.map(d=>counts.get(d)[3]), backgroundColor:'#10b981' },
+      { label:'CTAS 5', data: labels.map(d=>counts.get(d)[4]), backgroundColor:'#ffffff' },
+    ];
+
+    charts.dxctas = new Chart($('#chDxCtas'), {
+      type:'bar',
+      data:{ labels, datasets: ds },
+      options:{
+        maintainAspectRatio:false,
+        scales:{
+          x:{ stacked:true, ticks:{ color:'#fff' } },
+          y:{ stacked:true, ticks:{ color:'#fff' } }
+        },
+        plugins:{ legend:{ labels:{ color:'#fff' } } },
+        onClick:(evt)=>{
+          const p = charts.dxctas.getElementsAtEventForMode(evt,'nearest',{intersect:true},true)[0];
+          if(!p) return;
+          const dx = labels[p.index];
+          const ctas = p.datasetIndex + 1;
+          setFilter('dx', dx);
+          setFilter('ctas', ctas);
+          updateAll();
+          toast(filtersSummary());
+        }
+      }
+    });
+  }
+}
+
+function openDetails(e){
+  $('#dMRN').textContent = e.mrn || '';
+  $('#dVisit').textContent = e.visitDateOnly || '';
+  $('#dAge').textContent = e.age || '';
+  $('#dCtas').innerHTML = ctasBadgeHTML(e.ctas);
+  $('#dDx').textContent = e.dx || '';
+  $('#dCC').textContent = e.cc || '';
+  $('#dSig').textContent = e.sigRaw || '';
+
+  $('#dBP').textContent = e.bp || '';
+  $('#dTemp').textContent = e.temp || '';
+  $('#dPulse').textContent = e.pulse || '';
+  $('#dRR').textContent = e.rr || '';
+
+  $('#dW').textContent = e.weight || '';
+  $('#dH').textContent = e.height || '';
+  $('#dBMI').textContent = e.bmi || '';
+  $('#dTrauma').textContent = e.trauma || '';
+
+  $('#dECG').textContent = e.isEcg || '';
+  $('#dECGDate').textContent = e.ecgDate || '';
+
+  $('#dBy').textContent = e.reviewedBy || '';
+  $('#dNotes').textContent = e.notes || '';
+  $('#dStatus').innerHTML = statusBadgeHTML(e.status);
+
+  $('#dlgDetails').showModal();
+}
+
+function renderTable(view){
+  const tb = $('#tbl tbody');
+  tb.innerHTML = '';
+  const frag = document.createDocumentFragment();
+
+  view.forEach(e=>{
+    const tr = document.createElement('tr');
+    const statusKindVal = statusKind(e.status);
+    const ctasN = parseCTAS(e.ctas);
+
+    tr.innerHTML = `
+      <td class="mono" data-mrn>${e.mrn || ''}</td>
+      <td>${e.age || ''}</td>
+      <td class="dx-cell" title="${e.dx||''}">${e.dx || ''}</td>
+
+      <td class="${bpClass(e.bp)} mono">${e.bp || '—'}</td>
+      <td class="${tempClass(e.temp)} mono">${e.temp || '—'}</td>
+      <td class="${pulseClass(e.pulse)} mono">${e.pulse || '—'}</td>
+      <td class="${rrClass(e.rr)} mono">${e.rr || '—'}</td>
+
+      <td>${traumaCellHTML(e.trauma)}</td>
+      <td data-ctas>${ctasBadgeHTML(e.ctas)}</td>
+      <td data-status>${statusBadgeHTML(e.status)}</td>
+    `;
+
+    tr.querySelector('[data-mrn]')?.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      if(!e.mrn) return;
+      setFilter('mrn', clean(e.mrn));
+      updateAll();
+      toast(filtersSummary());
+    });
+
+    tr.querySelector('[data-status]')?.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      setFilter('status', statusKindVal);
+      updateAll();
+      toast(filtersSummary());
+    });
+
+    tr.querySelector('[data-ctas]')?.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      if(!isFinite(ctasN)) return;
+      setFilter('ctas', ctasN);
+      updateAll();
+      toast(filtersSummary());
+    });
+
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', ()=> openDetails(e));
+
+    frag.appendChild(tr);
+  });
+
+  tb.appendChild(frag);
+}
+
+function renderInsights(view){
+  const vitalsDiv = $('#insVitals');
+  vitalsDiv.innerHTML = '';
+  for(let c=1;c<=5;c++){
+    const group = view.filter(e=> parseCTAS(e.ctas)===c);
+    if(!group.length){
+      vitalsDiv.innerHTML += `<div>CTAS ${c}: —</div>`;
+      continue;
+    }
+
+    const sbps = group.map(e=>e.bpSys).filter(x=>x!=null);
+    const temps= group.map(e=>e.tempNum).filter(x=>x!=null);
+    const pulses=group.map(e=>e.pulseNum).filter(x=>x!=null);
+    const rrs= group.map(e=>e.rrNum).filter(x=>x!=null);
+
+    const mSBP = median(sbps);
+    const mT = median(temps);
+    const mP = median(pulses);
+    const mRR = median(rrs);
+
+    const abSBP = group.filter(e=>{
+      const {sys,dia}=parseBP(e.bp);
+      if(sys==null || dia==null) return false;
+      return !(inRange(sys,100,140) && inRange(dia,60,100));
+    }).length;
+    const abT = group.filter(e=> e.tempNum!=null && !inRange(e.tempNum,36.5,37.5)).length;
+    const abP = group.filter(e=> e.pulseNum!=null && !inRange(e.pulseNum,60,120)).length;
+    const abRR= group.filter(e=> e.rrNum!=null && !inRange(e.rrNum,12,20)).length;
+
+    vitalsDiv.innerHTML += `
+      <div>
+        <b>CTAS ${c}</b> — Median:
+        SBP <span class="mono">${fmt(mSBP,0)}</span>,
+        Temp <span class="mono">${fmt(mT,1)}</span>,
+        Pulse <span class="mono">${fmt(mP,0)}</span>,
+        RR <span class="mono">${fmt(mRR,0)}</span>
+        <div class="hint">
+          Abnormal%: SBP ${pct(abSBP, group.length)}% • Temp ${pct(abT, group.length)}% • Pulse ${pct(abP, group.length)}% • RR ${pct(abRR, group.length)}%
+        </div>
+      </div>
+    `;
+  }
+
+  const ageDiv = $('#insAge');
+  ageDiv.innerHTML = '';
+  const bins = [
+    { name:'< 18', test:(a)=>a!=null && a<18 },
+    { name:'18–39', test:(a)=>a!=null && a>=18 && a<=39 },
+    { name:'40–59', test:(a)=>a!=null && a>=40 && a<=59 },
+    { name:'60+', test:(a)=>a!=null && a>=60 },
+  ];
+  for(const b of bins){
+    const g = view.filter(e=> b.test(e.ageNum) && isFinite(parseCTAS(e.ctas)));
+    if(!g.length){
+      ageDiv.innerHTML += `<div><b>${b.name}</b>: —</div>`;
+      continue;
+    }
+    const cnt = new Map([[1,0],[2,0],[3,0],[4,0],[5,0]]);
+    for(const e of g){
+      const c = parseCTAS(e.ctas);
+      cnt.set(c, (cnt.get(c)||0)+1);
+    }
+    const sorted = [...cnt.entries()].sort((x,y)=>y[1]-x[1]);
+    const top = sorted[0];
+    ageDiv.innerHTML += `<div><b>${b.name}</b>: CTAS ${top[0]} (${pct(top[1], g.length)}%) <span class="hint">n=${g.length}</span></div>`;
+  }
+
+  const dxDiv = $('#insDxPerCtas');
+  dxDiv.innerHTML = '';
+  for(let c=1;c<=5;c++){
+    const g = view.filter(e=> parseCTAS(e.ctas)===c);
+    if(!g.length){
+      dxDiv.innerHTML += `<div><b>CTAS ${c}</b>: —</div>`;
+      continue;
+    }
+    const map = new Map();
+    for(const e of g){
+      const d = clean(e.dx);
+      if(!d) continue;
+      map.set(d, (map.get(d)||0)+1);
+    }
+    const top3 = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const line = top3.length ? top3.map(x=>`${x[0]} (${x[1]})`).join(' • ') : '—';
+    dxDiv.innerHTML += `<div><b>CTAS ${c}</b>: <span class="hint">${line}</span></div>`;
+  }
+}
+
+function updateAll(){
+  const view = applyFilters();
+  $('#activeFilters').textContent = filtersSummary();
+  renderKPIs(view);
+  drawCharts(view);
+  renderTable(view);
+  renderInsights(view);
+  buildVisitsTable(view); // still updates, now at end (same)
+}
+
+function bindNumericFilters(){
+  const bind = (id, key)=>{
+    const el = $(id);
+    if(!el) return;
+    el.addEventListener('input', ()=>{
+      const v = el.value.trim();
+      FILTERS[key] = v === '' ? null : Number(v);
+      updateAll();
+    });
+  };
+
+  bind('#fAgeMin','ageMin'); bind('#fAgeMax','ageMax');
+  bind('#fSBPMin','sbpMin'); bind('#fSBPMax','sbpMax');
+  bind('#fTempMin','tempMin'); bind('#fTempMax','tempMax');
+  bind('#fPulseMin','pulseMin'); bind('#fPulseMax','pulseMax');
+  bind('#fRRMin','rrMin'); bind('#fRRMax','rrMax');
+}
+
+async function refresh(){
+  try{
+    toast('Loading…');
+    const rows = await loadCSV();
+    ENTRIES = normalizeRows(rows);
+    $('#lastUpdated').textContent = 'Last update: ' + new Date().toLocaleString('en-GB');
+    updateAll();
+  } catch(err){
+    console.error(err);
+    toast('Failed to load CSV');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  bindNumericFilters();
+  refresh();
+  setInterval(refresh, AUTO_REFRESH_MS);
+});
+</script>
+</body>
+</html>
