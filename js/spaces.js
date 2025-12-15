@@ -22,40 +22,72 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("search-box").addEventListener("input", filterSpaces);
 });
 
+
+function showToast(type, message) {
+  let host = document.getElementById("toastContainer") || document.getElementById("toasts");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "toastContainer";
+    host.className = "toast toast-end toast-bottom z-[9999]";
+    document.body.appendChild(host);
+  }
+
+  const alert = document.createElement("div");
+  const cls =
+    type === "success" ? "alert-success" :
+    type === "warning" ? "alert-warning" :
+    type === "info"    ? "alert-info"    : "alert-error";
+
+  alert.className = `alert ${cls} shadow-lg`;
+  alert.innerHTML = `<span>${message}</span>`;
+
+  host.appendChild(alert);
+  setTimeout(() => alert.remove(), 3500);
+}
+
+function setBtnLoading(btn, isLoading, text) {
+  if (!btn) return;
+  btn.disabled = !!isLoading;
+  btn.classList.toggle("loading", !!isLoading); // DaisyUI loading
+  if (text) btn.dataset._oldText ??= btn.textContent;
+  if (text && isLoading) btn.textContent = text;
+  if (!isLoading && btn.dataset._oldText) btn.textContent = btn.dataset._oldText;
+}
+
+
+let unsubSpaces = null;
+
 function loadSpaces() {
-    db.collection("spaces").orderBy("createdAt", "desc").get()
-        .then(snapshot => {
-            spacesData = []; // Reset spaces data
-            const spacesTable = document.getElementById("spaces-table");
-            spacesTable.innerHTML = ""; // Clear previous data
+  if (unsubSpaces) return; // already listening
 
-            let fetchPromises = [];
+  unsubSpaces = db.collection("spaces")
+    .orderBy("createdAt", "desc")
+    .onSnapshot((snapshot) => {
+      spacesData = [];
+      const spacesTable = document.getElementById("spaces-table");
+      spacesTable.innerHTML = "";
 
-            snapshot.forEach(doc => {
-                const spaceData = doc.data();
-                spaceData.id = doc.id; // Store ID in object
-                spacesData.push(spaceData); // Store space for search
+      const fetchPromises = [];
 
-                // Fetch creator's name
-                let fetchCreator = db.collection("users").doc(spaceData.createdBy).get()
-                    .then(userDoc => {
-                        if (userDoc.exists) {
-                            spaceData.creatorName = userDoc.data().name; // ✅ Store correct name
-                        } else {
-                            spaceData.creatorName = "Unknown User";
-                        }
-                    })
-                    .catch(error => console.error("Error fetching creator name:", error));
+      snapshot.forEach((doc) => {
+        const spaceData = doc.data();
+        spaceData.id = doc.id;
+        spacesData.push(spaceData);
 
-                fetchPromises.push(fetchCreator);
-            });
+        const p = db.collection("users").doc(spaceData.createdBy).get()
+          .then((userDoc) => {
+            spaceData.creatorName = userDoc.exists ? (userDoc.data().name || "Unknown User") : "Unknown User";
+          })
+          .catch(() => { spaceData.creatorName = "Unknown User"; });
 
-            // Wait for all user names before updating UI
-            Promise.all(fetchPromises).then(() => {
-                renderSpaces(spacesData);
-            });
-        })
-        .catch(error => console.error("Error loading spaces:", error));
+        fetchPromises.push(p);
+      });
+
+      Promise.all(fetchPromises).then(() => renderSpaces(spacesData));
+    }, (error) => {
+      console.error("Error loading spaces:", error);
+      showToast("error", "❌ Error loading spaces: " + (error.message || error));
+    });
 }
 
 
@@ -236,42 +268,53 @@ if (
 
 
 function sendJoinRequest(spaceId, userUID) {
-    db.collection("spaces").doc(spaceId).update({
-        pendingParticipants: firebase.firestore.FieldValue.arrayUnion(userUID)
-    })
-    .then(() => {
-        alert("Join request sent!");
-        viewSpaceDetails(spaceId); // Refresh space details
-    })
-    .catch(error => console.error("Error sending join request:", error));
+  if (!userUID) { showToast("warning", "⚠️ Please login first."); return; }
+
+  const btn = document.getElementById("join-space-btn");
+  setBtnLoading(btn, true, "Requesting...");
+
+  db.collection("spaces").doc(spaceId).update({
+    pendingParticipants: firebase.firestore.FieldValue.arrayUnion(userUID)
+  })
+  .then(() => {
+    showToast("success", "✅ Join request sent!");
+    viewSpaceDetails(spaceId);
+  })
+  .catch((error) => {
+    console.error("Error sending join request:", error);
+    showToast("error", `❌ Join request failed: ${error.code || ""} ${error.message || error}`);
+  })
+  .finally(() => setBtnLoading(btn, false));
 }
 
-
-
-// Close modal
 function approveParticipant(spaceId, userUID) {
-    db.collection("spaces").doc(spaceId).update({
-        pendingParticipants: firebase.firestore.FieldValue.arrayRemove(userUID),
-        joinedParticipants: firebase.firestore.FieldValue.arrayUnion(userUID)
-    })
-    .then(() => {
-        alert("✅ Participant Approved!");
-        viewSpaceDetails(spaceId); // Refresh modal
-    })
-    .catch(error => console.error("Error approving participant:", error));
+  db.collection("spaces").doc(spaceId).update({
+    pendingParticipants: firebase.firestore.FieldValue.arrayRemove(userUID),
+    joinedParticipants: firebase.firestore.FieldValue.arrayUnion(userUID)
+  })
+  .then(() => {
+    showToast("success", "✅ Participant approved!");
+    viewSpaceDetails(spaceId);
+  })
+  .catch((error) => {
+    console.error("Error approving participant:", error);
+    showToast("error", `❌ Approve failed: ${error.code || ""} ${error.message || error}`);
+  });
 }
 
 function rejectParticipant(spaceId, userUID) {
-    db.collection("spaces").doc(spaceId).update({
-        pendingParticipants: firebase.firestore.FieldValue.arrayRemove(userUID)
-    })
-    .then(() => {
-        alert("❌ Participant Rejected!");
-        viewSpaceDetails(spaceId); // Refresh modal
-    })
-    .catch(error => console.error("Error rejecting participant:", error));
+  db.collection("spaces").doc(spaceId).update({
+    pendingParticipants: firebase.firestore.FieldValue.arrayRemove(userUID)
+  })
+  .then(() => {
+    showToast("warning", "❌ Participant rejected!");
+    viewSpaceDetails(spaceId);
+  })
+  .catch((error) => {
+    console.error("Error rejecting participant:", error);
+    showToast("error", `❌ Reject failed: ${error.code || ""} ${error.message || error}`);
+  });
 }
-
 
 
 
