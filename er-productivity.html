@@ -246,7 +246,7 @@
       </div>
       <p class="tiny mt-3">
         * النظام مبني على الأعمدة: <code>MRN, PATIENT NAME, DOCTOR, REGISTRATION DATE, REGISTRATION TIME, CTAS TYPE, DISH. TYPE, FINAL DIAGNOSIS, Diagnosis Code</code>
-        + عمود رقم الطبيب (Doctor ID / Code) لو موجود في الشيت.
+        + عمود رقم الطبيب (Doctor ID / Code) وعمود العمر (AGE) أو DOB لو موجودين في الشيت.
       </p>
     </section>
 
@@ -390,6 +390,36 @@
           </ul>
         </div>
       </details>
+
+      <!-- NEW: Per Acuity — Age < 14 per Physician -->
+      <!-- NEW: Per Acuity — Age < 14 per Physician -->
+      <hr class="my-5 border-slate-700/70" />
+      <h3 class="font-semibold text-cyan-200 text-sm mb-1">
+        Per Acuity — Age &lt; 14 per Physician
+      </h3>
+      <p class="tiny mb-2">
+        يعرض لكل طبيب الحالات أقل من 14 سنة (زيارات فريدة بعد الاستبعاد)، بنفس شكل تصنيف الأطباء (Count &amp; Acuity).
+      </p>
+      <div class="table-wrap">
+        <table class="w-full text-sm">
+          <thead class="text-cyan-200">
+            <tr class="border-b border-slate-700/80">
+              <th class="p-2 text-right">#</th>
+              <th class="p-2 text-right">الرقم الوظيفي</th>
+              <th class="p-2 text-right">الطبيب</th>
+              <th class="p-2 text-right">إجمالي الحالات الفريدة</th>
+              <th class="p-2 text-right">CTAS 1</th>
+              <th class="p-2 text-right">CTAS 2</th>
+              <th class="p-2 text-right">CTAS 3</th>
+              <th class="p-2 text-right">CTAS 4</th>
+              <th class="p-2 text-right">CTAS 5</th>
+              <th class="p-2 text-right">Average Acuity</th>
+              <th class="p-2 text-right">Weighted Score</th>
+            </tr>
+          </thead>
+          <tbody id="pedsAcuityBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- Multi-Visits Table -->
@@ -468,7 +498,7 @@
       DX_CODE: 'Diagnosis Code'
     };
 
-    // أوزان CTAS للـ Acuity Score (الجديدة)
+    // أوزان CTAS للـ Acuity Score
     const CTAS_WEIGHT = { '1': 5, '2': 4, '3': 3, '4': 2, '5': 1, 'UNKNOWN': 0 };
 
     let rawRows = [];
@@ -489,6 +519,11 @@
     let shiftCountPerDoctor = {};
     let regDowHourMatrix = Array.from({ length: 7 }, () => new Array(24).fill(0)); // day(0-6) × hour(0-23)
     let doctorIdMap = {}; // Doctor Name -> Job Number / Code
+
+    // Pediatric (Age < 14) per acuity per physician
+    let doctorPedsCtasMap = {};
+    let doctorPedsTotal = {};
+
     let hiddenDoctorRules = []; // كلمات لإخفاء الأسماء في التصنيف
 
     let doctorBarChart = null;
@@ -520,6 +555,7 @@
     const rowsBody = document.getElementById('rowsBody');
     const rankBody = document.getElementById('rankBody');
     const multiVisitsBody = document.getElementById('multiVisitsBody');
+    const pedsAcuityBody = document.getElementById('pedsAcuityBody');
 
     fileInput.addEventListener('change', handleFile, false);
     processBtn.addEventListener('click', processData);
@@ -627,6 +663,78 @@
       return h * 60 + min;
     }
 
+    // تقدير عمر المريض بالسنوات (لو أقل من 14 نستخدمه في Pediatric table)
+    const getAgeYears = (() => {
+      let ageCol = null;
+      let dobCol = null;
+
+      function detectCols(row) {
+        if (!row) return;
+        const keys = Object.keys(row);
+
+        if (!ageCol) {
+          for (const k of keys) {
+            const low = k.toLowerCase();
+            if (low.includes('age') && !low.includes('triage')) {
+              ageCol = k;
+              break;
+            }
+          }
+        }
+
+        if (!dobCol) {
+          for (const k of keys) {
+            const low = k.toLowerCase();
+            if (low.includes('date of birth') || low === 'dob' || low.includes('birth date')) {
+              dobCol = k;
+              break;
+            }
+          }
+        }
+      }
+
+      function parseAgeVal(val) {
+        if (val == null || val === '') return null;
+        const s = String(val).toLowerCase().trim();
+        const m = s.match(/(\d+(\.\d+)?)/);
+        if (!m) return null;
+        const num = parseFloat(m[1]);
+        if (!isFinite(num)) return null;
+        if (num < 0 || num > 150) return null;
+        return num;
+      }
+
+      function calcAgeFromDob(dobVal, regDateStr) {
+        if (!dobVal || !regDateStr) return null;
+        const dob = new Date(dobVal);
+        if (isNaN(dob.getTime())) return null;
+        const ref = new Date(regDateStr + 'T00:00:00');
+        if (isNaN(ref.getTime())) return null;
+        let age = ref.getFullYear() - dob.getFullYear();
+        const mDiff = ref.getMonth() - dob.getMonth();
+        if (mDiff < 0 || (mDiff === 0 && ref.getDate() < dob.getDate())) age--;
+        if (age < 0 || age > 150) return null;
+        return age;
+      }
+
+      return function(row) {
+        if (!row) return null;
+        detectCols(row);
+
+        if (ageCol && row.hasOwnProperty(ageCol)) {
+          const age = parseAgeVal(row[ageCol]);
+          if (age != null) return age;
+        }
+
+        if (dobCol && row.hasOwnProperty(dobCol)) {
+          const regDateNorm = normalizeDate(row[COLS.REG_DATE]);
+          return calcAgeFromDob(row[dobCol], regDateNorm);
+        }
+
+        return null;
+      };
+    })();
+
     function dxKey(row) {
       const a = cleanStr(row[COLS.FINAL_DX]);
       const b = cleanStr(row[COLS.DX_CODE]);
@@ -678,6 +786,8 @@
       shiftCountPerDoctor = {};
       regDowHourMatrix = Array.from({ length: 7 }, () => new Array(24).fill(0));
       doctorIdMap = {};
+      doctorPedsCtasMap = {};
+      doctorPedsTotal = {};
       hiddenDoctorRules = [];
       if (hideNamesInput) hideNamesInput.value = '';
 
@@ -698,6 +808,7 @@
       rowsBody.innerHTML = '';
       rankBody.innerHTML = '';
       multiVisitsBody.innerHTML = '';
+      pedsAcuityBody.innerHTML = '';
 
       doctorSelect.innerHTML = '<option value="__ALL__">جميع الأطباء</option>';
       fileInput.value = '';
@@ -807,6 +918,8 @@
       shiftCountPerDoctor = {};
       regDowHourMatrix = Array.from({ length: 7 }, () => new Array(24).fill(0));
       doctorIdMap = {};
+      doctorPedsCtasMap = {};
+      doctorPedsTotal = {};
 
       uvMap.forEach((u, key) => {
         const doc = u.__doctorClean || 'غير محدد';
@@ -817,6 +930,10 @@
 
         const visitsSameDay = visitCountMap[key] || 1;
         u.__visitsSameDay = visitsSameDay;
+
+        // تقدير عمر المريض
+        const ageYears = getAgeYears(u);
+        u.__ageYears = ageYears;
 
         uniqueVisits.push(u);
 
@@ -829,15 +946,24 @@
           doctorCtasMap[doc] = { '1':0,'2':0,'3':0,'4':0,'5':0,'Unknown':0 };
         }
         const ctasCode = u.__ctasCode;
-        if (ctasCode in doctorCtasMap[doc]) {
-          doctorCtasMap[doc][ctasCode]++;
-        } else {
-          doctorCtasMap[doc]['Unknown']++;
+        const cKey = (ctasCode && doctorCtasMap[doc].hasOwnProperty(ctasCode)) ? ctasCode : 'Unknown';
+        doctorCtasMap[doc][cKey]++;
+
+        // Pediatric (Age < 14) per acuity
+        if (ageYears != null && ageYears < 14) {
+          if (!doctorPedsCtasMap[doc]) {
+            doctorPedsCtasMap[doc] = { '1':0,'2':0,'3':0,'4':0,'5':0,'Unknown':0 };
+          }
+          const pMap = doctorPedsCtasMap[doc];
+          const pKey = pMap.hasOwnProperty(ctasCode) ? ctasCode : 'Unknown';
+          pMap[pKey] = (pMap[pKey] || 0) + 1;
+
+          doctorPedsTotal[doc] = (doctorPedsTotal[doc] || 0) + 1;
         }
 
         // CTAS إجمالي
-        if (!ctasCounts[ctasCode]) ctasCounts[ctasCode] = 0;
-        ctasCounts[ctasCode]++;
+        if (!ctasCounts[cKey]) ctasCounts[cKey] = 0;
+        ctasCounts[cKey]++;
 
         // Top Dx
         const dx = dxKey(u);
@@ -929,6 +1055,7 @@
       renderCharts();
       renderHeatmap();
       renderRanking();
+      renderPedsAcuity();
       renderTable();
       renderMultiVisitsTable();
 
@@ -1140,6 +1267,7 @@
         .map(s => s.trim().toLowerCase())
         .filter(Boolean);
       renderRanking();
+      renderPedsAcuity();
     }
 
     function renderRanking() {
@@ -1211,6 +1339,85 @@
         frag.appendChild(tr);
       });
       rankBody.appendChild(frag);
+    }
+
+    function renderPedsAcuity() {
+      pedsAcuityBody.innerHTML = '';
+      if (!doctors.length) return;
+
+      const visibleDocs = doctors.filter(d => !shouldHideDoctor(d));
+      const items = [];
+
+      visibleDocs.forEach((doc) => {
+        const total = doctorPedsTotal[doc] || 0;
+        if (!total) return; // مفيش أطفال للطبيب ده
+
+        const map = doctorPedsCtasMap[doc] || { '1':0,'2':0,'3':0,'4':0,'5':0,'Unknown':0 };
+        const c1 = map['1'] || 0;
+        const c2 = map['2'] || 0;
+        const c3 = map['3'] || 0;
+        const c4 = map['4'] || 0;
+        const c5 = map['5'] || 0;
+
+        let weighted = 0;
+        weighted += (CTAS_WEIGHT['1'] || 0) * c1;
+        weighted += (CTAS_WEIGHT['2'] || 0) * c2;
+        weighted += (CTAS_WEIGHT['3'] || 0) * c3;
+        weighted += (CTAS_WEIGHT['4'] || 0) * c4;
+        weighted += (CTAS_WEIGHT['5'] || 0) * c5;
+
+        const avg = total ? (weighted / total) : 0;
+        const docId = doctorIdMap[doc] || '';
+
+        items.push({
+          doc,
+          docId,
+          total,
+          c1,
+          c2,
+          c3,
+          c4,
+          c5,
+          avg,
+          weighted
+        });
+      });
+
+      if (!items.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="p-2 tiny text-slate-400" colspan="11">
+            لا توجد بيانات لعمر أقل من 14 سنة أو لم يتم التعرف على عمود العمر/DOB في الشيت الحالي.
+          </td>
+        `;
+        pedsAcuityBody.appendChild(tr);
+        return;
+      }
+
+      // نفس منطق الترتيب: حسب إجمالي الحالات ثم الـ Weighted
+      items.sort((a, b) => (b.total - a.total) || (b.weighted - a.weighted));
+
+      const frag = document.createDocumentFragment();
+      let rank = 1;
+      items.forEach((it) => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-700/60 hover:bg-white/5';
+        tr.innerHTML = `
+          <td class="p-2">${rank++}</td>
+          <td class="p-2">${escapeHtml(it.docId)}</td>
+          <td class="p-2">${escapeHtml(it.doc)}</td>
+          <td class="p-2 font-semibold">${it.total}</td>
+          <td class="p-2"><span class="ctas-badge ctas-1">${it.c1}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-2">${it.c2}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-3">${it.c3}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-4">${it.c4}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-5">${it.c5}</span></td>
+          <td class="p-2">${it.avg.toFixed(2)}</td>
+          <td class="p-2">${it.weighted.toFixed(1)}</td>
+        `;
+        frag.appendChild(tr);
+      });
+      pedsAcuityBody.appendChild(frag);
     }
 
     function renderTable() {
