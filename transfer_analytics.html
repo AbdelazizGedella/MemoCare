@@ -1,1360 +1,1431 @@
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl" data-theme="dark">
-    <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>🚑 Patient Transfer Analytics — Live Sheet</title>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🚑 Patient Transfer Analytics — Live Sheet</title>
 
-    <!-- Tailwind + DaisyUI -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <!-- Tailwind + DaisyUI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
 
-    <!-- PapaParse (CSV) -->
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <!-- PapaParse (CSV) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-    <!-- SheetJS (Export Excel) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS (Export Excel) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
 
-    <style>
-        :root{
-        --bg1:#070b18; --bg2:#0b1330; --glass:rgba(9,20,50,.35);
-        --stroke:rgba(255,255,255,.12); --text:#e6f0ff; --muted:#9fb3ca;
-        --shadow: 0 18px 60px rgba(0,0,0,.45);
-        }
-        body{
-        background:
-            radial-gradient(1200px 700px at 80% 0%, rgba(0,216,255,.14), transparent 55%),
-            radial-gradient(900px 600px at 15% 10%, rgba(167,139,250,.12), transparent 60%),
-            linear-gradient(135deg, var(--bg1), var(--bg2));
-        color: var(--text);
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, "Cairo", sans-serif;
-        }
-        .glass{
-        background: var(--glass);
-        border: 1px solid var(--stroke);
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(10px);
-        }
-        .kpi{ border-radius: 18px; }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-        .chip{
-        border: 1px solid rgba(255,255,255,.12);
-        background: rgba(255,255,255,.06);
-        border-radius: 999px;
-        padding: 6px 10px;
-        font-size: 12px;
-        color: var(--muted);
-        display: inline-flex;
-        gap: 8px;
-        align-items: center;
-        white-space: nowrap;
-        }
-        .badge-soft{
-        border: 1px solid rgba(255,255,255,.14);
-        background: rgba(255,255,255,.06);
-        color: #dbeafe;
-        }
+  <style>
+    :root{
+      --bg1:#070b18; --bg2:#0b1330; --glass:rgba(9,20,50,.35);
+      --stroke:rgba(255,255,255,.12); --text:#e6f0ff; --muted:#9fb3ca;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+    }
+    body{
+      background:
+        radial-gradient(1200px 700px at 80% 0%, rgba(0,216,255,.14), transparent 55%),
+        radial-gradient(900px 600px at 15% 10%, rgba(167,139,250,.12), transparent 60%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Cairo", sans-serif;
+    }
+    .glass{
+      background: var(--glass);
+      border: 1px solid var(--stroke);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .kpi{ border-radius: 18px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .chip{
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .badge-soft{
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: #dbeafe;
+    }
 
-        /* CTAS color coding: 1 Blue, 2 Red, 3 Yellow, 4 Green, 5 White */
-        .ctas-1{ background: rgba(59,130,246,.22)!important; border-color: rgba(59,130,246,.55)!important; color:#dbeafe!important; }
-        .ctas-2{ background: rgba(239,68,68,.20)!important; border-color: rgba(239,68,68,.55)!important; color:#fee2e2!important; }
-        .ctas-3{ background: rgba(234,179,8,.18)!important; border-color: rgba(234,179,8,.55)!important; color:#fef9c3!important; }
-        .ctas-4{ background: rgba(34,197,94,.18)!important; border-color: rgba(34,197,94,.55)!important; color:#dcfce7!important; }
-        .ctas-5{ background: rgba(255,255,255,.12)!important; border-color: rgba(255,255,255,.40)!important; color:#ffffff!important; }
-        .ctas-u{ background: rgba(148,163,184,.14)!important; border-color: rgba(148,163,184,.35)!important; color:#e2e8f0!important; }
+    /* CTAS color coding: 1 Blue, 2 Red, 3 Yellow, 4 Green, 5 White */
+    .ctas-1{ background: rgba(59,130,246,.22)!important; border-color: rgba(59,130,246,.55)!important; color:#dbeafe!important; }
+    .ctas-2{ background: rgba(239,68,68,.20)!important; border-color: rgba(239,68,68,.55)!important; color:#fee2e2!important; }
+    .ctas-3{ background: rgba(234,179,8,.18)!important; border-color: rgba(234,179,8,.55)!important; color:#fef9c3!important; }
+    .ctas-4{ background: rgba(34,197,94,.18)!important; border-color: rgba(34,197,94,.55)!important; color:#dcfce7!important; }
+    .ctas-5{ background: rgba(255,255,255,.12)!important; border-color: rgba(255,255,255,.40)!important; color:#ffffff!important; }
+    .ctas-u{ background: rgba(148,163,184,.14)!important; border-color: rgba(148,163,184,.35)!important; color:#e2e8f0!important; }
 
-        .badge-blue{ background: rgba(96,165,250,.22)!important; border-color: rgba(96,165,250,.45)!important; color:#dbeafe!important; }
-        .badge-red{ background: rgba(248,113,113,.18)!important; border-color: rgba(248,113,113,.45)!important; color:#fee2e2!important; }
-        .badge-cyan{ background: rgba(34,211,238,.16)!important; border-color: rgba(34,211,238,.45)!important; color:#cffafe!important; }
-        .badge-violet{ background: rgba(167,139,250,.18)!important; border-color: rgba(167,139,250,.45)!important; color:#ede9fe!important; }
+    .badge-blue{ background: rgba(96,165,250,.22)!important; border-color: rgba(96,165,250,.45)!important; color:#dbeafe!important; }
+    .badge-red{ background: rgba(248,113,113,.18)!important; border-color: rgba(248,113,113,.45)!important; color:#fee2e2!important; }
+    .badge-cyan{ background: rgba(34,211,238,.16)!important; border-color: rgba(34,211,238,.45)!important; color:#cffafe!important; }
+    .badge-violet{ background: rgba(167,139,250,.18)!important; border-color: rgba(167,139,250,.45)!important; color:#ede9fe!important; }
 
-        canvas { max-height: 340px; }
-        th { position: sticky; top: 0; background: rgba(10,18,45,.95)!important; z-index: 2; }
-        .table-compact td{ padding-top: .45rem; padding-bottom: .45rem; }
+    canvas { max-height: 340px; }
+    th { position: sticky; top: 0; background: rgba(10,18,45,.95)!important; z-index: 2; }
+    .table-compact td{ padding-top: .45rem; padding-bottom: .45rem; }
 
-        /* Heatmap grid */
-        .hm-wrap{ overflow:auto; border-radius: 14px; border: 1px solid rgba(255,255,255,.10); }
-        .hm{
-        border-collapse: collapse;
-        width: max-content;
-        min-width: 100%;
-        }
-        .hm th,.hm td{
-        border: 1px solid rgba(255,255,255,.08);
-        text-align: center;
-        padding: 6px 8px;
-        font-size: 12px;
-        white-space: nowrap;
-        }
-        .hm th{
-        background: rgba(10,18,45,.65);
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        }
-        .hm .left{
-        position: sticky;
-        right: 0;
-        background: rgba(10,18,45,.85);
-        z-index: 3;
-        font-weight: 700;
-        }
-        .hm .cell{
-        min-width: 42px;
-        cursor: pointer;
-        transition: transform .08s ease;
-        }
-        .hm .cell:hover{ transform: scale(1.05); }
-    </style>
-    </head>
+    /* Heatmap grid */
+    .hm-wrap{ overflow:auto; border-radius: 14px; border: 1px solid rgba(255,255,255,.10); }
+    .hm{ border-collapse: collapse; width: max-content; min-width: 100%; }
+    .hm th,.hm td{
+      border: 1px solid rgba(255,255,255,.08);
+      text-align: center;
+      padding: 6px 8px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .hm th{
+      background: rgba(10,18,45,.65);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .hm .left{
+      position: sticky;
+      right: 0;
+      background: rgba(10,18,45,.85);
+      z-index: 3;
+      font-weight: 700;
+    }
+    .hm .cell{
+      min-width: 42px;
+      cursor: pointer;
+      transition: transform .08s ease;
+    }
+    .hm .cell:hover{ transform: scale(1.05); }
+  </style>
+</head>
 
-    <body class="min-h-screen">
-    <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+<body class="min-h-screen">
+  <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
 
-        <!-- Header -->
-        <div class="glass rounded-2xl p-4 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-            <div class="flex items-center gap-2 flex-wrap">
-            <div class="badge badge-info badge-outline">Dashboard</div>
-            <div class="badge badge-primary badge-outline">Live Google Sheet CSV</div>
-            <div class="badge badge-secondary badge-outline">Heatmap + Compliance + Travel Time</div>
-            <div class="badge badge-outline badge-soft">✅ Timestamp formats supported</div>
-            </div>
-            <h1 class="text-2xl md:text-3xl font-bold mt-2">🚑 Patient Transfer Analytics</h1>
-    
+    <!-- Header -->
+    <div class="glass rounded-2xl p-4 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="badge badge-info badge-outline">Dashboard</div>
+          <div class="badge badge-primary badge-outline">Live Google Sheet CSV</div>
+          <div class="badge badge-secondary badge-outline">Heatmap + Staff + Travel</div>
+          <div class="badge badge-outline badge-soft">✅ Timestamp formats supported</div>
         </div>
-
-        <div class="flex flex-wrap gap-2 items-center justify-start md:justify-end">
-            <button id="btnReloadUrl" class="btn btn-sm btn-outline">🔄 Reload from Sheet</button>
-            <label class="btn btn-sm btn-ghost">
-            <input id="csvFile" type="file" accept=".csv" class="hidden" />
-            📥 Upload CSV (Optional)
-            </label>
-            <button id="btnExport" class="btn btn-sm btn-success">⬇️ Export (Filtered) Excel</button>
+        <h1 class="text-2xl md:text-3xl font-bold mt-2">🚑 Patient Transfer Analytics</h1>
+        <div class="text-xs text-slate-400 mt-1">
+          ⏱️ الاعتماد على: <span class="mono" id="activeTimeColumn">—</span>
         </div>
-        </div>
+      </div>
 
-        <!-- Controls -->
-        <div class="glass rounded-2xl p-4 md:p-6">
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div class="md:col-span-3">
-            <label class="label"><span class="label-text text-slate-200">من (From)</span></label>
-            <input id="fromDT" type="datetime-local" class="input input-bordered w-full bg-transparent" />
-            </div>
-            <div class="md:col-span-3">
-            <label class="label"><span class="label-text text-slate-200">إلى (To)</span></label>
-            <input id="toDT" type="datetime-local" class="input input-bordered w-full bg-transparent" />
-            </div>
-
-            <div class="md:col-span-3">
-            <label class="label"><span class="label-text text-slate-200">Search (أي عمود)</span></label>
-            <input id="searchBox" type="text" placeholder="CTAS3 / اسم موظف / MRN ..." class="input input-bordered w-full bg-transparent" />
-            </div>
-
-            <div class="md:col-span-3 flex gap-2">
-            <button id="btnApply" class="btn btn-info flex-1">✅ Apply</button>
-            <button id="btnReset" class="btn btn-outline flex-1">↩ Reset</button>
-            </div>
-
-            <div class="md:col-span-12 flex flex-wrap gap-2 mt-1">
-            <button class="btn btn-xs btn-outline" data-preset="today">Today</button>
-            <button class="btn btn-xs btn-outline" data-preset="7d">Last 7 days</button>
-            <button class="btn btn-xs btn-outline" data-preset="30d">Last 30 days</button>
-            <button class="btn btn-xs btn-outline" data-preset="all">All</button>
-
-            <span class="chip">🧠 يدعم Timestamp: <span class="mono">1:55:53 م 2025/08/17</span> + القديم</span>
-            <span id="statusChip" class="chip">—</span>
-            </div>
-        </div>
-        </div>
-
-        <!-- KPI Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="glass kpi p-4">
-            <div class="text-sm text-slate-300">Total Cases (Filtered)</div>
-            <div id="kpiTotal" class="text-3xl font-extrabold mt-1">—</div>
-            <div id="kpiRange" class="text-xs text-slate-400 mt-2 mono">—</div>
-        </div>
-
-        <div class="glass kpi p-4">
-            <div class="text-sm text-slate-300">Registered %</div>
-            <div id="kpiRegPct" class="text-3xl font-extrabold mt-1">—</div>
-            <div id="kpiRegCounts" class="text-xs text-slate-400 mt-2">—</div>
-        </div>
-
-        <div class="glass kpi p-4">
-            <div class="text-sm text-slate-300">Peak Hour</div>
-            <div id="kpiPeakHour" class="text-3xl font-extrabold mt-1">—</div>
-            <div id="kpiPeakHourCount" class="text-xs text-slate-400 mt-2">—</div>
-        </div>
-
-        <div class="glass kpi p-4">
-            <div class="text-sm text-slate-300">Peak Day</div>
-            <div id="kpiPeakDay" class="text-3xl font-extrabold mt-1">—</div>
-            <div id="kpiPeakDayCount" class="text-xs text-slate-400 mt-2">—</div>
-        </div>
-        </div>
-
-        <!-- Heatmap -->
-        <div class="glass rounded-2xl p-4 md:p-6">
-        <div class="flex items-center justify-between gap-2 flex-wrap">
-            <h2 class="font-bold">🔥 Heatmap — Day × Hour (Crowding)</h2>
-            <span class="chip">كل خلية = عدد الحالات</span>
-        </div>
-        <p class="text-xs text-slate-400 mt-1">
-            اضغط على أي خلية: يفلتر الجدول على نفس اليوم والساعة (Quick drilldown).
-        </p>
-        <div class="hm-wrap mt-3">
-            <div id="heatmapContainer"></div>
-        </div>
-        <div class="text-xs text-slate-400 mt-2" id="heatmapLegend">—</div>
-        </div>
-
-        <!-- Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div class="glass rounded-2xl p-4 md:p-5">
-            <div class="flex items-center justify-between mb-2">
-            <h2 class="font-bold">⏰ Cases by Hour (0–23)</h2>
-            <span class="chip">الساعة الأكثر ازدحامًا</span>
-            </div>
-            <canvas id="chHour"></canvas>
-        </div>
-
-        <div class="glass rounded-2xl p-4 md:p-5">
-            <div class="flex items-center justify-between mb-2">
-            <h2 class="font-bold">📅 Cases by Weekday</h2>
-            <span class="chip">أكثر يوم ييجي فيه حالات</span>
-            </div>
-            <canvas id="chWeekday"></canvas>
-        </div>
-
-        <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
-            <div class="flex items-center justify-between mb-2">
-            <h2 class="font-bold">📈 Daily Trend — Registered vs Not (Side-by-side)</h2>
-            <span class="chip">الأزرق Registered / الأحمر Not</span>
-            </div>
-            <canvas id="chDaily"></canvas>
-
-            <!-- Daily Summary Table -->
-            <div class="mt-4">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h3 class="font-bold">🧾 Daily Summary</h3>
-                <div class="text-xs text-slate-400">
-                Total + Registered/Not + Staff + CTAS (color-coded)
-                </div>
-            </div>
-
-            <div class="overflow-auto rounded-xl border border-white/10 mt-2">
-                <table class="table table-zebra table-sm table-compact">
-                <thead>
-                    <tr>
-                    <th>Day</th>
-                    <th>Total</th>
-                    <th>Registered</th>
-                    <th>Not Registered</th>
-                    <th>Treat on scene</th>
-                    <th>Staff (Counts)</th>
-                    <th>CTAS Mix</th>
-                    </tr>
-                </thead>
-                <tbody id="dailySummaryBody"></tbody>
-                </table>
-            </div>
-            </div>
-        </div>
-
-        <div class="glass rounded-2xl p-4 md:p-5">
-            <div class="flex items-center justify-between mb-2">
-            <h2 class="font-bold">🎯 CTAS Distribution</h2>
-            <span class="chip">+ Table تحتها</span>
-            </div>
-            <canvas id="chCtas"></canvas>
-
-            <div class="mt-4 overflow-auto rounded-xl border border-white/10">
-            <table class="table table-zebra table-sm table-compact">
-                <thead>
-                <tr>
-                    <th>CTAS</th>
-                    <th>Count</th>
-                    <th>%</th>
-                </tr>
-                </thead>
-                <tbody id="ctasDistBody"></tbody>
-            </table>
-            </div>
-        </div>
-
-        <div class="glass rounded-2xl p-4 md:p-5">
-            <div class="flex items-center justify-between mb-2">
-            <h2 class="font-bold">👩‍⚕️ Top Employees (Volume)</h2>
-            <span class="chip">أكثر ناس سجلت حالات</span>
-            </div>
-            <canvas id="chTopStaff"></canvas>
-        </div>
-
-        <!-- Staff Compliance -->
-        <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-            <h2 class="font-bold">✅ Staff Compliance Score</h2>
-            <span class="chip">Score = 70% Registered + 30% Data Completeness</span>
-            </div>
-            <p class="text-xs text-slate-400 mt-1">
-            Missing Fields محسوبة على الحقول الأساسية + أي أعمدة زمن رحلة تم اكتشافها تلقائيًا.
-            </p>
-
-            <div class="overflow-auto rounded-xl border border-white/10 mt-3">
-            <table class="table table-zebra table-sm table-compact">
-                <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Total</th>
-                    <th>Registered%</th>
-                    <th>Missing%</th>
-                    <th>Compliance Score</th>
-                    <th>CTAS Mix</th>
-                </tr>
-                </thead>
-                <tbody id="complianceBody"></tbody>
-            </table>
-            </div>
-        </div>
-
-        <!-- Travel Time Analysis -->
-        <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-            <h2 class="font-bold">⏱️ Travel Time Analysis</h2>
-            <span class="chip" id="travelDetected">Detecting columns…</span>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-            <div class="glass rounded-2xl p-4">
-                <div class="text-sm text-slate-300">Avg Travel (min)</div>
-                <div id="ttAvg" class="text-3xl font-extrabold mt-1">—</div>
-                <div class="text-xs text-slate-400 mt-2" id="ttCols">—</div>
-            </div>
-            <div class="glass rounded-2xl p-4">
-                <div class="text-sm text-slate-300">Median (min)</div>
-                <div id="ttMed" class="text-3xl font-extrabold mt-1">—</div>
-                <div class="text-xs text-slate-400 mt-2">P90: <span id="ttP90">—</span></div>
-            </div>
-            <div class="glass rounded-2xl p-4">
-                <div class="text-sm text-slate-300">Outliers</div>
-                <div id="ttOutCount" class="text-3xl font-extrabold mt-1">—</div>
-                <div class="text-xs text-slate-400 mt-2">> P90</div>
-            </div>
-            </div>
-
-            <div class="mt-4 overflow-auto rounded-xl border border-white/10">
-            <table class="table table-zebra table-sm table-compact">
-                <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Employee</th>
-                    <th>CTAS</th>
-                    <th>Travel (min)</th>
-                    <th>Timestamp</th>
-                </tr>
-                </thead>
-                <tbody id="travelOutBody"></tbody>
-            </table>
-            </div>
-        </div>
-
-        <!-- Employee Trend Chart -->
-        <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
-            <div class="flex items-center justify-between mb-2">
-            <h2 class="font-bold">🏷️ Employee Trend — Registered vs Not</h2>
-            <span class="chip">Top 12 by total</span>
-            </div>
-            <canvas id="chEmpRegNot"></canvas>
-
-            <div class="mt-4">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h3 class="font-bold">📋 Employee Analytics Table</h3>
-                <div class="text-xs text-slate-400">
-                لكل موظف: Total / Registered% / Reg/Not/Treat + CTAS mix (color-coded)
-                </div>
-            </div>
-
-            <div class="overflow-auto rounded-xl border border-white/10 mt-2">
-                <table class="table table-zebra table-sm table-compact">
-                <thead>
-                    <tr>
-                    <th>Employee</th>
-                    <th>Total</th>
-                    <th>Registered%</th>
-                    <th>Reg</th>
-                    <th>Not</th>
-                    <th>Treat</th>
-                    <th>CTAS Mix</th>
-                    </tr>
-                </thead>
-                <tbody id="empBody"></tbody>
-                </table>
-            </div>
-            </div>
-        </div>
-        </div>
-
-        <!-- Data Table -->
-        <div class="glass rounded-2xl p-4 md:p-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
-            <h2 class="font-bold">🧾 Data Table (Filtered)</h2>
-            <div class="text-xs text-slate-400">
-            Tip: Search + فلترة من/إلى + Export Excel.
-            </div>
-        </div>
-
-        <div class="overflow-auto rounded-xl border border-white/10">
-            <table class="table table-zebra table-sm">
-            <thead>
-                <tr id="theadRow"></tr>
-            </thead>
-            <tbody id="tbody"></tbody>
-            </table>
-        </div>
-
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mt-3">
-            <div class="text-xs text-slate-400" id="tblInfo">—</div>
-            <div class="join">
-            <button id="prevPage" class="btn btn-xs join-item">◀</button>
-            <button id="pageBtn" class="btn btn-xs join-item btn-disabled">Page —</button>
-            <button id="nextPage" class="btn btn-xs join-item">▶</button>
-            </div>
-        </div>
-        </div>
-
-        <div class="text-center text-xs text-slate-400 pb-6">
-        Live Sheet dashboard ⚡ — Ready for ED operations.
-        </div>
+      <div class="flex flex-wrap gap-2 items-center justify-start md:justify-end">
+        <button id="btnReloadUrl" class="btn btn-sm btn-outline">🔄 Reload from Sheet</button>
+        <label class="btn btn-sm btn-ghost">
+          <input id="csvFile" type="file" accept=".csv" class="hidden" />
+          📥 Upload CSV (Optional)
+        </label>
+        <button id="btnExport" class="btn btn-sm btn-success">⬇️ Export (Filtered) Excel</button>
+      </div>
     </div>
 
-    <script>
-    /* =========================
-    Config: Live CSV URL
-    ========================= */
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRMIwudtM0HrALgQodZf9rfkiNbyfr-mKBlInf0FAZfM7FwupyMieohwDpU5m284OiEUdPoOTX64bNm/pub?gid=314966093&single=true&output=csv";
+    <!-- Controls -->
+    <div class="glass rounded-2xl p-4 md:p-6">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        <div class="md:col-span-3">
+          <label class="label"><span class="label-text text-slate-200">من (From)</span></label>
+          <input id="fromDT" type="datetime-local" class="input input-bordered w-full bg-transparent" />
+        </div>
+        <div class="md:col-span-3">
+          <label class="label"><span class="label-text text-slate-200">إلى (To)</span></label>
+          <input id="toDT" type="datetime-local" class="input input-bordered w-full bg-transparent" />
+        </div>
 
-    /* =========================================================
-    Timestamp parsers (Flexible)
-    Supports:
-    - "1:55:53 م 2025/08/17"
-    - "2025/08/17 1:55:53 م"
-    - "الأحد, 17 أغسطس 2025 at 00:29:54"
-    - ISO/English Date.parse fallback
-    ========================================================= */
+        <div class="md:col-span-3">
+          <label class="label"><span class="label-text text-slate-200">Search (أي عمود)</span></label>
+          <input id="searchBox" type="text" placeholder="CTAS3 / اسم موظف / MRN ..." class="input input-bordered w-full bg-transparent" />
+        </div>
 
-    const AR_MONTHS = {
-    "يناير":0,"فبراير":1,"مارس":2,"أبريل":3,"ابريل":3,"مايو":4,"يونيو":5,
-    "يوليو":6,"أغسطس":7,"اغسطس":7,"سبتمبر":8,"أكتوبر":9,"اكتوبر":9,"نوفمبر":10,"ديسمبر":11
-    };
-    const AR_WEEKDAYS = ["الأحد","الاحد","الاثنين","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+        <div class="md:col-span-3 flex gap-2">
+          <button id="btnApply" class="btn btn-info flex-1">✅ Apply</button>
+          <button id="btnReset" class="btn btn-outline flex-1">↩ Reset</button>
+        </div>
 
-    function safeStr(v){
-    if(v === null || v === undefined) return "";
-    return String(v).trim();
+        <div class="md:col-span-12 flex flex-wrap gap-2 mt-1">
+          <button class="btn btn-xs btn-outline" data-preset="today">Today</button>
+          <button class="btn btn-xs btn-outline" data-preset="7d">Last 7 days</button>
+          <button class="btn btn-xs btn-outline" data-preset="30d">Last 30 days</button>
+          <button class="btn btn-xs btn-outline" data-preset="all">All</button>
+
+          <span class="chip">🧠 يدعم Timestamp: <span class="mono">1:55:53 م 2025/08/17</span> + القديم</span>
+          <span id="statusChip" class="chip">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="glass kpi p-4">
+        <div class="text-sm text-slate-300">Total Cases (Filtered)</div>
+        <div id="kpiTotal" class="text-3xl font-extrabold mt-1">—</div>
+        <div id="kpiRange" class="text-xs text-slate-400 mt-2 mono">—</div>
+      </div>
+
+      <div class="glass kpi p-4">
+        <div class="text-sm text-slate-300">Registered %</div>
+        <div id="kpiRegPct" class="text-3xl font-extrabold mt-1">—</div>
+        <div id="kpiRegCounts" class="text-xs text-slate-400 mt-2">—</div>
+      </div>
+
+      <div class="glass kpi p-4">
+        <div class="text-sm text-slate-300">Peak Hour</div>
+        <div id="kpiPeakHour" class="text-3xl font-extrabold mt-1">—</div>
+        <div id="kpiPeakHourCount" class="text-xs text-slate-400 mt-2">—</div>
+      </div>
+
+      <div class="glass kpi p-4">
+        <div class="text-sm text-slate-300">Peak Day</div>
+        <div id="kpiPeakDay" class="text-3xl font-extrabold mt-1">—</div>
+        <div id="kpiPeakDayCount" class="text-xs text-slate-400 mt-2">—</div>
+      </div>
+    </div>
+
+    <!-- No Productivity days -->
+    <div class="glass rounded-2xl p-4 md:p-6">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <h2 class="font-bold">🕳️ Spot — أيام مفيش فيها أي إدخالات (No Productivity)</h2>
+        <span class="chip">داخل الرينج الحالي فقط</span>
+      </div>
+      <div class="mt-3" id="noProdDays">
+        <span class="text-slate-400 text-xs">—</span>
+      </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div class="glass rounded-2xl p-4 md:p-6">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <h2 class="font-bold">🔥 Heatmap — Day × Hour (Crowding)</h2>
+        <span class="chip">كل خلية = عدد الحالات</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">اضغط على أي خلية: يفلتر الجدول على نفس اليوم والساعة (Quick drilldown).</p>
+      <div class="hm-wrap mt-3">
+        <div id="heatmapContainer"></div>
+      </div>
+      <div class="text-xs text-slate-400 mt-2" id="heatmapLegend">—</div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div class="glass rounded-2xl p-4 md:p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold">⏰ Cases by Hour (0–23)</h2>
+          <span class="chip">الساعة الأكثر ازدحامًا</span>
+        </div>
+        <canvas id="chHour"></canvas>
+      </div>
+
+      <div class="glass rounded-2xl p-4 md:p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold">📅 Cases by Weekday</h2>
+          <span class="chip">أكثر يوم ييجي فيه حالات</span>
+        </div>
+        <canvas id="chWeekday"></canvas>
+      </div>
+
+      <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold">📈 Daily Trend — Registered vs Not (Side-by-side)</h2>
+          <span class="chip">الأزرق Registered / الأحمر Not</span>
+        </div>
+        <canvas id="chDaily"></canvas>
+
+        <!-- Daily Summary Table -->
+        <div class="mt-4">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <h3 class="font-bold">🧾 Daily Summary</h3>
+            <div class="text-xs text-slate-400">Total + Registered/Not + Staff + CTAS (color-coded)</div>
+          </div>
+
+          <div class="overflow-auto rounded-xl border border-white/10 mt-2">
+            <table class="table table-zebra table-sm table-compact">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Total</th>
+                  <th>Registered</th>
+                  <th>Not Registered</th>
+                  <th>Treat on scene</th>
+                  <th>Staff (Counts)</th>
+                  <th>CTAS Mix</th>
+                </tr>
+              </thead>
+              <tbody id="dailySummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-4 md:p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold">🎯 CTAS Distribution</h2>
+          <span class="chip">+ Table تحتها</span>
+        </div>
+        <canvas id="chCtas"></canvas>
+
+        <div class="mt-4 overflow-auto rounded-xl border border-white/10">
+          <table class="table table-zebra table-sm table-compact">
+            <thead>
+              <tr>
+                <th>CTAS</th>
+                <th>Count</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="ctasDistBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="glass rounded-2xl p-4 md:p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold">👩‍⚕️ Top Employees (Volume)</h2>
+          <span class="chip">أكثر ناس سجلت حالات</span>
+        </div>
+        <canvas id="chTopStaff"></canvas>
+
+        <!-- NEW: Top Employees Table -->
+        <div class="mt-4 overflow-auto rounded-xl border border-white/10">
+          <table class="table table-zebra table-sm table-compact">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Total</th>
+                <th>Registered</th>
+                <th>Not Registered</th>
+                <th>Treat</th>
+                <th>Registered%</th>
+              </tr>
+            </thead>
+            <tbody id="topStaffBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Staff Compliance -->
+      <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <h2 class="font-bold">✅ Staff Compliance Score</h2>
+          <span class="chip">Registered% + Shifts + CTAS Mix</span>
+        </div>
+
+        <!-- CTAS definition once -->
+        <div class="mt-2 flex flex-wrap gap-2">
+          <span class="chip"><span class="badge badge-outline ctas-1">1</span> Resuscitation = CTAS 1</span>
+          <span class="chip"><span class="badge badge-outline ctas-2">2</span> Emergent = CTAS 2</span>
+          <span class="chip"><span class="badge badge-outline ctas-3">3</span> Urgent = CTAS 3</span>
+          <span class="chip"><span class="badge badge-outline ctas-4">4</span> Less Urgent = CTAS 4</span>
+          <span class="chip"><span class="badge badge-outline ctas-5">5</span> Non-Urgent = CTAS 5</span>
+        </div>
+
+        <div class="overflow-auto rounded-xl border border-white/10 mt-3">
+          <table class="table table-zebra table-sm table-compact">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Total</th>
+                <th>Registered%</th>
+                <th>Shifts</th>
+                <th>CTAS Mix</th>
+              </tr>
+            </thead>
+            <tbody id="complianceBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Travel Time Analysis -->
+      <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <h2 class="font-bold">⏱️ Travel Time Analysis</h2>
+          <span class="chip" id="travelDetected">Detecting columns…</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          <div class="glass rounded-2xl p-4">
+            <div class="text-sm text-slate-300">Avg Travel (min)</div>
+            <div id="ttAvg" class="text-3xl font-extrabold mt-1">—</div>
+            <div class="text-xs text-slate-400 mt-2" id="ttCols">—</div>
+          </div>
+          <div class="glass rounded-2xl p-4">
+            <div class="text-sm text-slate-300">Median (min)</div>
+            <div id="ttMed" class="text-3xl font-extrabold mt-1">—</div>
+            <div class="text-xs text-slate-400 mt-2">P90: <span id="ttP90">—</span></div>
+          </div>
+          <div class="glass rounded-2xl p-4">
+            <div class="text-sm text-slate-300">Outliers</div>
+            <div id="ttOutCount" class="text-3xl font-extrabold mt-1">—</div>
+            <div class="text-xs text-slate-400 mt-2">&gt; P90</div>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-auto rounded-xl border border-white/10">
+          <table class="table table-zebra table-sm table-compact">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Employee</th>
+                <th>CTAS</th>
+                <th>Travel (min)</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="travelOutBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Employee Trend Chart -->
+      <div class="glass rounded-2xl p-4 md:p-5 lg:col-span-2">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold">🏷️ Employee Trend — Registered vs Not</h2>
+          <span class="chip">Top 12 by total</span>
+        </div>
+        <canvas id="chEmpRegNot"></canvas>
+
+        <div class="mt-4">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <h3 class="font-bold">📋 Employee Analytics Table</h3>
+            <div class="text-xs text-slate-400">لكل موظف: Total / Registered% / Reg/Not/Treat + CTAS mix</div>
+          </div>
+
+          <div class="overflow-auto rounded-xl border border-white/10 mt-2">
+            <table class="table table-zebra table-sm table-compact">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Total</th>
+                  <th>Registered%</th>
+                  <th>Reg</th>
+                  <th>Not</th>
+                  <th>Treat</th>
+                  <th>CTAS Mix</th>
+                </tr>
+              </thead>
+              <tbody id="empBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="glass rounded-2xl p-4 md:p-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
+        <h2 class="font-bold">🧾 Data Table (Filtered)</h2>
+        <div class="text-xs text-slate-400">Tip: Search + فلترة من/إلى + Export Excel.</div>
+      </div>
+
+      <div class="overflow-auto rounded-xl border border-white/10">
+        <table class="table table-zebra table-sm">
+          <thead><tr id="theadRow"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mt-3">
+        <div class="text-xs text-slate-400" id="tblInfo">—</div>
+        <div class="join">
+          <button id="prevPage" class="btn btn-xs join-item">◀</button>
+          <button id="pageBtn" class="btn btn-xs join-item btn-disabled">Page —</button>
+          <button id="nextPage" class="btn btn-xs join-item">▶</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center text-xs text-slate-400 pb-6">
+      Live Sheet dashboard ⚡ — Ready for ED operations.
+    </div>
+
+  </div>
+
+<script>
+/* =========================
+Config: Live CSV URL
+========================= */
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRMIwudtM0HrALgQodZf9rfkiNbyfr-mKBlInf0FAZfM7FwupyMieohwDpU5m284OiEUdPoOTX64bNm/pub?gid=314966093&single=true&output=csv";
+
+/* =========================
+Timestamp parsers (Flexible)
+========================= */
+const AR_MONTHS = {
+  "يناير":0,"فبراير":1,"مارس":2,"أبريل":3,"ابريل":3,"مايو":4,"يونيو":5,
+  "يوليو":6,"أغسطس":7,"اغسطس":7,"سبتمبر":8,"أكتوبر":9,"اكتوبر":9,"نوفمبر":10,"ديسمبر":11
+};
+const AR_WEEKDAYS = ["الأحد","الاحد","الاثنين","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+
+function safeStr(v){ if(v === null || v === undefined) return ""; return String(v).trim(); }
+
+function parseArabicTimestamp_oldStyle(s){
+  if(!s || typeof s !== "string") return null;
+  let t = s.trim();
+
+  for(const wd of AR_WEEKDAYS){
+    if(t.startsWith(wd)){
+      t = t.replace(wd, "").trim();
+      if(t.startsWith(",")) t = t.slice(1).trim();
+      break;
     }
+  }
+  const parts = t.split(" at ");
+  const datePart = (parts[0] || "").trim();
+  const timePart = (parts[1] || "00:00:00").trim();
 
-    function parseArabicTimestamp_oldStyle(s){
-    if(!s || typeof s !== "string") return null;
-    let t = s.trim();
+  const d = datePart.split(/\s+/);
+  if(d.length < 3) return null;
 
-    for(const wd of AR_WEEKDAYS){
-        if(t.startsWith(wd)){
-        t = t.replace(wd, "").trim();
-        if(t.startsWith(",")) t = t.slice(1).trim();
-        break;
-        }
+  const day = parseInt(d[0], 10);
+  const monthName = d[1];
+  const year = parseInt(d[2], 10);
+  const m = AR_MONTHS[monthName];
+  if(Number.isNaN(day) || Number.isNaN(year) || m === undefined) return null;
+
+  const tt = timePart.split(":").map(x => parseInt(x,10));
+  const hh = tt[0] ?? 0, mm = tt[1] ?? 0, ss = tt[2] ?? 0;
+
+  return new Date(year, m, day, hh, mm, ss);
+}
+
+function parseYMD(s){
+  const m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(!m) return null;
+  const y = parseInt(m[1],10);
+  const mo = parseInt(m[2],10) - 1;
+  const d = parseInt(m[3],10);
+  if([y,mo,d].some(Number.isNaN)) return null;
+  return {y, mo, d};
+}
+function parseDMY(s){
+  const m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(!m) return null;
+  const d = parseInt(m[1],10);
+  const mo = parseInt(m[2],10) - 1;
+  const y = parseInt(m[3],10);
+  if([y,mo,d].some(Number.isNaN)) return null;
+  return {y, mo, d};
+}
+function parseHMS(s){
+  const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if(!m) return null;
+  let hh = parseInt(m[1],10);
+  let mm = parseInt(m[2],10);
+  let ss = parseInt(m[3] ?? "0",10);
+  if([hh,mm,ss].some(Number.isNaN)) return null;
+  return {hh, mm, ss};
+}
+function applyAMPM(hh, ampm){
+  if(!ampm) return hh;
+  const a = String(ampm).toLowerCase();
+  const isPM = (a === "م" || a === "pm");
+  const isAM = (a === "ص" || a === "am");
+  if(isPM){ if(hh < 12) hh += 12; return hh; }
+  if(isAM){ if(hh === 12) hh = 0; return hh; }
+  return hh;
+}
+function parseTimestampFlexible(s){
+  const raw = safeStr(s);
+  if(!raw) return null;
+
+  const old = parseArabicTimestamp_oldStyle(raw);
+  if(old) return old;
+
+  const hms = parseHMS(raw);
+  const ymd = parseYMD(raw) || parseDMY(raw);
+  if(hms && ymd){
+    const ampmMatch = raw.match(/(\bAM\b|\bPM\b|ص|م)/i);
+    const ampm = ampmMatch ? ampmMatch[1] : null;
+    const hh = applyAMPM(hms.hh, ampm);
+    return new Date(ymd.y, ymd.mo, ymd.d, hh, hms.mm, hms.ss);
+  }
+
+  const parsed = Date.parse(raw);
+  if(!Number.isNaN(parsed)) return new Date(parsed);
+  return null;
+}
+
+/* =========================
+Helpers
+========================= */
+function toISOForInput(dt){
+  const pad = n => String(n).padStart(2,"0");
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+function fmtDateKey(dt){
+  const pad = n => String(n).padStart(2,"0");
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+}
+function fmtDayOnly(dt){ return fmtDateKey(dt); }
+
+function regBucket(v){
+  const s = safeStr(v).toLowerCase();
+  if(!s) return "not";
+  if(s.includes("rigestered") || s.includes("registered")) return "reg";
+  if(s.includes("not registered")) return "not";
+  if(s.includes("treat on the scene")) return "treat";
+  return "not";
+}
+function normalizeCTAS(v){
+  const s = safeStr(v).replace(/\s+/g," ").trim();
+  return s || "Unknown";
+}
+
+/* ==== Name normalization per your examples ==== */
+function smartNameNormalize(name){
+  const raw = safeStr(name);
+  if(!raw) return "Unknown";
+  const parts = raw.split(/\s+/).filter(Boolean);
+
+  const capFirst = (w)=> w ? (w[0].toUpperCase() + w.slice(1).toLowerCase()) : w;
+
+  if(parts.length >= 3){
+    const first = parts[0].toUpperCase();               // ABDELRAHMAN
+    const rest = parts.slice(1).map(capFirst);          // Taha Abdelgawwad
+    return [first, ...rest].join(" ");
+  }
+  if(parts.length === 2){
+    const first = capFirst(parts[0]);                   // Amr
+    const last = parts[1].toLowerCase();                // gado
+    return `${first} ${last}`;
+  }
+  return capFirst(parts[0]);
+}
+function normalizeName(v){ return smartNameNormalize(v); }
+
+function ctasLevelFromText(ctasText){
+  const s = safeStr(ctasText);
+  const m = s.match(/([1-5])/);
+  return m ? parseInt(m[1],10) : null;
+}
+function ctasBadgeHTML(ctasText, count){
+  const lvl = ctasLevelFromText(ctasText);
+  const cls = lvl ? `ctas-${lvl}` : "ctas-u";
+  const label = safeStr(ctasText) || "Unknown";
+  const c = (count === "" || count === null || count === undefined) ? "" : ` <span class="opacity-70">(${count})</span>`;
+  return `<span class="badge badge-outline ${cls} mr-1">${label}${c}</span>`;
+}
+
+/* =========================
+Travel time detection
+========================= */
+function findColumnByKeywords(headers, keywords){
+  const lowered = headers.map(h => ({h, l: h.toLowerCase()}));
+  for(const kw of keywords){
+    const k = kw.toLowerCase();
+    const hit = lowered.find(x => x.l.includes(k));
+    if(hit) return hit.h;
+  }
+  return null;
+}
+function parseTimeOnlyToDate(timeStr, baseDate){
+  const raw = safeStr(timeStr);
+  if(!raw || !baseDate) return null;
+  const m = raw.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if(!m) return null;
+  const hh = parseInt(m[1],10);
+  const mm = parseInt(m[2],10);
+  const ss = parseInt(m[3] ?? "0",10);
+  if([hh,mm,ss].some(Number.isNaN)) return null;
+  return new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hh, mm, ss);
+}
+function parseAnyDateTimeCell(v, rowTimestampDate){
+  const raw = safeStr(v);
+  if(!raw) return null;
+  const dt = parseTimestampFlexible(raw);
+  if(dt) return dt;
+  const timeOnly = parseTimeOnlyToDate(raw, rowTimestampDate);
+  if(timeOnly) return timeOnly;
+  const p = Date.parse(raw);
+  return Number.isNaN(p) ? null : new Date(p);
+}
+function percentile(arr, p){
+  if(!arr.length) return null;
+  const a = [...arr].sort((x,y)=>x-y);
+  const idx = (p/100) * (a.length - 1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  if(lo === hi) return a[lo];
+  const w = idx - lo;
+  return a[lo]*(1-w) + a[hi]*w;
+}
+function median(arr){ return percentile(arr, 50); }
+
+/* =========================
+State
+========================= */
+let RAW_ROWS = [];
+let FILTERED = [];
+let HEADERS = [];
+let charts = {};
+let page = 1;
+const PAGE_SIZE = 18;
+
+/* Core columns */
+const colTimestamp = "طابع زمني";
+const colArrival = "Time of Arrival at CMH Hospital"; // ✅ your request
+const colCTAS = "Triage Level (Canadian Triage and Acuity Scale – CTAS) ";
+const colEmployee = "Employee Name (Full Name)";
+const colReg = "patient Register or not Rigester ";
+
+/* UI refs */
+const elFrom = document.getElementById("fromDT");
+const elTo = document.getElementById("toDT");
+const elSearch = document.getElementById("searchBox");
+const elStatus = document.getElementById("statusChip");
+
+const elKpiTotal = document.getElementById("kpiTotal");
+const elKpiRange = document.getElementById("kpiRange");
+const elKpiRegPct = document.getElementById("kpiRegPct");
+const elKpiRegCounts = document.getElementById("kpiRegCounts");
+const elKpiPeakHour = document.getElementById("kpiPeakHour");
+const elKpiPeakHourCount = document.getElementById("kpiPeakHourCount");
+const elKpiPeakDay = document.getElementById("kpiPeakDay");
+const elKpiPeakDayCount = document.getElementById("kpiPeakDayCount");
+
+const dailySummaryBody = document.getElementById("dailySummaryBody");
+const ctasDistBody = document.getElementById("ctasDistBody");
+const empBody = document.getElementById("empBody");
+const complianceBody = document.getElementById("complianceBody");
+const topStaffBody = document.getElementById("topStaffBody");
+const noProdDays = document.getElementById("noProdDays");
+
+const travelDetected = document.getElementById("travelDetected");
+const ttAvg = document.getElementById("ttAvg");
+const ttMed = document.getElementById("ttMed");
+const ttP90 = document.getElementById("ttP90");
+const ttCols = document.getElementById("ttCols");
+const ttOutCount = document.getElementById("ttOutCount");
+const travelOutBody = document.getElementById("travelOutBody");
+
+const theadRow = document.getElementById("theadRow");
+const tbody = document.getElementById("tbody");
+const tblInfo = document.getElementById("tblInfo");
+const prevPage = document.getElementById("prevPage");
+const nextPage = document.getElementById("nextPage");
+const pageBtn = document.getElementById("pageBtn");
+
+const activeTimeColumn = document.getElementById("activeTimeColumn");
+
+let heatmapLast = { matrix:null, max:0 };
+
+/* =========================
+Heatmap builder
+========================= */
+function buildHeatmap(matrix, maxVal){
+  heatmapLast = { matrix, max: maxVal };
+  const container = document.getElementById("heatmapContainer");
+  if(!matrix){
+    container.innerHTML = `<div class="p-4 text-sm text-slate-300">No timestamps found to build heatmap.</div>`;
+    document.getElementById("heatmapLegend").textContent = "—";
+    return;
+  }
+
+  const wdLabels = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  let html = `<table class="hm"><thead><tr><th class="left">Day \\ Hour</th>`;
+  for(let h=0; h<24; h++) html += `<th>${h}</th>`;
+  html += `</tr></thead><tbody>`;
+
+  for(let d=0; d<7; d++){
+    html += `<tr><td class="left">${wdLabels[d]}</td>`;
+    for(let h=0; h<24; h++){
+      const val = matrix[d][h];
+      const intensity = maxVal ? (val / maxVal) : 0;
+      const bg = `rgba(34,211,238,${0.07 + intensity*0.55})`;
+      const color = intensity > 0.55 ? "#051018" : "#e6f0ff";
+      html += `<td class="cell" data-wd="${d}" data-hour="${h}" style="background:${bg};color:${color}">${val || ""}</td>`;
     }
-    const parts = t.split(" at ");
-    const datePart = (parts[0] || "").trim();
-    const timePart = (parts[1] || "00:00:00").trim();
+    html += `</tr>`;
+  }
+  html += `</tbody></table>`;
+  container.innerHTML = html;
 
-    const d = datePart.split(/\s+/);
-    if(d.length < 3) return null;
+  const legend = maxVal ? `Max cell = ${maxVal} cases. (أعلى خلية)` : "—";
+  document.getElementById("heatmapLegend").textContent = legend;
 
-    const day = parseInt(d[0], 10);
-    const monthName = d[1];
-    const year = parseInt(d[2], 10);
-    const m = AR_MONTHS[monthName];
-    if(Number.isNaN(day) || Number.isNaN(year) || m === undefined) return null;
-
-    const tt = timePart.split(":").map(x => parseInt(x,10));
-    const hh = tt[0] ?? 0, mm = tt[1] ?? 0, ss = tt[2] ?? 0;
-
-    return new Date(year, m, day, hh, mm, ss);
-    }
-
-    function parseYMD(s){
-    const m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-    if(!m) return null;
-    const y = parseInt(m[1],10);
-    const mo = parseInt(m[2],10) - 1;
-    const d = parseInt(m[3],10);
-    if([y,mo,d].some(Number.isNaN)) return null;
-    return {y, mo, d};
-    }
-    function parseDMY(s){
-    // fallback if someone uses 17/08/2025
-    const m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if(!m) return null;
-    const d = parseInt(m[1],10);
-    const mo = parseInt(m[2],10) - 1;
-    const y = parseInt(m[3],10);
-    if([y,mo,d].some(Number.isNaN)) return null;
-    return {y, mo, d};
-    }
-    function parseHMS(s){
-    const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if(!m) return null;
-    let hh = parseInt(m[1],10);
-    let mm = parseInt(m[2],10);
-    let ss = parseInt(m[3] ?? "0",10);
-    if([hh,mm,ss].some(Number.isNaN)) return null;
-    return {hh, mm, ss};
-    }
-    function applyAMPM(hh, ampm){
-    if(!ampm) return hh;
-    const a = String(ampm).toLowerCase();
-    const isPM = (a === "م" || a === "pm");
-    const isAM = (a === "ص" || a === "am");
-    if(isPM){ if(hh < 12) hh += 12; return hh; }
-    if(isAM){ if(hh === 12) hh = 0; return hh; }
-    return hh;
-    }
-    function parseTimestampFlexible(s){
-    const raw = safeStr(s);
-    if(!raw) return null;
-
-    const old = parseArabicTimestamp_oldStyle(raw);
-    if(old) return old;
-
-    const hms = parseHMS(raw);
-    const ymd = parseYMD(raw) || parseDMY(raw);
-    if(hms && ymd){
-        const ampmMatch = raw.match(/(\bAM\b|\bPM\b|ص|م)/i);
-        const ampm = ampmMatch ? ampmMatch[1] : null;
-        const hh = applyAMPM(hms.hh, ampm);
-        return new Date(ymd.y, ymd.mo, ymd.d, hh, hms.mm, hms.ss);
-    }
-
-    const parsed = Date.parse(raw);
-    if(!Number.isNaN(parsed)) return new Date(parsed);
-
-    return null;
-    }
-
-    /* =========================
-    Helpers
-    ========================= */
-    function toISOForInput(dt){
-    const pad = n => String(n).padStart(2,"0");
-    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-    }
-    function fmtDateKey(dt){
-    const pad = n => String(n).padStart(2,"0");
-    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
-    }
-
-    function regBucket(v){
-    const s = safeStr(v).toLowerCase();
-    if(!s) return "not";
-    if(s.includes("rigestered") || s.includes("registered")) return "reg";
-    if(s.includes("not registered")) return "not";
-    if(s.includes("treat on the scene")) return "treat";
-    return "not";
-    }
-    function normalizeCTAS(v){
-    const s = safeStr(v).replace(/\s+/g," ").trim();
-    if(!s) return "Unknown";
-    return s;
-    }
-    function normalizeName(v){
-    const s = safeStr(v);
-    return s || "Unknown";
-    }
-    function ctasLevelFromText(ctasText){
-    // tries to detect 1-5 from strings like "CTAS1" or "CTAS 2" or "2"
-    const s = safeStr(ctasText);
-    const m = s.match(/([1-5])/);
-    return m ? parseInt(m[1],10) : null;
-    }
-    function ctasBadgeHTML(ctasText, count){
-    const lvl = ctasLevelFromText(ctasText);
-    const cls = lvl ? `ctas-${lvl}` : "ctas-u";
-    const label = safeStr(ctasText) || "Unknown";
-    return `<span class="badge badge-outline ${cls} mr-1">${label}<span class="opacity-70"> (${count})</span></span>`;
-    }
-
-    /* =========================
-    Travel time columns detection
-    ========================= */
-    function findColumnByKeywords(headers, keywords){
-    const lowered = headers.map(h => ({h, l: h.toLowerCase()}));
-    for(const kw of keywords){
-        const k = kw.toLowerCase();
-        const hit = lowered.find(x => x.l.includes(k));
-        if(hit) return hit.h;
-    }
-    return null;
-    }
-    function parseTimeOnlyToDate(timeStr, baseDate){
-    // timeStr like "21:03" or "21:03:00"
-    const raw = safeStr(timeStr);
-    if(!raw || !baseDate) return null;
-
-    const m = raw.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if(!m) return null;
-
-    const hh = parseInt(m[1],10);
-    const mm = parseInt(m[2],10);
-    const ss = parseInt(m[3] ?? "0",10);
-    if([hh,mm,ss].some(Number.isNaN)) return null;
-
-    return new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hh, mm, ss);
-    }
-
-    function parseAnyDateTimeCell(v, rowTimestampDate){
-    const raw = safeStr(v);
-    if(!raw) return null;
-
-    // 1) Try full datetime parsers
-    const dt = parseTimestampFlexible(raw);
-    if(dt) return dt;
-
-    // 2) If it's time-only, attach it to the row timestamp date
-    const timeOnly = parseTimeOnlyToDate(raw, rowTimestampDate);
-    if(timeOnly) return timeOnly;
-
-    // 3) Date.parse fallback
-    const p = Date.parse(raw);
-    return Number.isNaN(p) ? null : new Date(p);
-    }
-
-    function percentile(arr, p){
-    if(!arr.length) return null;
-    const a = [...arr].sort((x,y)=>x-y);
-    const idx = (p/100) * (a.length - 1);
-    const lo = Math.floor(idx), hi = Math.ceil(idx);
-    if(lo === hi) return a[lo];
-    const w = idx - lo;
-    return a[lo]*(1-w) + a[hi]*w;
-    }
-    function median(arr){ return percentile(arr, 50); }
-
-    /* =========================
-    State
-    ========================= */
-    let RAW_ROWS = [];
-    let FILTERED = [];
-    let HEADERS = [];
-    let charts = {};
-    let page = 1;
-    const PAGE_SIZE = 18;
-
-    /* Columns (as per your form — can still work if slightly different) */
-    const colTimestamp = "طابع زمني";
-    const colCTAS = "Triage Level (Canadian Triage and Acuity Scale – CTAS) ";
-    const colEmployee = "Employee Name (Full Name)";
-    const colReg = "patient Register or not Rigester ";
-
-    /* UI refs */
-    const elFrom = document.getElementById("fromDT");
-    const elTo = document.getElementById("toDT");
-    const elSearch = document.getElementById("searchBox");
-    const elStatus = document.getElementById("statusChip");
-
-    const elKpiTotal = document.getElementById("kpiTotal");
-    const elKpiRange = document.getElementById("kpiRange");
-    const elKpiRegPct = document.getElementById("kpiRegPct");
-    const elKpiRegCounts = document.getElementById("kpiRegCounts");
-    const elKpiPeakHour = document.getElementById("kpiPeakHour");
-    const elKpiPeakHourCount = document.getElementById("kpiPeakHourCount");
-    const elKpiPeakDay = document.getElementById("kpiPeakDay");
-    const elKpiPeakDayCount = document.getElementById("kpiPeakDayCount");
-
-    const dailySummaryBody = document.getElementById("dailySummaryBody");
-    const ctasDistBody = document.getElementById("ctasDistBody");
-    const empBody = document.getElementById("empBody");
-    const complianceBody = document.getElementById("complianceBody");
-
-    const travelDetected = document.getElementById("travelDetected");
-    const ttAvg = document.getElementById("ttAvg");
-    const ttMed = document.getElementById("ttMed");
-    const ttP90 = document.getElementById("ttP90");
-    const ttCols = document.getElementById("ttCols");
-    const ttOutCount = document.getElementById("ttOutCount");
-    const travelOutBody = document.getElementById("travelOutBody");
-
-    const theadRow = document.getElementById("theadRow");
-    const tbody = document.getElementById("tbody");
-    const tblInfo = document.getElementById("tblInfo");
-    const prevPage = document.getElementById("prevPage");
-    const nextPage = document.getElementById("nextPage");
-    const pageBtn = document.getElementById("pageBtn");
-
-    let heatmapLast = { matrix:null, max:0 };
-
-    /* =========================
-    Heatmap builder (HTML grid)
-    ========================= */
-    function buildHeatmap(matrix, maxVal){
-    heatmapLast = { matrix, max: maxVal };
-    const container = document.getElementById("heatmapContainer");
-    if(!matrix){
-        container.innerHTML = `<div class="p-4 text-sm text-slate-300">No timestamps found to build heatmap.</div>`;
-        document.getElementById("heatmapLegend").textContent = "—";
-        return;
-    }
-
-    const wdLabels = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
-    let html = `<table class="hm"><thead><tr><th class="left">Day \\ Hour</th>`;
-    for(let h=0; h<24; h++) html += `<th>${h}</th>`;
-    html += `</tr></thead><tbody>`;
-
-    for(let d=0; d<7; d++){
-        html += `<tr><td class="left">${wdLabels[d]}</td>`;
-        for(let h=0; h<24; h++){
-        const val = matrix[d][h];
-        const intensity = maxVal ? (val / maxVal) : 0;
-        // visually: cyan-ish alpha
-        const bg = `rgba(34,211,238,${0.07 + intensity*0.55})`;
-        const color = intensity > 0.55 ? "#051018" : "#e6f0ff";
-        html += `<td class="cell" data-wd="${d}" data-hour="${h}" style="background:${bg};color:${color}">${val || ""}</td>`;
-        }
-        html += `</tr>`;
-    }
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-
-    const legend = maxVal ? `Max cell = ${maxVal} cases. (أعلى خلية)` : "—";
-    document.getElementById("heatmapLegend").textContent = legend;
-
-    // click drilldown: filter by weekday+hour (keeps time range)
-    container.querySelectorAll(".cell").forEach(td=>{
-        td.addEventListener("click", ()=>{
-        const wd = parseInt(td.getAttribute("data-wd"),10);
-        const hr = parseInt(td.getAttribute("data-hour"),10);
-        quickDrilldown(wd, hr);
-        });
+  container.querySelectorAll(".cell").forEach(td=>{
+    td.addEventListener("click", ()=>{
+      const wd = parseInt(td.getAttribute("data-wd"),10);
+      const hr = parseInt(td.getAttribute("data-hour"),10);
+      quickDrilldown(wd, hr);
     });
-    }
+  });
+}
+function quickDrilldown(weekdayIdx, hour){
+  const temp = FILTERED.filter(r => r.__dt && r.__dt.getDay()===weekdayIdx && r.__dt.getHours()===hour);
+  page = 1;
+  buildTableWithRows(temp, `Heatmap drilldown: weekday=${weekdayIdx} hour=${hour}:00 | Rows=${temp.length}`);
+}
 
-    function quickDrilldown(weekdayIdx, hour){
-    // We'll just set the search box to something that matches "hour" is hard.
-    // Instead, apply filter in-memory by setting a special global drilldown and rebuilding table only.
-    // Easiest: temporarily filter rows matching weekday+hour and show them in table (without losing charts):
-    const temp = FILTERED.filter(r => r.__dt && r.__dt.getDay()===weekdayIdx && r.__dt.getHours()===hour);
-    // show a snapshot in table + info, without altering charts
-    page = 1;
-    buildTableWithRows(temp, `Heatmap drilldown: weekday=${weekdayIdx} hour=${hour}:00 | Rows=${temp.length}`);
-    }
+/* =========================
+Table
+========================= */
+function buildTableWithRows(rows, infoText){
+  theadRow.innerHTML = "";
+  for(const h of HEADERS){
+    const th = document.createElement("th");
+    th.textContent = h;
+    theadRow.appendChild(th);
+  }
 
-    function buildTableWithRows(rows, infoText){
-    // headers unchanged
-    theadRow.innerHTML = "";
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  page = Math.min(page, pages);
+
+  const start = (page-1) * PAGE_SIZE;
+  const slice = rows.slice(start, start + PAGE_SIZE);
+
+  tbody.innerHTML = "";
+  for(const r of slice){
+    const tr = document.createElement("tr");
     for(const h of HEADERS){
-        const th = document.createElement("th");
-        th.textContent = h;
-        theadRow.appendChild(th);
+      const td = document.createElement("td");
+      td.textContent = safeStr(r[h]);
+      tr.appendChild(td);
     }
+    tbody.appendChild(tr);
+  }
 
-    const total = rows.length;
-    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    page = Math.min(page, pages);
+  tblInfo.textContent = infoText ? infoText : (total ? `Showing ${start+1}-${Math.min(start+PAGE_SIZE,total)} of ${total} rows` : "No rows");
+  pageBtn.textContent = `Page ${page}/${pages}`;
+  prevPage.disabled = (page<=1);
+  nextPage.disabled = (page>=pages);
+}
+function buildTable(){ buildTableWithRows(FILTERED, null); }
 
-    const start = (page-1) * PAGE_SIZE;
-    const slice = rows.slice(start, start + PAGE_SIZE);
+/* =========================
+Charts
+========================= */
+function destroyCharts(){
+  Object.values(charts).forEach(ch => { try{ ch.destroy(); }catch(e){} });
+  charts = {};
+}
+function buildDailySummaryTable(dailyKeys, dailyAgg){
+  dailySummaryBody.innerHTML = "";
+  for(const dk of dailyKeys){
+    const b = dailyAgg.get(dk);
+    const tr = document.createElement("tr");
 
-    tbody.innerHTML = "";
-    for(const r of slice){
-        const tr = document.createElement("tr");
-        for(const h of HEADERS){
-        const td = document.createElement("td");
-        td.textContent = safeStr(r[h]);
-        tr.appendChild(td);
-        }
-        tbody.appendChild(tr);
-    }
+    tr.innerHTML = `
+      <td><span class="badge badge-outline badge-soft">${dk}</span></td>
+      <td><span class="badge badge-violet">${b.total}</span></td>
+      <td><span class="badge badge-blue">${b.reg}</span></td>
+      <td><span class="badge badge-red">${b.not}</span></td>
+      <td><span class="badge badge-cyan">${b.treat}</span></td>
+      <td>${Array.from(b.staff.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
+        .map(([name,c]) => `<span class="badge badge-outline badge-soft mr-1">${name}<span class="opacity-70"> (${c})</span></span>`).join(" ") || `<span class="text-slate-400 text-xs">—</span>`}
+      </td>
+      <td>${Array.from(b.ctas.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
+        .map(([ct,c]) => ctasBadgeHTML(ct,c)).join(" ") || `<span class="text-slate-400 text-xs">—</span>`}
+      </td>
+    `;
+    dailySummaryBody.appendChild(tr);
+  }
+}
+function buildCTASDistTable(ctasMap, total){
+  ctasDistBody.innerHTML = "";
+  const order = ["CTAS1","CTAS2","CTAS3","CTAS4","CTAS5","Unknown"];
 
-    tblInfo.textContent = infoText ? infoText : (total ? `Showing ${start+1}-${Math.min(start+PAGE_SIZE,total)} of ${total} rows` : "No rows");
-    pageBtn.textContent = `Page ${page}/${pages}`;
-    prevPage.disabled = (page<=1);
-    nextPage.disabled = (page>=pages);
-    }
+  const entries = [];
+  for(const [k,v] of ctasMap.entries()){
+    const lvl = ctasLevelFromText(k);
+    const key = lvl ? `CTAS${lvl}` : "Unknown";
+    entries.push([key, v]);
+  }
+  const merged = new Map();
+  for(const [k,v] of entries) merged.set(k, (merged.get(k)||0)+v);
 
-    /* =========================
-    Charts
-    ========================= */
-    function destroyCharts(){
-    Object.values(charts).forEach(ch => { try{ ch.destroy(); }catch(e){} });
-    charts = {};
-    }
+  for(const key of order){
+    if(!merged.has(key)) continue;
+    const count = merged.get(key);
+    const pct = total ? Math.round((count/total)*100) : 0;
 
-    function buildDailySummaryTable(dailyKeys, dailyAgg){
-    dailySummaryBody.innerHTML = "";
-    for(const dk of dailyKeys){
-        const b = dailyAgg.get(dk);
-        const tr = document.createElement("tr");
+    const lvl = key.startsWith("CTAS") ? parseInt(key.replace("CTAS",""),10) : null;
+    const cls = lvl ? `ctas-${lvl}` : "ctas-u";
 
-        tr.innerHTML = `
-        <td><span class="badge badge-outline badge-soft">${dk}</span></td>
-        <td><span class="badge badge-violet">${b.total}</span></td>
-        <td><span class="badge badge-blue">${b.reg}</span></td>
-        <td><span class="badge badge-red">${b.not}</span></td>
-        <td><span class="badge badge-cyan">${b.treat}</span></td>
-        <td>${Array.from(b.staff.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
-            .map(([name,c]) => `<span class="badge badge-outline badge-soft mr-1">${name}<span class="opacity-70"> (${c})</span></span>`).join(" ") || `<span class="text-slate-400 text-xs">—</span>`}
-        </td>
-        <td>${Array.from(b.ctas.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
-            .map(([ct,c]) => ctasBadgeHTML(ct,c)).join(" ") || `<span class="text-slate-400 text-xs">—</span>`}
-        </td>
-        `;
-        dailySummaryBody.appendChild(tr);
-    }
-    }
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="badge badge-outline ${cls}">${key}</span></td>
+      <td><span class="badge badge-outline badge-soft">${count}</span></td>
+      <td><span class="badge badge-outline badge-soft">${pct}%</span></td>
+    `;
+    ctasDistBody.appendChild(tr);
+  }
+}
+function buildEmployeeTables(empSorted){
+  empBody.innerHTML = "";
+  for(const [emp, e] of empSorted.slice(0,40)){
+    const regPct = e.total ? Math.round((e.reg/e.total)*100) : 0;
+    const ctasMix = Array.from(e.ctas.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
+      .map(([ct,c]) => ctasBadgeHTML(ct,c)).join(" ") || `<span class="text-slate-400 text-xs">—</span>`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="badge badge-outline badge-soft">${emp}</span></td>
+      <td><span class="badge badge-violet">${e.total}</span></td>
+      <td><span class="badge badge-blue">${regPct}%</span></td>
+      <td><span class="badge badge-blue">${e.reg}</span></td>
+      <td><span class="badge badge-red">${e.not}</span></td>
+      <td><span class="badge badge-cyan">${e.treat}</span></td>
+      <td>${ctasMix}</td>
+    `;
+    empBody.appendChild(tr);
+  }
+}
 
-    function buildCTASDistTable(ctasMap, total){
-    ctasDistBody.innerHTML = "";
-    const order = ["CTAS1","CTAS2","CTAS3","CTAS4","CTAS5","Unknown"];
-    const entries = [];
+/* ✅ Updated: Staff Compliance table -> Shifts instead of Missing/Score */
+function buildComplianceTable(empSorted){
+  complianceBody.innerHTML = "";
+  for(const [emp, e] of empSorted.slice(0,50)){
+    const regPct = e.total ? (e.reg/e.total)*100 : 0;
+    const shifts = e.shiftDays ? e.shiftDays.size : 0;
 
-    // normalize keys into those buckets as best as possible
-    for(const [k,v] of ctasMap.entries()){
-        const lvl = ctasLevelFromText(k);
-        const key = lvl ? `CTAS${lvl}` : "Unknown";
-        entries.push([key, v]);
-    }
-    const merged = new Map();
-    for(const [k,v] of entries) merged.set(k, (merged.get(k)||0)+v);
+    const ctasMix = Array.from(e.ctas.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
+      .map(([ct,c]) => ctasBadgeHTML(ct,c)).join(" ") || `<span class="text-slate-400 text-xs">—</span>`;
 
-    for(const key of order){
-        if(!merged.has(key)) continue;
-        const count = merged.get(key);
-        const pct = total ? Math.round((count/total)*100) : 0;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="badge badge-outline badge-soft">${emp}</span></td>
+      <td><span class="badge badge-violet">${e.total}</span></td>
+      <td><span class="badge badge-blue">${Math.round(regPct)}%</span></td>
+      <td><span class="badge badge-outline badge-soft">${shifts}</span></td>
+      <td>${ctasMix}</td>
+    `;
+    complianceBody.appendChild(tr);
+  }
+}
 
-        const lvl = key.startsWith("CTAS") ? parseInt(key.replace("CTAS",""),10) : null;
-        const cls = lvl ? `ctas-${lvl}` : "ctas-u";
+/* ✅ NEW: Top Employees (Volume) table under chart */
+function buildTopEmployeesTable(empSorted){
+  topStaffBody.innerHTML = "";
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-        <td><span class="badge badge-outline ${cls}">${key}</span></td>
-        <td><span class="badge badge-outline badge-soft">${count}</span></td>
-        <td><span class="badge badge-outline badge-soft">${pct}%</span></td>
-        `;
-        ctasDistBody.appendChild(tr);
-    }
-    }
+  let sumTotal=0, sumReg=0, sumNot=0, sumTreat=0;
 
-    function buildEmployeeTables(empSorted){
-    // Employee analytics table (top 40)
-    empBody.innerHTML = "";
-    for(const [emp, e] of empSorted.slice(0,40)){
-        const regPct = e.total ? Math.round((e.reg/e.total)*100) : 0;
-        const ctasMix = Array.from(e.ctas.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
-        .map(([ct,c]) => ctasBadgeHTML(ct,c)).join(" ") || `<span class="text-slate-400 text-xs">—</span>`;
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-        <td><span class="badge badge-outline badge-soft">${emp}</span></td>
-        <td><span class="badge badge-violet">${e.total}</span></td>
-        <td><span class="badge badge-blue">${regPct}%</span></td>
-        <td><span class="badge badge-blue">${e.reg}</span></td>
-        <td><span class="badge badge-red">${e.not}</span></td>
-        <td><span class="badge badge-cyan">${e.treat}</span></td>
-        <td>${ctasMix}</td>
-        `;
-        empBody.appendChild(tr);
-    }
-    }
-
-    function buildComplianceTable(empSorted, requiredCols){
-    complianceBody.innerHTML = "";
-    for(const [emp, e] of empSorted.slice(0,50)){
-        const regPct = e.total ? (e.reg/e.total)*100 : 0;
-    const missingPct = e.total ? (e.missingCellsSum / e.total) * 100 : 0;
-        const completeness = 100 - missingPct;
-        const score = (0.70*regPct) + (0.30*completeness);
-
-        const ctasMix = Array.from(e.ctas.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10)
-        .map(([ct,c]) => ctasBadgeHTML(ct,c)).join(" ") || `<span class="text-slate-400 text-xs">—</span>`;
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-        <td><span class="badge badge-outline badge-soft">${emp}</span></td>
-        <td><span class="badge badge-violet">${e.total}</span></td>
-        <td><span class="badge badge-blue">${Math.round(regPct)}%</span></td>
-        <td><span class="badge badge-red">${Math.round(missingPct)}%</span></td>
-        <td><span class="badge badge-outline badge-soft">${Math.round(score)}%</span></td>
-        <td>${ctasMix}</td>
-        `;
-        complianceBody.appendChild(tr);
-    }
-    }
-
-    function buildTravelTimeAnalysis(rows, headers){
-    // detect columns (best effort)
-    const startCol = findColumnByKeywords(headers, [
-    "departure","depart","left","leaving","time out","out time",
-    "مغادرة","خروج","وقت الخروج","وقت المغادرة","تحرك"
-    ]);
-
-    const endCol = findColumnByKeywords(headers, [
-    "arrival","arrive","received","receiving","time in","in time",
-    "وصول","وصل","وقت الوصول","استلام","تم الاستلام"
-    ]);
-
-    const returnCol = findColumnByKeywords(headers, [
-    "return","returned","back","time back",
-    "رجوع","عودة","وقت الرجوع","عاد"
-    ]);
-
-    if(!startCol || !endCol){
-        travelDetected.textContent = "Not detected (حتاج أعمدة Departure + Arrival)";
-        ttAvg.textContent = "—";
-        ttMed.textContent = "—";
-        ttP90.textContent = "—";
-        ttOutCount.textContent = "—";
-        ttCols.textContent = "—";
-        travelOutBody.innerHTML = `<tr><td colspan="5" class="text-slate-300">لم يتم اكتشاف أعمدة زمن الرحلة تلقائياً. إذا أسماء الأعمدة مختلفة: ابعتلي أسماء الأعمدة وسأضبطها فوراً.</td></tr>`;
-        return;
-    }
-
-    travelDetected.textContent = returnCol ? "Detected: Departure → Arrival (+ Return optional)" : "Detected: Departure → Arrival";
-    ttCols.textContent = `Using: [${startCol}] → [${endCol}]${returnCol ? ` | Return: [${returnCol}]` : ""}`;
-
-    const durations = [];
-    const outRows = [];
-
-    for(const r of rows){
-    const base = r.__dt || parseTimestampFlexible(r[colTimestamp]) || null;
-    const t0 = parseAnyDateTimeCell(r[startCol], base);
-    const t1 = parseAnyDateTimeCell(r[endCol], base);
-        if(!t0 || !t1) continue;
-
-        let diffMin = (t1.getTime() - t0.getTime())/60000;
-        if(diffMin < 0) continue; // ignore negatives
-
-        // if returnCol exists and has time, we can optionally compute cycle, but keep main "travel" as t0->t1
-        durations.push(diffMin);
-
-        outRows.push({
-        emp: normalizeName(r[colEmployee]),
-        ctas: normalizeCTAS(r[colCTAS]),
-        ts: safeStr(r[colTimestamp]),
-        travel: diffMin
-        });
-    }
-
-    if(!durations.length){
-        ttAvg.textContent = "—";
-        ttMed.textContent = "—";
-        ttP90.textContent = "—";
-        ttOutCount.textContent = "0";
-        travelOutBody.innerHTML = `<tr><td colspan="5" class="text-slate-300">تم اكتشاف الأعمدة لكن لم يتمكن من حساب مدة (تحقق من صيغة الوقت داخل الأعمدة).</td></tr>`;
-        return;
-    }
-
-    const avg = durations.reduce((a,b)=>a+b,0) / durations.length;
-    const med = median(durations);
-    const p90 = percentile(durations, 90);
-    const outlierList = outRows.filter(x => p90 !== null && x.travel > p90).sort((a,b)=>b.travel-a.travel).slice(0,15);
-
-    ttAvg.textContent = Math.round(avg).toLocaleString();
-    ttMed.textContent = Math.round(med ?? 0).toLocaleString();
-    ttP90.textContent = Math.round(p90 ?? 0).toLocaleString();
-    ttOutCount.textContent = outlierList.length.toLocaleString();
-
-    travelOutBody.innerHTML = "";
-    if(!outlierList.length){
-        travelOutBody.innerHTML = `<tr><td colspan="5" class="text-slate-300">لا يوجد Outliers أعلى من P90.</td></tr>`;
-        return;
-    }
-    outlierList.forEach((x,i)=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-        <td>${i+1}</td>
-        <td><span class="badge badge-outline badge-soft">${x.emp}</span></td>
-        <td>${ctasBadgeHTML(x.ctas, "")}</td>
-        <td><span class="badge badge-outline badge-soft">${Math.round(x.travel)} min</span></td>
-        <td class="mono text-xs">${x.ts}</td>
-        `;
-        travelOutBody.appendChild(tr);
-    });
-    }
-
-    function buildChartsAndInsights(){
-    destroyCharts();
-
-    const wdLabels = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
-    const hourCounts = Array.from({length:24}, () => 0);
-    const wdCounts = Array.from({length:7}, () => 0);
-
-    // Heatmap matrix[weekday][hour]
-    const hm = Array.from({length:7}, ()=> Array.from({length:24}, ()=>0));
-
-    const dailyAgg = new Map(); // dateKey -> {reg, not, treat, total, staff:Map, ctas:Map}
-    const ctasMap = new Map();
-    const staffMap = new Map();
-    const empAgg = new Map(); // emp -> {total, reg, not, treat, ctas:Map, missing:number}
-
-    // detect travel columns for missing% calc too
-const travelStartCol = findColumnByKeywords(HEADERS, [
-  "departure","depart","left","leaving","time out","out time",
-  "مغادرة","خروج","وقت الخروج","وقت المغادرة","تحرك"
-]);
-
-const travelEndCol = findColumnByKeywords(HEADERS, [
-  "arrival","arrive","received","receiving","time in","in time",
-  "وصول","وصل","وقت الوصول","استلام","تم الاستلام"
-]);
-
-const travelReturnCol = findColumnByKeywords(HEADERS, [
-  "return","returned","back","time back",
-  "رجوع","عودة","وقت الرجوع","عاد"
-]);
-    const requiredCols = [
-        colTimestamp, colEmployee, colCTAS, colReg,
-        ...(travelStartCol ? [travelStartCol] : []),
-        ...(travelEndCol ? [travelEndCol] : []),
-        ...(travelReturnCol ? [travelReturnCol] : []),
-    ].filter(Boolean);
-
-    for(const r of FILTERED){
-        const dt = r.__dt;
-        const emp = normalizeName(r[colEmployee]);
-        const ctas = normalizeCTAS(r[colCTAS]);
-        const bucket = regBucket(r[colReg]);
-
-        // global
-        ctasMap.set(ctas, (ctasMap.get(ctas)||0) + 1);
-        staffMap.set(emp, (staffMap.get(emp)||0) + 1);
-
-    if(!empAgg.has(emp)) empAgg.set(emp, {total:0, reg:0, not:0, treat:0, ctas:new Map(), missingCellsSum:0});
-        const ea = empAgg.get(emp);
-        ea.total++;
-        ea[bucket] = (ea[bucket] || 0) + 1;
-        ea.ctas.set(ctas, (ea.ctas.get(ctas)||0) + 1);
-
-    // Missing% as "missing cells ratio" across required fields
-    let missingCells = 0;
-    let totalCells = 0;
-
-    for(const c of requiredCols){
-    totalCells++;
-    if(!safeStr(r[c])) missingCells++;
-    }
-
-    // accumulate missing ratio (0..1) per row
-    ea.missingCellsSum = (ea.missingCellsSum || 0) + (totalCells ? (missingCells/totalCells) : 0);
-
-      
-        // time based
-        if(dt){
-        hourCounts[dt.getHours()]++;
-        wdCounts[dt.getDay()]++;
-        hm[dt.getDay()][dt.getHours()]++;
-
-        const dk = fmtDateKey(dt);
-        if(!dailyAgg.has(dk)) dailyAgg.set(dk, {reg:0, not:0, treat:0, total:0, staff:new Map(), ctas:new Map()});
-        const d = dailyAgg.get(dk);
-        d.total++;
-        d[bucket] = (d[bucket] || 0) + 1;
-        d.staff.set(emp, (d.staff.get(emp)||0) + 1);
-        d.ctas.set(ctas, (d.ctas.get(ctas)||0) + 1);
-        }
-    }
-
-    // build heatmap
-    const maxVal = hm.flat().reduce((m,v)=>Math.max(m,v), 0);
-    buildHeatmap(hm, maxVal);
-
-    // Daily arrays
-    const dailyKeys = Array.from(dailyAgg.keys()).sort();
-    const dailyReg = dailyKeys.map(k => dailyAgg.get(k).reg);
-    const dailyNot = dailyKeys.map(k => dailyAgg.get(k).not);
-    const dailyTreat = dailyKeys.map(k => dailyAgg.get(k).treat);
-
-    // Top staff chart
-    const staffSorted = Array.from(staffMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10);
-    const staffLabels = staffSorted.map(x=>x[0]);
-    const staffVals = staffSorted.map(x=>x[1]);
-
-    // CTAS chart
-    const ctasSorted = Array.from(ctasMap.entries()).sort((a,b)=>b[1]-a[1]);
-    const ctasLabels = ctasSorted.map(x=>x[0]);
-    const ctasVals = ctasSorted.map(x=>x[1]);
-
-    // Employee chart
-    const empSorted = Array.from(empAgg.entries()).sort((a,b)=>b[1].total - a[1].total);
-    const empTop = empSorted.slice(0,12);
-    const empLabels = empTop.map(([n])=>n);
-    const empReg = empTop.map(([,e])=>e.reg || 0);
-    const empNot = empTop.map(([,e])=>e.not || 0);
-    const empTreat = empTop.map(([,e])=>e.treat || 0);
-
-    const commonOpts = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins:{
-        legend:{ labels:{ color:"#e6f0ff"} },
-        tooltip:{ enabled:true }
-        },
-        scales:{
-        x:{ ticks:{ color:"#cfe2ff"}, grid:{ color:"rgba(255,255,255,.06)"} },
-        y:{ ticks:{ color:"#cfe2ff"}, grid:{ color:"rgba(255,255,255,.06)"} }
-        }
-    };
-
-    charts.hour = new Chart(document.getElementById("chHour"), {
-        type: "bar",
-        data: { labels: Array.from({length:24}, (_,i)=>String(i)), datasets: [{ label:"Cases", data: hourCounts }] },
-        options: commonOpts
-    });
-
-    charts.weekday = new Chart(document.getElementById("chWeekday"), {
-        type: "bar",
-        data: { labels: wdLabels, datasets: [{ label:"Cases", data: wdCounts }] },
-        options: commonOpts
-    });
-
-    charts.daily = new Chart(document.getElementById("chDaily"), {
-        type: "bar",
-        data: {
-        labels: dailyKeys,
-        datasets: [
-            { label:"Registered", data: dailyReg },
-            { label:"Not Registered", data: dailyNot },
-            { label:"Treat on scene", data: dailyTreat }
-        ]
-        },
-        options: commonOpts
-    });
-
-    charts.ctas = new Chart(document.getElementById("chCtas"), {
-        type: "doughnut",
-        data: { labels: ctasLabels, datasets: [{ label:"CTAS", data: ctasVals }] },
-        options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ position:"bottom", labels:{ color:"#e6f0ff"} } }
-        }
-    });
-
-    charts.staff = new Chart(document.getElementById("chTopStaff"), {
-        type: "bar",
-        data: { labels: staffLabels, datasets: [{ label:"Cases", data: staffVals }] },
-        options: commonOpts
-    });
-
-    charts.emp = new Chart(document.getElementById("chEmpRegNot"), {
-        type: "bar",
-        data: {
-        labels: empLabels,
-        datasets: [
-            { label:"Registered", data: empReg },
-            { label:"Not Registered", data: empNot },
-            { label:"Treat", data: empTreat }
-        ]
-        },
-        options: commonOpts
-    });
-
-    // KPIs
-    const total = FILTERED.length;
-    let reg=0, not=0, treat=0;
-    for(const r of FILTERED){
-        const b = regBucket(r[colReg]);
-        if(b === "reg") reg++;
-        else if(b === "treat") treat++;
-        else not++;
-    }
+  for(const [emp, e] of empSorted.slice(0,20)){
+    const total = e.total || 0;
+    const reg = e.reg || 0;
+    const not = e.not || 0;
+    const treat = e.treat || 0;
     const regPct = total ? Math.round((reg/total)*100) : 0;
 
-    let peakHour = 0, peakHourCount = 0;
-    hourCounts.forEach((c,h)=>{ if(c>peakHourCount){ peakHourCount=c; peakHour=h; } });
+    sumTotal += total; sumReg += reg; sumNot += not; sumTreat += treat;
 
-    let peakWdIdx = 0, peakWdCount = 0;
-    wdCounts.forEach((c,i)=>{ if(c>peakWdCount){ peakWdCount=c; peakWdIdx=i; } });
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="badge badge-outline badge-soft">${emp}</span></td>
+      <td><span class="badge badge-violet">${total}</span></td>
+      <td><span class="badge badge-blue">${reg}</span></td>
+      <td><span class="badge badge-red">${not}</span></td>
+      <td><span class="badge badge-cyan">${treat}</span></td>
+      <td><span class="badge badge-outline badge-soft">${regPct}%</span></td>
+    `;
+    topStaffBody.appendChild(tr);
+  }
 
-    elKpiTotal.textContent = total.toLocaleString();
-    elKpiRegPct.textContent = total ? `${regPct}%` : "—";
-    elKpiRegCounts.textContent = `Registered: ${reg} | Not: ${not} | Treat: ${treat}`;
-    elKpiPeakHour.textContent = total ? `${peakHour}:00` : "—";
-    elKpiPeakHourCount.textContent = total ? `${peakHourCount} cases` : "—";
-    elKpiPeakDay.textContent = total ? wdLabels[peakWdIdx] : "—";
-    elKpiPeakDayCount.textContent = total ? `${peakWdCount} cases` : "—";
+  // Total row
+  const totalPct = sumTotal ? Math.round((sumReg/sumTotal)*100) : 0;
+  const trT = document.createElement("tr");
+  trT.innerHTML = `
+    <td class="font-bold">TOTAL</td>
+    <td><span class="badge badge-violet">${sumTotal}</span></td>
+    <td><span class="badge badge-blue">${sumReg}</span></td>
+    <td><span class="badge badge-red">${sumNot}</span></td>
+    <td><span class="badge badge-cyan">${sumTreat}</span></td>
+    <td><span class="badge badge-outline badge-soft">${totalPct}%</span></td>
+  `;
+  topStaffBody.appendChild(trT);
+}
 
-    const dts = FILTERED.map(r=>r.__dt).filter(Boolean).sort((a,b)=>a-b);
-    elKpiRange.textContent = dts.length
-        ? `${dts[0].toLocaleString()}  →  ${dts[dts.length-1].toLocaleString()}`
-        : "—";
+function buildNoProductivityDays(minDt, maxDt, dailyAgg){
+  if(!minDt || !maxDt){
+    noProdDays.innerHTML = `<span class="text-slate-400 text-xs">—</span>`;
+    return;
+  }
+  const start = new Date(minDt.getFullYear(), minDt.getMonth(), minDt.getDate(), 0,0,0);
+  const end = new Date(maxDt.getFullYear(), maxDt.getMonth(), maxDt.getDate(), 0,0,0);
 
-    // Summary tables
-    buildDailySummaryTable(dailyKeys, dailyAgg);
-    buildCTASDistTable(ctasMap, total);
-    buildEmployeeTables(empSorted);
-    buildComplianceTable(empSorted, requiredCols);
+  const missing = [];
+  for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+    const key = fmtDayOnly(d);
+    if(!dailyAgg.has(key)) missing.push(key);
+  }
 
-    // Travel time analysis (based on detected headers)
-    buildTravelTimeAnalysis(FILTERED, HEADERS);
-    }
+  if(!missing.length){
+    noProdDays.innerHTML = `<span class="badge badge-outline badge-soft">✅ مفيش أيام فاضية داخل الرينج</span>`;
+    return;
+  }
 
-    /* =========================
-    Table
-    ========================= */
-    function buildTable(){
-    buildTableWithRows(FILTERED, null);
-    }
+  noProdDays.innerHTML = `
+    <div class="flex flex-wrap gap-2">
+      ${missing.slice(0,60).map(x=>`<span class="badge badge-outline badge-red">${x}</span>`).join("")}
+      ${missing.length>60 ? `<span class="chip">+${missing.length-60} more</span>` : ``}
+    </div>
+  `;
+}
 
-    /* =========================
-    Filter & refresh
-    ========================= */
-    function applyFilter(){
-    if(!RAW_ROWS.length) return;
+/* =========================
+Travel Time Analysis
+========================= */
+function buildTravelTimeAnalysis(rows, headers){
+  const startCol = findColumnByKeywords(headers, [
+    "departure","depart","left","leaving","time out","out time",
+    "مغادرة","خروج","وقت الخروج","وقت المغادرة","تحرك"
+  ]);
 
-    const fromV = elFrom.value ? new Date(elFrom.value) : null;
-    const toV = elTo.value ? new Date(elTo.value) : null;
-    const q = safeStr(elSearch.value).toLowerCase();
+  const endCol = findColumnByKeywords(headers, [
+    "arrival","arrive","received","receiving","time in","in time",
+    "وصول","وصل","وقت الوصول","استلام","تم الاستلام"
+  ]);
 
-    FILTERED = RAW_ROWS.filter(r=>{
-        const dt = r.__dt;
-        if(fromV && (!dt || dt < fromV)) return false;
-        if(toV && (!dt || dt > toV)) return false;
+  const returnCol = findColumnByKeywords(headers, [
+    "return","returned","back","time back",
+    "رجوع","عودة","وقت الرجوع","عاد"
+  ]);
 
-        if(q){
-        for(const h of HEADERS){
-            if(safeStr(r[h]).toLowerCase().includes(q)) return true;
-        }
-        return false;
-        }
-        return true;
+  if(!startCol || !endCol){
+    travelDetected.textContent = "Not detected (حتاج أعمدة Departure + Arrival)";
+    ttAvg.textContent = "—";
+    ttMed.textContent = "—";
+    ttP90.textContent = "—";
+    ttOutCount.textContent = "—";
+    ttCols.textContent = "—";
+    travelOutBody.innerHTML = `<tr><td colspan="5" class="text-slate-300">لم يتم اكتشاف أعمدة زمن الرحلة تلقائياً.</td></tr>`;
+    return;
+  }
+
+  travelDetected.textContent = returnCol ? "Detected: Departure → Arrival (+ Return optional)" : "Detected: Departure → Arrival";
+  ttCols.textContent = `Using: [${startCol}] → [${endCol}]${returnCol ? ` | Return: [${returnCol}]` : ""}`;
+
+  const durations = [];
+  const outRows = [];
+
+  for(const r of rows){
+    const base = r.__dt || null;
+    const t0 = parseAnyDateTimeCell(r[startCol], base);
+    const t1 = parseAnyDateTimeCell(r[endCol], base);
+    if(!t0 || !t1) continue;
+
+    let diffMin = (t1.getTime() - t0.getTime())/60000;
+    if(diffMin < 0) continue;
+
+    durations.push(diffMin);
+    outRows.push({
+      emp: normalizeName(r[colEmployee]),
+      ctas: normalizeCTAS(r[colCTAS]),
+      ts: safeStr(r.__timeRaw || r[colTimestamp]),
+      travel: diffMin
     });
+  }
 
-    const badDT = RAW_ROWS.filter(r=>!r.__dt).length;
-    elStatus.textContent =
-        `Rows Loaded: ${RAW_ROWS.length.toLocaleString()} | Filtered: ${FILTERED.length.toLocaleString()} | Unparsed timestamps: ${badDT}`;
+  if(!durations.length){
+    ttAvg.textContent = "—";
+    ttMed.textContent = "—";
+    ttP90.textContent = "—";
+    ttOutCount.textContent = "0";
+    travelOutBody.innerHTML = `<tr><td colspan="5" class="text-slate-300">تم اكتشاف الأعمدة لكن لم يتمكن من حساب مدة (تحقق من صيغة الوقت داخل الأعمدة).</td></tr>`;
+    return;
+  }
 
-    page = 1;
-    buildChartsAndInsights();
-    buildTable();
+  const avg = durations.reduce((a,b)=>a+b,0) / durations.length;
+  const med = median(durations);
+  const p90 = percentile(durations, 90);
+  const outlierList = outRows.filter(x => p90 !== null && x.travel > p90).sort((a,b)=>b.travel-a.travel).slice(0,15);
+
+  ttAvg.textContent = Math.round(avg).toLocaleString();
+  ttMed.textContent = Math.round(med ?? 0).toLocaleString();
+  ttP90.textContent = Math.round(p90 ?? 0).toLocaleString();
+  ttOutCount.textContent = outlierList.length.toLocaleString();
+
+  travelOutBody.innerHTML = "";
+  if(!outlierList.length){
+    travelOutBody.innerHTML = `<tr><td colspan="5" class="text-slate-300">لا يوجد Outliers أعلى من P90.</td></tr>`;
+    return;
+  }
+  outlierList.forEach((x,i)=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td><span class="badge badge-outline badge-soft">${x.emp}</span></td>
+      <td>${ctasBadgeHTML(x.ctas, "")}</td>
+      <td><span class="badge badge-outline badge-soft">${Math.round(x.travel)} min</span></td>
+      <td class="mono text-xs">${x.ts}</td>
+    `;
+    travelOutBody.appendChild(tr);
+  });
+}
+
+/* =========================
+Main build
+========================= */
+function buildChartsAndInsights(){
+  destroyCharts();
+
+  const wdLabels = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  const hourCounts = Array.from({length:24}, () => 0);
+  const wdCounts = Array.from({length:7}, () => 0);
+
+  // Heatmap matrix[weekday][hour]
+  const hm = Array.from({length:7}, ()=> Array.from({length:24}, ()=>0));
+
+  const dailyAgg = new Map(); // dateKey -> {reg, not, treat, total, staff:Map, ctas:Map}
+  const ctasMap = new Map();
+  const staffMap = new Map();
+  const empAgg = new Map(); // emp -> {total, reg, not, treat, ctas:Map, shiftDays:Set}
+
+  for(const r of FILTERED){
+    const dt = r.__dt;
+    const emp = normalizeName(r[colEmployee]);
+    const ctas = normalizeCTAS(r[colCTAS]);
+    const bucket = regBucket(r[colReg]);
+
+    // global
+    ctasMap.set(ctas, (ctasMap.get(ctas)||0) + 1);
+    staffMap.set(emp, (staffMap.get(emp)||0) + 1);
+
+    if(!empAgg.has(emp)) empAgg.set(emp, {total:0, reg:0, not:0, treat:0, ctas:new Map(), shiftDays:new Set()});
+    const ea = empAgg.get(emp);
+    ea.total++;
+    ea[bucket] = (ea[bucket] || 0) + 1;
+    ea.ctas.set(ctas, (ea.ctas.get(ctas)||0) + 1);
+
+    // ✅ shifts = unique days where employee has >=1 case
+    if(dt){
+      ea.shiftDays.add(fmtDayOnly(dt));
     }
 
-    /* =========================
-    Load CSV (URL or File)
-    ========================= */
-    function normalizeRows(rows){
-    for(const r of rows){
-        r.__dt = parseTimestampFlexible(r[colTimestamp]);
+    // time based
+    if(dt){
+      hourCounts[dt.getHours()]++;
+      wdCounts[dt.getDay()]++;
+      hm[dt.getDay()][dt.getHours()]++;
+
+      const dk = fmtDateKey(dt);
+      if(!dailyAgg.has(dk)) dailyAgg.set(dk, {reg:0, not:0, treat:0, total:0, staff:new Map(), ctas:new Map()});
+      const d = dailyAgg.get(dk);
+      d.total++;
+      d[bucket] = (d[bucket] || 0) + 1;
+      d.staff.set(emp, (d.staff.get(emp)||0) + 1);
+      d.ctas.set(ctas, (d.ctas.get(ctas)||0) + 1);
     }
-    return rows;
+  }
+
+  // heatmap
+  const maxVal = hm.flat().reduce((m,v)=>Math.max(m,v), 0);
+  buildHeatmap(hm, maxVal);
+
+  // Daily arrays
+  const dailyKeys = Array.from(dailyAgg.keys()).sort();
+  const dailyReg = dailyKeys.map(k => dailyAgg.get(k).reg);
+  const dailyNot = dailyKeys.map(k => dailyAgg.get(k).not);
+  const dailyTreat = dailyKeys.map(k => dailyAgg.get(k).treat);
+
+  // Top staff chart
+  const staffSorted = Array.from(staffMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const staffLabels = staffSorted.map(x=>x[0]);
+  const staffVals = staffSorted.map(x=>x[1]);
+
+  // CTAS chart
+  const ctasSorted = Array.from(ctasMap.entries()).sort((a,b)=>b[1]-a[1]);
+  const ctasLabels = ctasSorted.map(x=>x[0]);
+  const ctasVals = ctasSorted.map(x=>x[1]);
+
+  // Employee chart + tables
+  const empSorted = Array.from(empAgg.entries()).sort((a,b)=>b[1].total - a[1].total);
+  const empTop = empSorted.slice(0,12);
+  const empLabels = empTop.map(([n])=>n);
+  const empReg = empTop.map(([,e])=>e.reg || 0);
+  const empNot = empTop.map(([,e])=>e.not || 0);
+  const empTreat = empTop.map(([,e])=>e.treat || 0);
+
+  const commonOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins:{ legend:{ labels:{ color:"#e6f0ff"} }, tooltip:{ enabled:true } },
+    scales:{
+      x:{ ticks:{ color:"#cfe2ff"}, grid:{ color:"rgba(255,255,255,.06)"} },
+      y:{ ticks:{ color:"#cfe2ff"}, grid:{ color:"rgba(255,255,255,.06)"} }
     }
-    function setDefaultRangeFromData(){
+  };
+
+  charts.hour = new Chart(document.getElementById("chHour"), {
+    type: "bar",
+    data: { labels: Array.from({length:24}, (_,i)=>String(i)), datasets: [{ label:"Cases", data: hourCounts }] },
+    options: commonOpts
+  });
+
+  charts.weekday = new Chart(document.getElementById("chWeekday"), {
+    type: "bar",
+    data: { labels: wdLabels, datasets: [{ label:"Cases", data: wdCounts }] },
+    options: commonOpts
+  });
+
+  charts.daily = new Chart(document.getElementById("chDaily"), {
+    type: "bar",
+    data: { labels: dailyKeys, datasets: [
+      { label:"Registered", data: dailyReg },
+      { label:"Not Registered", data: dailyNot },
+      { label:"Treat on scene", data: dailyTreat }
+    ]},
+    options: commonOpts
+  });
+
+  charts.ctas = new Chart(document.getElementById("chCtas"), {
+    type: "doughnut",
+    data: { labels: ctasLabels, datasets: [{ label:"CTAS", data: ctasVals }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:"bottom", labels:{ color:"#e6f0ff"} } } }
+  });
+
+  charts.staff = new Chart(document.getElementById("chTopStaff"), {
+    type: "bar",
+    data: { labels: staffLabels, datasets: [{ label:"Cases", data: staffVals }] },
+    options: commonOpts
+  });
+
+  charts.emp = new Chart(document.getElementById("chEmpRegNot"), {
+    type: "bar",
+    data: { labels: empLabels, datasets: [
+      { label:"Registered", data: empReg },
+      { label:"Not Registered", data: empNot },
+      { label:"Treat", data: empTreat }
+    ]},
+    options: commonOpts
+  });
+
+  // KPIs
+  const total = FILTERED.length;
+  let reg=0, not=0, treat=0;
+  for(const r of FILTERED){
+    const b = regBucket(r[colReg]);
+    if(b === "reg") reg++;
+    else if(b === "treat") treat++;
+    else not++;
+  }
+  const regPct = total ? Math.round((reg/total)*100) : 0;
+
+  let peakHour = 0, peakHourCount = 0;
+  hourCounts.forEach((c,h)=>{ if(c>peakHourCount){ peakHourCount=c; peakHour=h; } });
+
+  let peakWdIdx = 0, peakWdCount = 0;
+  wdCounts.forEach((c,i)=>{ if(c>peakWdCount){ peakWdCount=c; peakWdIdx=i; } });
+
+  elKpiTotal.textContent = total.toLocaleString();
+  elKpiRegPct.textContent = total ? `${regPct}%` : "—";
+  elKpiRegCounts.textContent = `Registered: ${reg} | Not: ${not} | Treat: ${treat}`;
+  elKpiPeakHour.textContent = total ? `${peakHour}:00` : "—";
+  elKpiPeakHourCount.textContent = total ? `${peakHourCount} cases` : "—";
+  elKpiPeakDay.textContent = total ? wdLabels[peakWdIdx] : "—";
+  elKpiPeakDayCount.textContent = total ? `${peakWdCount} cases` : "—";
+
+  const dts = FILTERED.map(r=>r.__dt).filter(Boolean).sort((a,b)=>a-b);
+  elKpiRange.textContent = dts.length ? `${dts[0].toLocaleString()}  →  ${dts[dts.length-1].toLocaleString()}` : "—";
+
+  // Summary tables
+  buildDailySummaryTable(dailyKeys, dailyAgg);
+  buildCTASDistTable(ctasMap, total);
+  buildEmployeeTables(empSorted);
+  buildComplianceTable(empSorted);
+  buildTopEmployeesTable(empSorted);
+
+  // Spot no productivity days within range
+  if(dts.length){
+    buildNoProductivityDays(dts[0], dts[dts.length-1], dailyAgg);
+  } else {
+    buildNoProductivityDays(null, null, dailyAgg);
+  }
+
+  // Travel time
+  buildTravelTimeAnalysis(FILTERED, HEADERS);
+}
+
+/* =========================
+Filter & refresh
+========================= */
+function applyFilter(){
+  if(!RAW_ROWS.length) return;
+
+  const fromV = elFrom.value ? new Date(elFrom.value) : null;
+  const toV = elTo.value ? new Date(elTo.value) : null;
+  const q = safeStr(elSearch.value).toLowerCase();
+
+  FILTERED = RAW_ROWS.filter(r=>{
+    const dt = r.__dt;
+    if(fromV && (!dt || dt < fromV)) return false;
+    if(toV && (!dt || dt > toV)) return false;
+
+    if(q){
+      for(const h of HEADERS){
+        if(safeStr(r[h]).toLowerCase().includes(q)) return true;
+      }
+      return false;
+    }
+    return true;
+  });
+
+  const badDT = RAW_ROWS.filter(r=>!r.__dt).length;
+  elStatus.textContent = `Rows Loaded: ${RAW_ROWS.length.toLocaleString()} | Filtered: ${FILTERED.length.toLocaleString()} | Unparsed timestamps: ${badDT}`;
+
+  page = 1;
+  buildTable();
+  buildChartsAndInsights();
+}
+
+function setDefaultRangeFromData(){
+  const dts = RAW_ROWS.map(r=>r.__dt).filter(Boolean).sort((a,b)=>a-b);
+  if(!dts.length) return;
+  const from = dts[0];
+  const to = dts[dts.length-1];
+  elFrom.value = toISOForInput(from);
+  elTo.value = toISOForInput(to);
+}
+
+/* =========================
+Load CSV
+========================= */
+function detectTimeColumn(headers){
+  // ✅ prefer Arrival at CMH if exists
+  if(headers.includes(colArrival)) return colArrival;
+  if(headers.includes(colTimestamp)) return colTimestamp;
+  // fallback: try something with "arrival"
+  const fallback = findColumnByKeywords(headers, ["time of arrival at cmh", "arrival at cmh", "arrival"]);
+  return fallback || headers[0];
+}
+
+function loadCSVText(csvText){
+  Papa.parse(csvText, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (res)=>{
+      const rows = res.data || [];
+      const headers = res.meta?.fields || [];
+      HEADERS = headers;
+
+      const timeCol = detectTimeColumn(headers);
+      activeTimeColumn.textContent = timeCol || "—";
+
+      // build rows + parse dt using chosen column
+      RAW_ROWS = rows.map(r=>{
+        const rr = {...r};
+
+        // normalize employee name inside visible column too (without deleting anything)
+        if(rr[colEmployee]) rr[colEmployee] = normalizeName(rr[colEmployee]);
+
+        const rawTime = safeStr(rr[timeCol]);
+        rr.__timeRaw = rawTime;
+        rr.__dt = parseTimestampFlexible(rawTime);
+
+        // If chosen time col isn't parsed and timestamp exists, fallback once
+        if(!rr.__dt && timeCol !== colTimestamp && rr[colTimestamp]){
+          rr.__dt = parseTimestampFlexible(rr[colTimestamp]);
+          rr.__timeRaw = rr.__timeRaw || safeStr(rr[colTimestamp]);
+        }
+        return rr;
+      });
+
+      // status
+      const badDT = RAW_ROWS.filter(r=>!r.__dt).length;
+      elStatus.textContent = `Rows Loaded: ${RAW_ROWS.length.toLocaleString()} | Unparsed timestamps: ${badDT}`;
+
+      // default range
+      setDefaultRangeFromData();
+
+      // initial filter
+      applyFilter();
+    },
+    error: (err)=>{
+      alert("CSV Parse Error: " + err.message);
+    }
+  });
+}
+
+async function loadFromUrl(){
+  try{
+    const r = await fetch(CSV_URL, {cache:"no-store"});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const txt = await r.text();
+    loadCSVText(txt);
+  }catch(err){
+    alert("Failed to load sheet (Try Upload CSV) — " + err.message);
+  }
+}
+
+/* =========================
+Events
+========================= */
+document.getElementById("btnReloadUrl").addEventListener("click", loadFromUrl);
+
+document.getElementById("csvFile").addEventListener("change", (e)=>{
+  const f = e.target.files?.[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = () => loadCSVText(reader.result);
+  reader.readAsText(f, "utf-8");
+});
+
+document.querySelectorAll("[data-preset]").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    if(!RAW_ROWS.length) return;
     const dts = RAW_ROWS.map(r=>r.__dt).filter(Boolean).sort((a,b)=>a-b);
     if(!dts.length) return;
-    elFrom.value = toISOForInput(dts[0]);
-    elTo.value = toISOForInput(dts[dts.length-1]);
-    }
-    function loadCSVText(csvText){
-    Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (res) => {
-        const rows = (res.data || []).filter(r => Object.keys(r||{}).length);
-        RAW_ROWS = normalizeRows(rows);
-        HEADERS = Object.keys(rows[0] || {}).filter(k=>k !== "__dt");
 
-        // Keep timestamp first if exists
-        if(HEADERS.includes(colTimestamp)){
-            HEADERS = [colTimestamp, ...HEADERS.filter(x=>x!==colTimestamp)];
-        }
+    const latest = dts[dts.length-1];
+    let from = dts[0], to = latest;
 
-        setDefaultRangeFromData();
-        applyFilter();
-        }
-    });
+    const p = btn.getAttribute("data-preset");
+    if(p === "today"){
+      const y = latest.getFullYear(), m = latest.getMonth(), d = latest.getDate();
+      from = new Date(y,m,d,0,0,0);
+      to = new Date(y,m,d,23,59,59);
+    } else if(p === "7d"){
+      to = latest; from = new Date(to.getTime() - 7*24*60*60*1000);
+    } else if(p === "30d"){
+      to = latest; from = new Date(to.getTime() - 30*24*60*60*1000);
+    } else if(p === "all"){
+      from = dts[0]; to = latest;
     }
 
-    async function loadFromUrl(){
-    elStatus.textContent = "Loading from Google Sheet…";
-    try{
-        const res = await fetch(CSV_URL, { cache: "no-store" });
-        if(!res.ok) throw new Error("Fetch failed: " + res.status);
-        const txt = await res.text();
-        loadCSVText(txt);
-    }catch(err){
-        elStatus.textContent = "Failed to load from URL. (Try Upload CSV) — " + err.message;
-    }
-    }
-
-    /* =========================
-    Events
-    ========================= */
-    document.getElementById("btnReloadUrl").addEventListener("click", loadFromUrl);
-
-    document.getElementById("csvFile").addEventListener("change", (e)=>{
-    const f = e.target.files?.[0];
-    if(!f) return;
-    const reader = new FileReader();
-    reader.onload = () => loadCSVText(reader.result);
-    reader.readAsText(f, "utf-8");
-    });
-
-    document.querySelectorAll("[data-preset]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-        if(!RAW_ROWS.length) return;
-        const dts = RAW_ROWS.map(r=>r.__dt).filter(Boolean).sort((a,b)=>a-b);
-        if(!dts.length) return;
-
-        const latest = dts[dts.length-1];
-        let from = dts[0], to = latest;
-
-        const p = btn.getAttribute("data-preset");
-        if(p === "today"){
-        const y = latest.getFullYear(), m = latest.getMonth(), d = latest.getDate();
-        from = new Date(y,m,d,0,0,0);
-        to = new Date(y,m,d,23,59,59);
-        } else if(p === "7d"){
-        to = latest; from = new Date(to.getTime() - 7*24*60*60*1000);
-        } else if(p === "30d"){
-        to = latest; from = new Date(to.getTime() - 30*24*60*60*1000);
-        } else if(p === "all"){
-        from = dts[0]; to = latest;
-        }
-
-        elFrom.value = toISOForInput(from);
-        elTo.value = toISOForInput(to);
-        applyFilter();
-    });
-    });
-
-    document.getElementById("btnApply").addEventListener("click", applyFilter);
-    document.getElementById("btnReset").addEventListener("click", ()=>{
-    elSearch.value = "";
-    setDefaultRangeFromData();
+    elFrom.value = toISOForInput(from);
+    elTo.value = toISOForInput(to);
     applyFilter();
-    });
+  });
+});
 
-    prevPage.addEventListener("click", ()=>{ page--; buildTable(); });
-    nextPage.addEventListener("click", ()=>{ page++; buildTable(); });
+document.getElementById("btnApply").addEventListener("click", applyFilter);
+document.getElementById("btnReset").addEventListener("click", ()=>{
+  elSearch.value = "";
+  setDefaultRangeFromData();
+  applyFilter();
+});
 
-    document.getElementById("btnExport").addEventListener("click", ()=>{
-    if(!FILTERED.length) return alert("No data to export.");
-    const clean = FILTERED.map(r=>{
-        const o = {};
-        for(const h of HEADERS) o[h] = r[h];
-        return o;
-    });
-    const ws = XLSX.utils.json_to_sheet(clean);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Filtered");
-    const fname = `Transfer_Analytics_Filtered_${new Date().toISOString().slice(0,10)}.xlsx`;
-    XLSX.writeFile(wb, fname);
-    });
+prevPage.addEventListener("click", ()=>{ page--; buildTable(); });
+nextPage.addEventListener("click", ()=>{ page++; buildTable(); });
 
-    /* Auto-load from URL on open */
-    loadFromUrl();
-    </script>
-    </body>
-    </html>
+document.getElementById("btnExport").addEventListener("click", ()=>{
+  if(!FILTERED.length) return alert("No data to export.");
+  const clean = FILTERED.map(r=>{
+    const o = {};
+    for(const h of HEADERS) o[h] = r[h];
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(clean);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Filtered");
+  const fname = `Transfer_Analytics_Filtered_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fname);
+});
+
+/* Auto-load from URL on open */
+loadFromUrl();
+</script>
+</body>
+</html>
