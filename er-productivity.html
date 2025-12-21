@@ -190,18 +190,19 @@
             وزن الـ Acuity (تصنيف الأطباء):
           </div>
           <p class="tiny">
-            يتم حساب <b>Acuity Score</b> لكل طبيب كالتالي (مجموع أوزان CTAS لكل زيارة فريدة على مدار السنة):
+            يتم حساب <b>Weighted Score</b> لكل طبيب كالتالي (مجموع أوزان CTAS لكل زيارة فريدة على مدار السنة):
           </p>
           <div class="mt-2 flex flex-wrap gap-2">
-            <span class="ctas-badge ctas-1">CTAS 1 = 3</span>
-            <span class="ctas-badge ctas-2">CTAS 2 = 2</span>
-            <span class="ctas-badge ctas-3">CTAS 3 = 1</span>
-            <span class="ctas-badge ctas-4">CTAS 4 = 0.5</span>
-            <span class="ctas-badge ctas-5">CTAS 5 = 0.5</span>
+            <span class="ctas-badge ctas-1">CTAS 1 = 5</span>
+            <span class="ctas-badge ctas-2">CTAS 2 = 4</span>
+            <span class="ctas-badge ctas-3">CTAS 3 = 3</span>
+            <span class="ctas-badge ctas-4">CTAS 4 = 2</span>
+            <span class="ctas-badge ctas-5">CTAS 5 = 1</span>
           </div>
           <p class="tiny mt-2">
-            عند الترتيب: أولاً حسب <b>عدد الحالات الفريدة</b>، ثم عند التعادل حسب <b>Acuity Score</b>.
-            زر <b>تصدير Excel</b> يطلع شيت <b>Doctors_Count_Acuity</b> جاهز للشارت في Excel.
+            <b>Average Acuity</b> = Weighted Score ÷ إجمالي الحالات الفريدة للطبيب.
+            الترتيب أساسًا حسب <b>عدد الحالات الفريدة</b>، ثم <b>Weighted Score</b> عند التعادل.
+            زر <b>تصدير Excel</b> يطلع شيت <b>Doctors_Count_Acuity</b> بنفس المنطق.
           </p>
         </div>
       </div>
@@ -219,6 +220,18 @@
               <option value="__ALL__">جميع الأطباء</option>
             </select>
           </div>
+
+          <!-- إخفاء أسماء من التصنيف -->
+          <div class="pill px-3 py-2 flex items-center gap-2 max-w-xs md:max-w-md">
+            <i class="fa-solid fa-user-slash text-pink-300"></i>
+            <span class="tiny hidden sm:inline">إخفاء من التصنيف:</span>
+            <input
+              id="hideNamesInput"
+              type="text"
+              class="flex-1 bg-transparent border-b border-slate-600 focus:outline-none text-[0.7rem] sm:text-xs text-slate-100 placeholder-slate-500"
+              placeholder="اكتب جزء من الاسم وافصل بين الأسماء بفاصلة ,"
+            />
+          </div>
         </div>
         <div class="flex flex-wrap gap-2">
           <button id="exportExcelBtn" class="btn px-4 py-2 text-sm" type="button" disabled>
@@ -233,6 +246,7 @@
       </div>
       <p class="tiny mt-3">
         * النظام مبني على الأعمدة: <code>MRN, PATIENT NAME, DOCTOR, REGISTRATION DATE, REGISTRATION TIME, CTAS TYPE, DISH. TYPE, FINAL DIAGNOSIS, Diagnosis Code</code>
+        + عمود رقم الطبيب (Doctor ID / Code) لو موجود في الشيت.
       </p>
     </section>
 
@@ -336,16 +350,25 @@
           <thead class="text-cyan-200">
             <tr class="border-b border-slate-700/80">
               <th class="p-2 text-right">#</th>
+              <th class="p-2 text-right">الرقم الوظيفي</th>
               <th class="p-2 text-right">الطبيب</th>
-              <th class="p-2 text-right">عدد الحالات الفريدة</th>
-              <th class="p-2 text-right">Acuity Score</th>
+              <th class="p-2 text-right">إجمالي الحالات الفريدة</th>
+              <th class="p-2 text-right">CTAS 1</th>
+              <th class="p-2 text-right">CTAS 2</th>
+              <th class="p-2 text-right">CTAS 3</th>
+              <th class="p-2 text-right">CTAS 4</th>
+              <th class="p-2 text-right">CTAS 5</th>
+              <th class="p-2 text-right">Average Acuity</th>
+              <th class="p-2 text-right">Weighted Score</th>
               <th class="p-2 text-right">الشيفتات</th>
-              <th class="p-2 text-right">CTAS Mix</th>
             </tr>
           </thead>
           <tbody id="rankBody"></tbody>
         </table>
       </div>
+      <p class="tiny mt-2">
+        * الأسماء المكتوبة في مربع "إخفاء من التصنيف" يتم استبعادها من الجدول ومن شيت Excel الخاص بـ Doctors_Count_Acuity فقط.
+      </p>
       <details class="mt-3">
         <summary class="cursor-pointer pill px-3 py-2 inline-flex items-center gap-2 tiny">
           <i class="fa-solid fa-circle-question"></i>
@@ -354,15 +377,16 @@
         <div class="mt-2 tiny note leading-6">
           <ul class="list-disc pr-5 space-y-1">
             <li>أول معيار ترتيب = <b>عدد الزيارات الفريدة</b> لكل طبيب (بعد استبعاد Canceled).</li>
-            <li>عند التعادل يتم الترتيب حسب <b>Acuity Score</b> (مجموع أوزان CTAS).</li>
-            <li>الوزن المستخدم:
-              <span class="badge-soft">CTAS 1 = 3</span>،
-              <span class="badge-soft">CTAS 2 = 2</span>،
-              <span class="badge-soft">CTAS 3 = 1</span>،
-              <span class="badge-soft">CTAS 4 = 0.5</span>،
-              <span class="badge-soft">CTAS 5 = 0.5</span>.
+            <li>عند التعادل يتم الترتيب حسب <b>Weighted Score</b> (مجموع الأوزان لكل حالات الطبيب).</li>
+            <li>الأوزان المستخدمة:
+              <span class="badge-soft">CTAS 1 = 5</span>،
+              <span class="badge-soft">CTAS 2 = 4</span>،
+              <span class="badge-soft">CTAS 3 = 3</span>،
+              <span class="badge-soft">CTAS 4 = 2</span>،
+              <span class="badge-soft">CTAS 5 = 1</span>.
             </li>
-            <li>ملف Excel فيه شيت <b>Doctors_Count_Acuity</b> لعمل شارت أداء الطبيب مع الـ Acuity على مدار السنة.</li>
+            <li><b>Average Acuity</b> = Weighted Score ÷ عدد الحالات، يعكس متوسّط حدّة الحالات لكل طبيب.</li>
+            <li>ملف Excel فيه شيت <b>Doctors_Count_Acuity</b> بنفس الأعمدة (رقم وظيفي، اسم، CTAS 1–5، Average، Weighted…).</li>
           </ul>
         </div>
       </details>
@@ -394,7 +418,7 @@
       </div>
     </section>
 
-    <!-- آخر 300 زيارة (مخفية من الواجهة بناءً على طلبك) -->
+    <!-- آخر 300 زيارة (مخفية من الواجهة) -->
     <section class="glass p-5 mb-4 hidden">
       <div class="glass-title px-4 py-2 -mx-4 -mt-5 mb-4 rounded-t-[16px] flex items-center gap-2">
         <i class="fa-solid fa-table-list text-cyan-300"></i>
@@ -444,8 +468,8 @@
       DX_CODE: 'Diagnosis Code'
     };
 
-    // أوزان CTAS للـ Acuity Score
-    const CTAS_WEIGHT = { '1': 3, '2': 2, '3': 1, '4': 0.5, '5': 0.5, 'UNKNOWN': 0 };
+    // أوزان CTAS للـ Acuity Score (الجديدة)
+    const CTAS_WEIGHT = { '1': 5, '2': 4, '3': 3, '4': 2, '5': 1, 'UNKNOWN': 0 };
 
     let rawRows = [];
     let cleanedRows = [];
@@ -464,6 +488,8 @@
     let shiftSet = new Set();
     let shiftCountPerDoctor = {};
     let regDowHourMatrix = Array.from({ length: 7 }, () => new Array(24).fill(0)); // day(0-6) × hour(0-23)
+    let doctorIdMap = {}; // Doctor Name -> Job Number / Code
+    let hiddenDoctorRules = []; // كلمات لإخفاء الأسماء في التصنيف
 
     let doctorBarChart = null;
     let ctasBarChart = null;
@@ -475,6 +501,7 @@
     const doctorSelect = document.getElementById('doctorSelect');
     const exportExcelBtn = document.getElementById('exportExcelBtn');
     const exportChartsBtn = document.getElementById('exportChartsBtn');
+    const hideNamesInput = document.getElementById('hideNamesInput');
 
     const kpiTotal = document.getElementById('kpiTotal');
     const kpiUnique = document.getElementById('kpiUnique');
@@ -500,6 +527,9 @@
     doctorSelect.addEventListener('change', renderTable);
     exportExcelBtn.addEventListener('click', exportExcelAll);
     exportChartsBtn.addEventListener('click', exportChartImages);
+    if (hideNamesInput) {
+      hideNamesInput.addEventListener('input', updateHiddenDoctorRules);
+    }
 
     function cleanStr(v) { return v == null ? '' : String(v).trim(); }
 
@@ -510,6 +540,32 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+
+    // يحاول يجيب رقم الطبيب من أعمدة محتملة
+    function getDoctorId(row) {
+      const directCandidates = [
+        'DOCTOR ID', 'Doctor ID', 'DOCTOR CODE', 'Doctor Code',
+        'DR CODE', 'Dr Code',
+        'EMP ID', 'Emp ID', 'EMP NO', 'Emp No', 'EMP NUMBER', 'Employee ID'
+      ];
+      for (const col of directCandidates) {
+        if (col in row) {
+          const val = cleanStr(row[col]);
+          if (val) return val;
+        }
+      }
+      // بحث عام في أسماء الأعمدة
+      const keys = Object.keys(row);
+      for (const k of keys) {
+        const low = k.toLowerCase();
+        if ((low.includes('doctor') || low.includes('dr')) &&
+            (low.includes('code') || low.includes('id') || low.includes('no'))) {
+          const val = cleanStr(row[k]);
+          if (val) return val;
+        }
+      }
+      return '';
     }
 
     function normalizeDate(value) {
@@ -621,6 +677,9 @@
       shiftSet = new Set();
       shiftCountPerDoctor = {};
       regDowHourMatrix = Array.from({ length: 7 }, () => new Array(24).fill(0));
+      doctorIdMap = {};
+      hiddenDoctorRules = [];
+      if (hideNamesInput) hideNamesInput.value = '';
 
       kpiTotal.textContent = '0';
       kpiUnique.textContent = '0';
@@ -702,6 +761,7 @@
         const regDateNorm = normalizeDate(row[COLS.REG_DATE]);
         const regTime = cleanStr(row[COLS.REG_TIME]);
         const doc = cleanStr(row[COLS.DOCTOR]);
+        const docId = getDoctorId(row);
         const ctasRaw = cleanStr(row[COLS.CTAS]);
         const ctasCode = parseCTAS(ctasRaw);
 
@@ -713,7 +773,8 @@
           __regDate: regDateNorm,
           __regTime: regTime,
           __ctasCode: ctasCode,
-          __doctorClean: doc
+          __doctorClean: doc,
+          __doctorId: docId
         });
 
         const existing = uvMap.get(key);
@@ -745,9 +806,15 @@
       shiftSet = new Set();
       shiftCountPerDoctor = {};
       regDowHourMatrix = Array.from({ length: 7 }, () => new Array(24).fill(0));
+      doctorIdMap = {};
 
       uvMap.forEach((u, key) => {
         const doc = u.__doctorClean || 'غير محدد';
+        const docId = u.__doctorId || '';
+        if (doc && docId && !doctorIdMap[doc]) {
+          doctorIdMap[doc] = docId;
+        }
+
         const visitsSameDay = visitCountMap[key] || 1;
         u.__visitsSameDay = visitsSameDay;
 
@@ -1060,52 +1127,86 @@
       });
     }
 
+    function shouldHideDoctor(doc) {
+      const name = (doc || '').toLowerCase();
+      if (!name || !hiddenDoctorRules.length) return false;
+      return hiddenDoctorRules.some(rule => name.includes(rule));
+    }
+
+    function updateHiddenDoctorRules() {
+      const value = hideNamesInput ? hideNamesInput.value : '';
+      hiddenDoctorRules = value
+        .split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+      renderRanking();
+    }
+
     function renderRanking() {
       rankBody.innerHTML = '';
       if (!doctors.length) return;
 
-      const items = doctors.map((doc) => {
+      const visibleDocs = doctors.filter(d => !shouldHideDoctor(d));
+      if (!visibleDocs.length) return;
+
+      const items = visibleDocs.map((doc) => {
         const count = doctorProductivity[doc] || 0;
         const ctasMap = doctorCtasMap[doc] || { '1':0,'2':0,'3':0,'4':0,'5':0,'Unknown':0 };
-        let score = 0;
-        Object.entries(ctasMap).forEach(([k, v]) => {
-          const key = (k === 'Unknown') ? 'UNKNOWN' : k;
-          score += (CTAS_WEIGHT[key] || 0) * v;
-        });
+
+        const c1 = ctasMap['1'] || 0;
+        const c2 = ctasMap['2'] || 0;
+        const c3 = ctasMap['3'] || 0;
+        const c4 = ctasMap['4'] || 0;
+        const c5 = ctasMap['5'] || 0;
+        const cu = ctasMap['Unknown'] || 0; // احتياطي للإكسل
+
+        let weighted = 0;
+        weighted += (CTAS_WEIGHT['1'] || 0) * c1;
+        weighted += (CTAS_WEIGHT['2'] || 0) * c2;
+        weighted += (CTAS_WEIGHT['3'] || 0) * c3;
+        weighted += (CTAS_WEIGHT['4'] || 0) * c4;
+        weighted += (CTAS_WEIGHT['5'] || 0) * c5;
+
+        const avg = count ? (weighted / count) : 0;
         const shifts = shiftCountPerDoctor[doc] || 0;
-        return { doc, count, score, ctasMap, shifts };
+        const docId = doctorIdMap[doc] || '';
+
+        return {
+          doc,
+          docId,
+          count,
+          c1,
+          c2,
+          c3,
+          c4,
+          c5,
+          cu,
+          weighted,
+          avg,
+          shifts
+        };
       });
 
-      items.sort((a, b) => (b.count - a.count) || (b.score - a.score));
+      items.sort((a, b) => (b.count - a.count) || (b.weighted - a.weighted));
 
       const frag = document.createDocumentFragment();
       let rank = 1;
       items.forEach((it) => {
-        const c1 = it.ctasMap['1'] || 0;
-        const c2 = it.ctasMap['2'] || 0;
-        const c3 = it.ctasMap['3'] || 0;
-        const c4 = it.ctasMap['4'] || 0;
-        const c5 = it.ctasMap['5'] || 0;
-        const cu = it.ctasMap['Unknown'] || 0;
-
-        const ctasBadges = `
-          <span class="ctas-badge ctas-1" title="CTAS 1">${c1}</span>
-          <span class="ctas-badge ctas-2" title="CTAS 2">${c2}</span>
-          <span class="ctas-badge ctas-3" title="CTAS 3">${c3}</span>
-          <span class="ctas-badge ctas-4" title="CTAS 4">${c4}</span>
-          <span class="ctas-badge ctas-5" title="CTAS 5">${c5}</span>
-          ${cu > 0 ? `<span class="ctas-badge ctas-unknown" title="Unknown / Missing">${cu}</span>` : ``}
-        `;
-
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-700/60 hover:bg-white/5';
         tr.innerHTML = `
           <td class="p-2">${rank++}</td>
+          <td class="p-2">${escapeHtml(it.docId)}</td>
           <td class="p-2">${escapeHtml(it.doc)}</td>
           <td class="p-2">${it.count}</td>
-          <td class="p-2">${it.score}</td>
+          <td class="p-2"><span class="ctas-badge ctas-1">${it.c1}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-2">${it.c2}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-3">${it.c3}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-4">${it.c4}</span></td>
+          <td class="p-2"><span class="ctas-badge ctas-5">${it.c5}</span></td>
+          <td class="p-2">${it.avg.toFixed(2)}</td>
+          <td class="p-2">${it.weighted.toFixed(1)}</td>
           <td class="p-2">${it.shifts}</td>
-          <td class="p-2 space-x-1 space-x-reverse">${ctasBadges}</td>
         `;
         frag.appendChild(tr);
       });
@@ -1186,47 +1287,61 @@
 
       const wb = XLSX.utils.book_new();
 
-      // شيت تصنيف الأطباء (Count & Acuity)
+      // شيت تصنيف الأطباء (Count & Acuity) بالترتيب المطلوب
       const perDoctorHeader = [
-        'Doctor',
+        'Doctor ID',
+        'Doctor Name',
         'Unique Cases',
-        'Acuity Score',
-        'Score per Case',
-        'Shifts',
-        'Cases per Shift',
         'CTAS 1',
         'CTAS 2',
         'CTAS 3',
         'CTAS 4',
         'CTAS 5',
+        'Average Acuity',
+        'Weighted Score',
+        'Shifts',
+        'Cases per Shift',
         'Unknown / Missing'
       ];
 
-      const perDoctorRows = doctors.map((doc) => {
+      const visibleDocs = doctors.filter(d => !shouldHideDoctor(d));
+
+      const perDoctorRows = visibleDocs.map((doc) => {
         const count = doctorProductivity[doc] || 0;
         const ctasMap = doctorCtasMap[doc] || { '1':0,'2':0,'3':0,'4':0,'5':0,'Unknown':0 };
-        let score = 0;
-        Object.entries(ctasMap).forEach(([k, v]) => {
-          const key = (k === 'Unknown') ? 'UNKNOWN' : k;
-          score += (CTAS_WEIGHT[key] || 0) * v;
-        });
+        const c1 = ctasMap['1'] || 0;
+        const c2 = ctasMap['2'] || 0;
+        const c3 = ctasMap['3'] || 0;
+        const c4 = ctasMap['4'] || 0;
+        const c5 = ctasMap['5'] || 0;
+        const cu = ctasMap['Unknown'] || 0;
+
+        let weighted = 0;
+        weighted += (CTAS_WEIGHT['1'] || 0) * c1;
+        weighted += (CTAS_WEIGHT['2'] || 0) * c2;
+        weighted += (CTAS_WEIGHT['3'] || 0) * c3;
+        weighted += (CTAS_WEIGHT['4'] || 0) * c4;
+        weighted += (CTAS_WEIGHT['5'] || 0) * c5;
+
+        const avg = count ? (weighted / count) : 0;
         const shifts = shiftCountPerDoctor[doc] || 0;
         const cps = shifts ? (count / shifts) : 0;
-        const scorePerCase = count ? (score / count) : 0;
+        const docId = doctorIdMap[doc] || '';
 
         return [
+          docId,
           doc,
           count,
-          score,
-          scorePerCase,
+          c1,
+          c2,
+          c3,
+          c4,
+          c5,
+          avg,
+          weighted,
           shifts,
           cps,
-          ctasMap['1'] || 0,
-          ctasMap['2'] || 0,
-          ctasMap['3'] || 0,
-          ctasMap['4'] || 0,
-          ctasMap['5'] || 0,
-          ctasMap['Unknown'] || 0
+          cu
         ];
       });
 
