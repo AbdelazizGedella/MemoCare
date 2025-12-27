@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" dir="ltr" data-theme="dark">
 <head>
@@ -44,13 +43,36 @@
     <!-- Form Switcher -->
     <nav class="glass rounded-2xl p-2 mb-5 overflow-x-auto no-scrollbar">
       <div id="formTabs" class="flex gap-2 min-w-max">
-        <button class="tab tab-active rounded-xl px-4 py-2 bg-gradient-to-br from-cyan-600 to-cyan-900 text-white" data-form="transfer"><i class="fa-solid fa-ambulance mr-2"></i>Transfer Outside</button>
 
-        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-red-600 to-red-900 text-white" data-form="death"><i class="fa-solid fa-heart-circle-xmark mr-2"></i>Death</button>
-        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-purple-600 to-purple-900 text-white" data-form="code"><i class="fa-solid fa-bell mr-2"></i>Code</button>
-        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-yellow-600 to-yellow-900 text-white" data-form="power"><i class="fa-solid fa-bolt mr-2"></i>Power / Fire</button>
-        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-pink-600 to-pink-900 text-white" data-form="issue"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Significant Issue</button>
-        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-emerald-600 to-emerald-900 text-white" data-form="admission"><i class="fa-solid fa-notes-medical mr-2"></i>Admission / Internal</button>
+        <button class="tab tab-active rounded-xl px-4 py-2 bg-gradient-to-br from-cyan-600 to-cyan-900 text-white" data-form="transfer">
+          <i class="fa-solid fa-ambulance mr-2"></i>Transfer Outside
+        </button>
+
+        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-red-600 to-red-900 text-white" data-form="death">
+          <i class="fa-solid fa-heart-circle-xmark mr-2"></i>Death
+        </button>
+
+        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-purple-600 to-purple-900 text-white" data-form="code">
+          <i class="fa-solid fa-bell mr-2"></i>Code
+        </button>
+
+        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-yellow-600 to-yellow-900 text-white" data-form="power">
+          <i class="fa-solid fa-bolt mr-2"></i>Power / Fire
+        </button>
+
+        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-pink-600 to-pink-900 text-white" data-form="issue">
+          <i class="fa-solid fa-triangle-exclamation mr-2"></i>Significant Issue
+        </button>
+
+        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-emerald-600 to-emerald-900 text-white" data-form="admission">
+          <i class="fa-solid fa-notes-medical mr-2"></i>Admission / Internal
+        </button>
+
+        <!-- NEW: TRIAGE REPORT TAB -->
+        <button class="tab rounded-xl px-4 py-2 bg-gradient-to-br from-sky-600 to-sky-900 text-white" data-form="triage">
+          <i class="fa-solid fa-clipboard-list mr-2"></i>Triage Report
+        </button>
+
       </div>
     </nav>
 
@@ -60,14 +82,16 @@
       <!-- TRANSFER OUTSIDE (ER) -->
       <div id="form_transfer" class="glass rounded-2xl p-5">
         <h2 class="text-xl font-bold text-cyan-300 mb-4">*[ER | Transfer Outside Notification]*</h2>
-                <p class="text-xs text-white/70 text-center mb-4">To be Send on CMH Nursing On-Duty Group Only </p>
+        <p class="text-xs text-white/70 text-center mb-4">To be Send on CMH Nursing On-Duty Group Only</p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="form-control"><span class="label-text">Patient Name</span><input id="t_name" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control"><span class="label-text">MRN</span><input id="t_mrn" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control md:col-span-1"><span class="label-text">Date & Time</span><input id="t_datetime" type="datetime-local" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control md:col-span-1"><span class="label-text">Payer</span>
-            <select id="t_payer" class="select select-bordered bg-[#0f172a]"><option value="">Select Payer</option><option>MOH</option><option>TCS</option><option>CASH</option><option>Other</option></select>
+            <select id="t_payer" class="select select-bordered bg-[#0f172a]">
+              <option value="">Select Payer</option><option>MOH</option><option>TCS</option><option>CASH</option><option>Other</option>
+            </select>
           </label>
           <label class="form-control"><span class="label-text">Room</span><input id="t_room" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control"><span class="label-text">MRP Physician</span><input id="t_doc" class="input input-bordered bg-[#0f172a]"/></label>
@@ -75,6 +99,7 @@
           <label class="form-control md:col-span-1"><span class="label-text">Transferred To</span><input id="t_to" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control md:col-span-1"><span class="label-text">Diagnosis</span><input id="t_dx" class="input input-bordered bg-[#0f172a]"/></label>
         </div>
+
         <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
           <button class="btn bg-cyan-600" onclick="generateTransfer()"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Generate</button>
           <button class="btn bg-green-600 text-white" onclick="copyToWhatsapp('output_transfer')"><i class="fab fa-whatsapp mr-2"></i>Copy & WhatsApp</button>
@@ -106,58 +131,60 @@
         <h2 class="text-xl font-bold text-purple-300 mb-4">*[ER | Code Notification]*</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="form-control md:col-span-1"><span class="label-text">Code Type</span>
-            <select id="c_type" class="select select-bordered bg-[#0f172a]"><option value="">Select Code Type</option><option>Code Blue</option><option>Code Yellow</option><option>Fire Alarm</option></select>
+            <select id="c_type" class="select select-bordered bg-[#0f172a]">
+              <option value="">Select Code Type</option>
+              <option>Code Blue</option>
+              <option>Code Yellow</option>
+              <option>Fire Alarm</option>
+            </select>
           </label>
           <label class="form-control md:col-span-1"><span class="label-text">Location</span><input id="c_location" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control md:col-span-1"><span class="label-text">Date & Time</span><input id="c_datetime" type="datetime-local" class="input input-bordered bg-[#0f172a]"/></label>
         </div>
+
         <!-- يظهر فقط مع Code Blue -->
-<div id="code_extras" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 hidden">
-  <label class="form-control md:col-span-1">
-    <span class="label-text">Patient Name</span>
-    <input id="c_pname" class="input input-bordered bg-[#0f172a]" />
-  </label>
+        <div id="code_extras" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 hidden">
+          <label class="form-control md:col-span-1">
+            <span class="label-text">Patient Name</span>
+            <input id="c_pname" class="input input-bordered bg-[#0f172a]" />
+          </label>
 
-  <label class="form-control md:col-span-1">
-    <span class="label-text">MRN</span>
-    <input id="c_mrn" class="input input-bordered bg-[#0f172a]" />
-  </label>
+          <label class="form-control md:col-span-1">
+            <span class="label-text">MRN</span>
+            <input id="c_mrn" class="input input-bordered bg-[#0f172a]" />
+          </label>
 
+          <label class="form-control md:col-span-1">
+            <span class="label-text">INITIAL RHYTHM</span>
+            <input id="i_ryth" class="input input-bordered bg-[#0f172a]" />
+          </label>
 
+          <label class="form-control md:col-span-1">
+            <span class="label-text">AGE</span>
+            <input id="age1" class="input input-bordered bg-[#0f172a]" />
+          </label>
 
-  <label class="form-control md:col-span-1">
-    <span class="label-text">INITIAL RHYTHM</span>
-    <input id="i_ryth" class="input input-bordered bg-[#0f172a]" />
-  </label>
+          <label class="form-control md:col-span-1">
+            <span class="label-text">NATIONALITY</span>
+            <input id="nat1" class="input input-bordered bg-[#0f172a]" />
+          </label>
 
-	
-  <label class="form-control md:col-span-1">
-    <span class="label-text">AGE</span>
-    <input id="age1" class="input input-bordered bg-[#0f172a]" />
-  </label>
+          <label class="form-control md:col-span-1">
+            <span class="label-text">Output of Code</span>
+            <select id="c_output" class="select select-bordered bg-[#0f172a]">
+              <option value="">Select Outcome</option>
+              <option>Transferred Outside for .........</option>
+              <option>Death</option>
+              <option>Transferred to ICU</option>
+              <option>Other</option>
+            </select>
+          </label>
 
-	
-  <label class="form-control md:col-span-1">
-    <span class="label-text">NATIONALITY</span>
-    <input id="nat1" class="input input-bordered bg-[#0f172a]" />
-  </label>
-	
-  <label class="form-control md:col-span-1">
-    <span class="label-text">Output of Code</span>
-    <select id="c_output" class="select select-bordered bg-[#0f172a]">
-      <option value="">Select Outcome</option>
-      <option>Transferred Outside for .........</option>
-      <option>Death</option>
-      <option>Transferred to ICU</option>
-      <option>Other</option>
-    </select>
-  </label>
-
-  <label class="form-control md:col-span-1">
-    <span class="label-text">Disposition</span>
-    <input id="c_disposition" class="input input-bordered bg-[#0f172a]" placeholder="ICU / Ward / Home / Morgue / Other" />
-  </label>
-</div>
+          <label class="form-control md:col-span-1">
+            <span class="label-text">Disposition</span>
+            <input id="c_disposition" class="input input-bordered bg-[#0f172a]" placeholder="ICU / Ward / Home / Morgue / Other" />
+          </label>
+        </div>
 
         <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
           <button class="btn bg-purple-600" onclick="generateCode()"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Generate</button>
@@ -202,15 +229,13 @@
       <!-- ICU BOARDING CASE -->
       <div id="form_icu" class="glass rounded-2xl p-5 hidden">
         <h2 class="text-xl font-bold text-blue-300 mb-2 text-center">📝 ICU Boarding Case Kpi</h2>
-        <p class="text-xs text-white/70 text-center mb-4">To be Send on [CMH | ER] Charge Nurses Group Only </p>
+        <p class="text-xs text-white/70 text-center mb-4">To be Send on [CMH | ER] Charge Nurses Group Only</p>
 
-        <!-- Patient Info -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <label class="form-control"><span class="label-text">Hospital File Number (رقم ملف المريض)</span><input id="icu_file" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control"><span class="label-text">Patient Name (اسم المريض)</span><input id="icu_name" class="input input-bordered bg-[#0f172a]"/></label>
         </div>
 
-        <!-- ER & Transfer -->
         <h3 class="text-blue-300 font-semibold mb-2">🚑 Emergency & Transfer Info</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <label class="form-control"><span class="label-text">ER Registration Date (تاريخ الطوارئ)</span><input id="icu_er_date" type="date" class="input input-bordered bg-[#0f172a]"/></label>
@@ -219,14 +244,12 @@
           <label class="form-control"><span class="label-text">Hospital Departure Time (مغادرة المستشفى)</span><input id="icu_departure_time" type="time" class="input input-bordered bg-[#0f172a]"/></label>
         </div>
 
-        <!-- Consultation -->
         <h3 class="text-blue-300 font-semibold mb-2">📞 Consultation Timing</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <label class="form-control"><span class="label-text">Consultation Request Time</span><input id="icu_consult_time" type="time" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control"><span class="label-text">Consultation Response Time</span><input id="icu_response_time" type="time" class="input input-bordered bg-[#0f172a]"/></label>
         </div>
 
-        <!-- Second Department -->
         <h3 class="text-blue-300 font-semibold mb-2">🏥 Second Department Info</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <label class="form-control"><span class="label-text">Admission Date (قسم ثاني)</span><input id="icu_second_admit_date" type="date" class="input input-bordered bg-[#0f172a]"/></label>
@@ -256,7 +279,9 @@
           <label class="form-control"><span class="label-text">MRN</span><input id="a_mrn" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control md:col-span-1"><span class="label-text">Date & Time</span><input id="a_datetime" type="datetime-local" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control md:col-span-1"><span class="label-text">Payer</span>
-            <select id="a_payer" class="select select-bordered bg-[#0f172a]"><option value="">Select Payer</option><option>MOH</option><option>TCS</option><option>CASH</option><option>Other</option></select>
+            <select id="a_payer" class="select select-bordered bg-[#0f172a]">
+              <option value="">Select Payer</option><option>MOH</option><option>TCS</option><option>CASH</option><option>Other</option>
+            </select>
           </label>
           <label class="form-control"><span class="label-text">Room / Bed</span><input id="a_room" class="input input-bordered bg-[#0f172a]"/></label>
           <label class="form-control"><span class="label-text">MRP Physician</span><input id="a_mrpDoc" class="input input-bordered bg-[#0f172a]"/></label>
@@ -274,13 +299,69 @@
         <pre id="output_admission" class="hidden mt-3 bg-[#0b122e] rounded-xl p-4 text-sm whitespace-pre-wrap"></pre>
       </div>
 
+      <!-- NEW: TRIAGE REPORT -->
+      <div id="form_triage" class="glass rounded-2xl p-5 hidden">
+        <h2 class="text-xl font-bold text-sky-300 mb-2">*[Triage Report]*</h2>
+        <p class="text-xs text-white/70 text-center mb-4">Quick triage summary for on-duty reporting</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="form-control md:col-span-2">
+            <span class="label-text">Date</span>
+            <input id="tr_date" type="date" class="input input-bordered bg-[#0f172a]" />
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">Period From</span>
+            <input id="tr_from" type="time" class="input input-bordered bg-[#0f172a]" />
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">Period To</span>
+            <input id="tr_to" type="time" class="input input-bordered bg-[#0f172a]" />
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">SRCA Not Registered</span>
+            <input id="tr_srca_nr" type="number" min="0" class="input input-bordered bg-[#0f172a]" placeholder="0" />
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">Self Not Registered</span>
+            <input id="tr_self_nr" type="number" min="0" class="input input-bordered bg-[#0f172a]" placeholder="0" />
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">Total Registered Cases</span>
+            <input id="tr_total_reg" type="number" min="0" class="input input-bordered bg-[#0f172a]" placeholder="0" />
+          </label>
+
+          <label class="form-control">
+            <span class="label-text">ECG for Chest Pain Pts</span>
+            <input id="tr_ecg_cp" type="number" min="0" class="input input-bordered bg-[#0f172a]" placeholder="0" />
+          </label>
+
+          <label class="form-control md:col-span-2">
+            <span class="label-text">CTAS Change Count</span>
+            <input id="tr_ctas_change" type="number" min="0" class="input input-bordered bg-[#0f172a]" placeholder="0" />
+          </label>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+          <button class="btn bg-sky-600 text-white" onclick="generateTriageReport()"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Generate</button>
+          <button class="btn bg-green-600 text-white" onclick="copyToWhatsapp('output_triage')"><i class="fab fa-whatsapp mr-2"></i>Copy & WhatsApp</button>
+          <button class="btn btn-ghost" onclick="clearForm('form_triage')"><i class="fa-regular fa-trash-can mr-2"></i>Clear</button>
+        </div>
+
+        <pre id="output_triage" class="hidden mt-3 bg-[#0b122e] rounded-xl p-4 text-sm whitespace-pre-wrap"></pre>
+      </div>
+
     </section>
   </main>
 
   <!-- SCRIPTS -->
   <script>
     // ---- Tabs / Forms Switch
-    const formsOrder = ['transfer','death','code','power','issue','icu','admission'];
+    const formsOrder = ['transfer','death','code','power','issue','icu','admission','triage'];
     const tabs = document.querySelectorAll('#formTabs .tab');
 
     tabs.forEach(btn => {
@@ -291,9 +372,14 @@
       // toggle tab active
       tabs.forEach(b => b.classList.remove('tab-active'));
       document.querySelector(`[data-form="${type}"]`)?.classList.add('tab-active');
+
       // toggle forms
       formsOrder.forEach(id => document.getElementById('form_'+id)?.classList.add('hidden'));
       document.getElementById('form_'+type)?.classList.remove('hidden');
+
+      // optional defaults
+      if(type === 'triage') setTriageDefaultDate();
+
       // focus first input if possible
       const firstInput = document.querySelector('#form_'+type+' input, #form_'+type+' select');
       firstInput && firstInput.focus();
@@ -302,19 +388,16 @@
     // default
     showForm('transfer');
 
+    // ---- Code extras toggle
+    const ctype = document.getElementById('c_type');
+    ctype?.addEventListener('change', toggleCodeExtras);
 
-    // إظهار/إخفاء حقول Code Blue
-const ctype = document.getElementById('c_type');
-ctype?.addEventListener('change', toggleCodeExtras);
-
-function toggleCodeExtras(){
-  const ex = document.getElementById('code_extras');
-  if(!ex) return;
-  (ctype.value === 'Code Blue') ? ex.classList.remove('hidden') : ex.classList.add('hidden');
-}
-toggleCodeExtras();
-
-
+    function toggleCodeExtras(){
+      const ex = document.getElementById('code_extras');
+      if(!ex) return;
+      (ctype.value === 'Code Blue') ? ex.classList.remove('hidden') : ex.classList.add('hidden');
+    }
+    toggleCodeExtras();
 
     // ---- Helpers
     function line(label, value){ return `\`${label}\` : *${value ?? ''}*\n`; }
@@ -323,7 +406,6 @@ toggleCodeExtras();
       const text = document.getElementById(outputId)?.innerText.trim();
       if(!text){ alert('⛔ No message generated.'); return; }
       navigator.clipboard.writeText(text).then(() => {
-        // Open WhatsApp prefilled
         const url = 'https://wa.me/?text=' + encodeURIComponent(text);
         window.open(url, '_blank');
       });
@@ -331,9 +413,18 @@ toggleCodeExtras();
 
     function clearForm(formId){
       const form = document.getElementById(formId);
-      form?.querySelectorAll('input').forEach(el => { if(el.type === 'datetime-local' || el.type === 'date' || el.type === 'time') { el.value = ''; } else { el.value = ''; } });
-      form?.querySelector('pre')?.classList.add('hidden');
-      form?.querySelector('pre') && (form.querySelector('pre').innerText = '');
+      form?.querySelectorAll('input').forEach(el => { el.value = ''; });
+      form?.querySelectorAll('select').forEach(el => { el.value = ''; });
+
+      const pre = form?.querySelector('pre');
+      if(pre){
+        pre.classList.add('hidden');
+        pre.innerText = '';
+      }
+
+      // keep code extras in correct state
+      if(formId === 'form_code') toggleCodeExtras();
+      if(formId === 'form_triage') setTriageDefaultDate();
     }
 
     // ---- Generators
@@ -348,6 +439,7 @@ toggleCodeExtras();
         line('MRP Nurse', t_nurse.value) +
         line('Transferred To', t_to.value) +
         line('Diagnosis', t_dx.value);
+
       output_transfer.innerText = msg; output_transfer.classList.remove('hidden');
     }
 
@@ -358,36 +450,37 @@ toggleCodeExtras();
         line('Time of Death', d_datetime.value) +
         line('MRP Physician', d_doc.value) +
         line('MRP Nurse', d_nurse.value);
+
       output_death.innerText = msg; output_death.classList.remove('hidden');
     }
 
-   function generateCode(){
-  let msg = `**Code Activation Report**\n\n` +
-    line('Code Type', c_type.value) +
-    line('Location', c_location.value) +
-    line('Date & Time', c_datetime.value);
+    function generateCode(){
+      let msg = `**Code Activation Report**\n\n` +
+        line('Code Type', c_type.value) +
+        line('Location', c_location.value) +
+        line('Date & Time', c_datetime.value);
 
-  // لو Code Blue، أضف الديموغرافيا والنتيجة والتصرف
-  if (c_type.value === 'Code Blue') {
-    msg += line('Patient Name', c_pname.value) +
-           line('MRN', c_mrn.value) +
-           line('Output of Code', c_output.value) +
-           line('Disposition', c_disposition.value)+
-	  line('Initial Rhythm', i_ryth.value)+
-	  	  line('Age', age1.value)+
-	  	  line('Nationality', nat1.value);
-  }
+      if (c_type.value === 'Code Blue') {
+        msg +=
+          line('Patient Name', c_pname.value) +
+          line('MRN', c_mrn.value) +
+          line('Output of Code', c_output.value) +
+          line('Disposition', c_disposition.value) +
+          line('Initial Rhythm', i_ryth.value) +
+          line('Age', age1.value) +
+          line('Nationality', nat1.value);
+      }
 
-  output_code.innerText = msg;
-  output_code.classList.remove('hidden');
-}
-
+      output_code.innerText = msg;
+      output_code.classList.remove('hidden');
+    }
 
     function generatePower(){
       const msg = `**Power Outage / Fire Alarm**\n\n` +
         line('Location', p_location.value) +
         line('Date & Time', p_datetime.value) +
         line('Description', p_note.value);
+
       output_power.innerText = msg; output_power.classList.remove('hidden');
     }
 
@@ -396,6 +489,7 @@ toggleCodeExtras();
         line('Reported By', i_reporter.value) +
         line('Location', i_location.value) +
         line('Issue', i_issue.value);
+
       output_issue.innerText = msg; output_issue.classList.remove('hidden');
     }
 
@@ -425,6 +519,7 @@ toggleCodeExtras();
         const v = document.getElementById(f.id)?.value || '';
         msg += line(f.label, v);
       });
+
       output_icu.innerText = msg; output_icu.classList.remove('hidden');
     }
 
@@ -441,46 +536,43 @@ toggleCodeExtras();
         (a_dischargeTo.value ? line('Discharge To', a_dischargeTo.value) : '') +
         (a_admittedTo.value ? line('Admitted To', a_admittedTo.value) : '') +
         line('Diagnosis', a_diagnosis.value);
+
       output_admission.innerText = msg; output_admission.classList.remove('hidden');
     }
+
+    // ---- NEW: TRIAGE REPORT
+    function setTriageDefaultDate(){
+      const el = document.getElementById('tr_date');
+      if(!el) return;
+      if(el.value) return;
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      el.value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    function generateTriageReport(){
+      setTriageDefaultDate();
+
+      const date = tr_date.value || '';
+      const from = tr_from.value || '';
+      const to   = tr_to.value || '';
+
+      const msg =
+        `*TRIAGE REPORT*\n\n` +
+        line('Date', date) +
+        line('Period', (from && to) ? `${from} → ${to}` : '') +
+        `\n` +
+        line('SRCA Not Registered', tr_srca_nr.value || 0) +
+        line('Self Not Registered', tr_self_nr.value || 0) +
+        line('Total Registered Cases', tr_total_reg.value || 0) +
+        line('ECG for Chest Pain Pts', tr_ecg_cp.value || 0) +
+        line('CTAS Change Count', tr_ctas_change.value || 0);
+
+      output_triage.innerText = msg;
+      output_triage.classList.remove('hidden');
+    }
   </script>
-<!-- Code injected by live-server -->
-<script>
-	// <![CDATA[  <-- For SVG support
-	if ('WebSocket' in window) {
-		(function () {
-			function refreshCSS() {
-				var sheets = [].slice.call(document.getElementsByTagName("link"));
-				var head = document.getElementsByTagName("head")[0];
-				for (var i = 0; i < sheets.length; ++i) {
-					var elem = sheets[i];
-					var parent = elem.parentElement || head;
-					parent.removeChild(elem);
-					var rel = elem.rel;
-					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
-						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-					}
-					parent.appendChild(elem);
-				}
-			}
-			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-			var address = protocol + window.location.host + window.location.pathname + '/ws';
-			var socket = new WebSocket(address);
-			socket.onmessage = function (msg) {
-				if (msg.data == 'reload') window.location.reload();
-				else if (msg.data == 'refreshcss') refreshCSS();
-			};
-			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-				console.log('Live reload enabled.');
-				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-			}
-		})();
-	}
-	else {
-		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
-	}
-	// ]]>
-</script>
 </body>
 </html>
