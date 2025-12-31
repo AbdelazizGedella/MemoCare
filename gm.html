@@ -344,6 +344,34 @@
             <span class="label-text">CTAS Change Count</span>
             <input id="tr_ctas_change" type="number" min="0" class="input input-bordered bg-[#0f172a]" placeholder="0" />
           </label>
+
+          <label class="form-control">
+  <span class="label-text">Triage Not Done due to system issue</span>
+  <input id="tr_triage_not_done" type="number" min="0"
+         class="input input-bordered bg-[#0f172a]" placeholder="0" />
+</label>
+
+<label class="form-control">
+  <span class="label-text">SRCA Cases Received (Assigned Nurses)</span>
+  <input id="tr_srca_assigned_cases" type="number" min="0"
+         class="input input-bordered bg-[#0f172a]" placeholder="0" />
+</label>
+
+<!-- CTAS Change Details (Auto shown when CTAS Change Count > 0) -->
+<div id="ctasDetailsWrap" class="md:col-span-2 hidden">
+  <div class="mt-2 p-3 rounded-xl bg-[#0b122e] border border-white/10">
+    <div class="flex items-center justify-between mb-2">
+      <div class="font-semibold text-sky-200">
+        <i class="fa-solid fa-arrows-rotate mr-2"></i>CTAS Change Details
+      </div>
+      <div class="text-xs text-white/60">Please Fill this form Before Submission 👇</div>
+    </div>
+
+    <div id="ctasDetailsList" class="space-y-3"></div>
+  </div>
+</div>
+
+
         </div>
 
         <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -424,7 +452,10 @@
 
       // keep code extras in correct state
       if(formId === 'form_code') toggleCodeExtras();
-      if(formId === 'form_triage') setTriageDefaultDate();
+if(formId === 'form_triage'){
+  setTriageDefaultDate();
+  renderCTASChangeDetails(); // يخفي ويمسح الكروت
+}
     }
 
     // ---- Generators
@@ -552,27 +583,143 @@
       el.value = `${yyyy}-${mm}-${dd}`;
     }
 
-    function generateTriageReport(){
-      setTriageDefaultDate();
 
-      const date = tr_date.value || '';
-      const from = tr_from.value || '';
-      const to   = tr_to.value || '';
+    // ---- CTAS Change Details (Dynamic cards)
+const ctasChangeInput = document.getElementById('tr_ctas_change');
+const ctasDetailsWrap = document.getElementById('ctasDetailsWrap');
+const ctasDetailsList = document.getElementById('ctasDetailsList');
 
-      const msg =
-        `*TRIAGE REPORT*\n\n` +
-        line('Date', date) +
-        line('Period', (from && to) ? `${from} → ${to}` : '') +
-        `\n` +
-        line('SRCA Not Registered', tr_srca_nr.value || 0) +
-        line('Self Not Registered', tr_self_nr.value || 0) +
-        line('Total Registered Cases', tr_total_reg.value || 0) +
-        line('ECG for Chest Pain Pts', tr_ecg_cp.value || 0) +
-        line('CTAS Change Count', tr_ctas_change.value || 0);
+function buildCTASSelectOptions(){
+  return `
+    <option value="">-</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+  `;
+}
 
-      output_triage.innerText = msg;
-      output_triage.classList.remove('hidden');
-    }
+function ctasChangeCard(i){
+  return `
+    <div class="glass rounded-xl p-3 border border-white/10">
+      <div class="flex items-center justify-between mb-2">
+        <div class="font-semibold text-white/90">🔁 Case #${i}</div>
+        <div class="text-xs text-white/60">MRN + By + From→To + Reason</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <label class="form-control md:col-span-2">
+          <span class="label-text">MRN / File No.</span>
+          <input id="ctas_mrn_${i}" class="input input-bordered bg-[#0f172a]" placeholder="2650..." />
+        </label>
+
+        <label class="form-control md:col-span-2">
+          <span class="label-text">Changed By (Responsible)</span>
+          <input id="ctas_by_${i}" class="input input-bordered bg-[#0f172a]" placeholder="Name / Staff ID" />
+        </label>
+
+        <label class="form-control md:col-span-1">
+          <span class="label-text">From</span>
+          <select id="ctas_from_${i}" class="select select-bordered bg-[#0f172a]">
+            ${buildCTASSelectOptions()}
+          </select>
+        </label>
+
+        <label class="form-control md:col-span-1">
+          <span class="label-text">To</span>
+          <select id="ctas_to_${i}" class="select select-bordered bg-[#0f172a]">
+            ${buildCTASSelectOptions()}
+          </select>
+        </label>
+
+        <label class="form-control md:col-span-6">
+          <span class="label-text">Reason (short)</span>
+          <input id="ctas_reason_${i}" class="input input-bordered bg-[#0f172a]"
+                 placeholder="Vitals changed / wrong initial score / new symptoms..." />
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function renderCTASChangeDetails(){
+  if(!ctasChangeInput || !ctasDetailsWrap || !ctasDetailsList) return;
+
+  // safety limit (عشان الواتساب/الصفحة ما تتفجرش 😄)
+  const n = Math.max(0, Math.min(20, parseInt(ctasChangeInput.value, 10) || 0));
+
+  ctasDetailsList.innerHTML = '';
+
+  if(n <= 0){
+    ctasDetailsWrap.classList.add('hidden');
+    return;
+  }
+
+  ctasDetailsWrap.classList.remove('hidden');
+
+  for(let i = 1; i <= n; i++){
+    ctasDetailsList.insertAdjacentHTML('beforeend', ctasChangeCard(i));
+  }
+}
+
+// Live update when count changes
+ctasChangeInput?.addEventListener('input', renderCTASChangeDetails);
+ctasChangeInput?.addEventListener('change', renderCTASChangeDetails);
+
+
+
+function generateTriageReport(){
+  setTriageDefaultDate();
+
+  const date = tr_date.value || '';
+  const from = tr_from.value || '';
+  const to   = tr_to.value || '';
+  const count = Math.max(0, Math.min(20, parseInt(tr_ctas_change.value, 10) || 0));
+
+  let msg =
+    `*TRIAGE NURSING REPORT*\n\n` +
+    line('Date', date) +
+    line('Period', (from && to) ? `${from} → ${to}` : '') +
+    `\n` +
+    line('Total Reg. Cases', tr_total_reg.value || 0) +
+     `\n` +
+    line(
+      'Total w/o Reg.',
+      (parseFloat(tr_srca_nr.value) || 0) + (parseFloat(tr_self_nr.value) || 0)
+    ) +
+    line('SRCA Not Registered', tr_srca_nr.value || 0) +
+    line('Self Not Registered', tr_self_nr.value || 0) +
+   `\n` +
+    line('Triage Not Done', tr_triage_not_done.value || 0) +
+    line('SRCA Cases Received (Assigned Nurses)', tr_srca_assigned_cases.value || 0) +
+    line('ECG for Chest Pain Pts', tr_ecg_cp.value || 0) +
+    line('CTAS Change Count', tr_ctas_change.value || "Zero ✌🏆☕☺️" );
+
+// ---- Collect CTAS change details if any
+if(count > 0){
+  msg += `\n*CTAS CHANGE DETAILS* 🔁\n`;
+
+  for(let i = 1; i <= count; i++){
+    const mrn    = (document.getElementById(`ctas_mrn_${i}`)?.value || '').trim() || '—';
+    const by     = (document.getElementById(`ctas_by_${i}`)?.value || '').trim() || '—';
+    const fromC  = (document.getElementById(`ctas_from_${i}`)?.value || '').trim() || '—';
+    const toC    = (document.getElementById(`ctas_to_${i}`)?.value || '').trim() || '—';
+    const reason = (document.getElementById(`ctas_reason_${i}`)?.value || '').trim() || '—';
+
+msg +=
+  `\n*Case #${i}*\n` +
+  line('MRN', mrn) +
+  line('Changed By', by) +
+  line('From → To', `${fromC} → ${toC}`) +
+  line('Reason', reason) +
+  line('Note', 'Added on link for review');
+
+  }
+}
+  output_triage.innerText = msg.trim();
+  output_triage.classList.remove('hidden');
+}
   </script>
 </body>
 </html>
