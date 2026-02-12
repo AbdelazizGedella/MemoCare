@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Cache-Control" content="no-store" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Billing Sheet</title>
+
+  <title>Billing Sheet — Google Sheets (CSV)</title>
 
   <!-- Tailwind & DaisyUI -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -1773,30 +1774,57 @@ if (viewMode === "drug" || viewMode === "supply" || viewMode === "service"){
   });
 }
 
+// ========= Delayed Boot (1 minute) =========
+const LOAD_DELAY_MS = 60_000; // 1 minute
+let _bootStarted = false;
 
-  // ========= Boot =========
-  (async function boot(){
-    try{
-      await loadFromGoogleSheetsCSV(); // sets sheetName
-      bindUI();
-document.addEventListener("DOMContentLoaded", () => {
+function lockUI(locked){
+  const ids = ["reloadBtn","signInBtn","showDrugsBtn","showSuppliesBtn","showServicesBtn","showAllBtn","searchInput"];
+  ids.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.disabled = locked;
+    el.classList.toggle("opacity-60", locked);
+    el.classList.toggle("pointer-events-none", locked);
+  });
 
-  bindReportModal();
+  // اختياري: اظهار "Loading..." في الجدول لحد ما يبدأ التحميل
+  const empty = document.getElementById("emptyMsg");
+  if (empty){
+    empty.textContent = locked ? "Loading…" : "No matching items.";
+    empty.classList.remove("hidden");
+  }
+}
 
+async function bootNow(){
+  if (_bootStarted) return;
+  _bootStarted = true;
+
+  try{
+    await loadFromGoogleSheetsCSV(); // يبدأ بعد دقيقة
+    bindUI();
+
+    document.getElementById("showDrugsBtn")?.click();
+    buildCategoriesBar();
+    render();
+
+    await safeInitFirebase(); // Firestore/Auth يبدأوا بعد دقيقة
+  }catch(e){
+    console.error(e);
+    showError("Data load error: " + (e?.message || e));
+  }
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  lockUI(true);
+
+  setTimeout(()=>{
+    lockUI(false);
+    bootNow();
+  }, LOAD_DELAY_MS);
 });
 
-      await loadNews();
 
-      document.getElementById("showDrugsBtn")?.click();
-
-      buildCategoriesBar();
-      render();
-      await safeInitFirebase(); // loads meta + services + shows admin UI if allowed
-    }catch(e){
-      console.error(e);
-      showError("Data load error: " + (e?.message || e));
-    }
-  })();
   </script>
 
 
