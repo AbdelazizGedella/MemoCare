@@ -316,7 +316,7 @@
   </div>
 </dialog>
 
-<!-- Toast -->
+<!-- Toast (kept as-is; no "delay" messages will be shown) -->
 <div id="toast" class="toast toast-top toast-center hidden">
   <div class="alert alert-info glass"><span id="toastMsg">—</span></div>
 </div>
@@ -326,10 +326,17 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT7M-mFoBFVT4e6gyhvCXCww9QwE520QWbDgc-rmIJ7dVnxejkVNyNmz8wwBe_ioW9d8TrfcOMXnhJc/pub?gid=496257091&single=true&output=csv";
 /** ========================== **/
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
+const INITIAL_LOAD_DELAY_MS = 180 * 1000; // ✅ 60s hidden delay (runs in background)
+
 const $ = (s,p=document)=>p.querySelector(s);
 
 let ENTRIES = [];
 let charts = { status:null, dx:null, ctas:null, monthly:null, dxctas:null };
+
+// ✅ block rendering until boot completes (no visible delay sign)
+let BOOT_READY = false;
+
+const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
 const FILTERS = {
   status: null,
@@ -1075,13 +1082,16 @@ function renderInsights(view){
 }
 
 function updateAll(){
+  // ✅ prevents any rendering before the hidden 60s boot completes
+  if(!BOOT_READY) return;
+
   const view = applyFilters();
   $('#activeFilters').textContent = filtersSummary();
   renderKPIs(view);
   drawCharts(view);
   renderTable(view);
   renderInsights(view);
-  buildVisitsTable(view); // still updates, now at end (same)
+  buildVisitsTable(view);
 }
 
 function bindNumericFilters(){
@@ -1091,6 +1101,7 @@ function bindNumericFilters(){
     el.addEventListener('input', ()=>{
       const v = el.value.trim();
       FILTERS[key] = v === '' ? null : Number(v);
+      // ✅ do not force render before boot; updateAll() is gated anyway
       updateAll();
     });
   };
@@ -1102,9 +1113,35 @@ function bindNumericFilters(){
   bind('#fRRMin','rrMin'); bind('#fRRMax','rrMax');
 }
 
+/**
+ * ✅ First load:
+ * - CSV fetch + parse happens immediately in background
+ * - UI rendering is delayed to 60s minimum
+ * - No overlay, no "loading" message, no delay sign
+ */
+async function boot(){
+  const waitP = delay(INITIAL_LOAD_DELAY_MS);
+
+  try{
+    const rows = await loadCSV();
+    const prepared = normalizeRows(rows);
+
+    await waitP; // enforce hidden minimum delay
+
+    ENTRIES = prepared;
+    BOOT_READY = true;
+    $('#lastUpdated').textContent = 'Last update: ' + new Date().toLocaleString('en-GB');
+    updateAll();
+  } catch(err){
+    console.error(err);
+    // error message is fine (not a delay sign)
+    toast('Failed to load CSV');
+  }
+}
+
+/** silent refresh (no delay, no loading signs) **/
 async function refresh(){
   try{
-    toast('Loading…');
     const rows = await loadCSV();
     ENTRIES = normalizeRows(rows);
     $('#lastUpdated').textContent = 'Last update: ' + new Date().toLocaleString('en-GB');
@@ -1115,9 +1152,9 @@ async function refresh(){
   }
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
+document.addEventListener('DOMContentLoaded', async ()=>{
   bindNumericFilters();
-  refresh();
+  await boot();
   setInterval(refresh, AUTO_REFRESH_MS);
 });
 </script>
